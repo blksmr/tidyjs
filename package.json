@@ -106,11 +106,21 @@
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
-    "check-types": "tsc --noEmit",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
+    "check-types": "tsc --noEmit --project tsconfig.json",
+    "lint": "eslint --config eslint.config.mjs src",
+    "lint:fix": "eslint --config eslint.config.mjs src --fix",
     "bump": "sh ./bump.sh",
-    "test": "node ./test/runTest.js"
+    "test": "node ./test/runTest.js",
+    
+    "labs:build": "node esbuild.labs.js",
+    "labs:build-prod": "node esbuild.labs.js --production",
+    "labs:watch": "node esbuild.labs.js --watch",
+    "labs:run": "node out/labs/parser/index.js",
+    "labs:check-types": "tsc --noEmit --project tsconfig.labs.json",
+    "labs:lint": "eslint --config eslint.labs.config.mjs labs",
+    "labs:lint:fix": "eslint --config eslint.labs.config.mjs labs --fix",
+    "labs:dev": "npm-run-all -p labs:watch labs:lint",
+    "labs:compile": "npm run labs:check-types && npm run labs:lint && npm run labs:build"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",

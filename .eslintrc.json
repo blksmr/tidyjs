@@ -1,0 +1,13 @@
+{
+  "root": true,
+  "overrides": [
+    {
+      "files": ["src/**/*.ts", "src/**/*.tsx"],
+      "extends": ["./eslint.config.mjs"]
+    },
+    {
+      "files": ["labs/**/*.ts"],
+      "extends": ["./eslint.labs.config.mjs"]
+    }
+  ]
+}

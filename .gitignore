@@ -6,6 +6,9 @@ repomix-output.txt
 src/.DS_Store
 .repomix/bundles.json
 .DS_Store
-dist/
+dist
 out
 */prompts/**/*
+*.vsix
+labs/dist
+labs/results

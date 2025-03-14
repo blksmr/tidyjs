@@ -1,0 +1,22 @@
+# Fichiers et dossiers à exclure du package VSIX
+.git
+.github
+.vscode
+.vscode-test
+node_modules
+out
+dist
+test
+**/*.map
+**/*.ts
+!src/**/*.ts
+.gitignore
+tsconfig.json
+tsconfig.eslint.json
+eslint.config.mjs
+esbuild.js
+bump.sh
+.DS_Store
+
+# Exclure le dossier labs et ses sous-dossiers
+labs/**

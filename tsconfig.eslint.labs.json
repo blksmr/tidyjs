@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.labs.json",
+  "include": [
+    "labs/**/*"
+  ],
+  "exclude": [
+    "node_modules/**/*",
+    "dist/**/*",
+    "out/**/*"
+  ]
+}

@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-	  "target": "es2020",
-    "outDir": "out",
+    "target": "es2020",
+    "outDir": "out/src",
     "lib": ["es2020"],
     "sourceMap": true,
     "rootDir": "src",
@@ -14,7 +14,6 @@
   },
   "include": [
     "src/**/*"
-    // "ignored/**/*"  // Inclure le dossier ignored
   ],
-  "exclude": ["test/**/*", "node_modules", ".vscode", ".vscode-test"]
+  "exclude": ["labs/**/*", "test/**/*", "node_modules", ".vscode", ".vscode-test"]
 }

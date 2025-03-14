@@ -33,7 +33,7 @@ jobs:
       - name: Create ZIP package
         run: |
           mkdir -p dist
-          zip -r "dist/tidyimport-${{ github.ref_name }}.zip" . -x "node_modules/*" ".git/*" ".github/*" "dist/*"
+          zip -r "dist/tidyimport-${{ github.ref_name }}.zip" . -x "node_modules/*" ".git/*" ".github/*" "dist/*" "labs/*"
           
       - name: Create Release
         id: create_release
