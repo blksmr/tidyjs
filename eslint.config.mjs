@@ -4,10 +4,8 @@ import eslintPluginImport from "eslint-plugin-import";
 import js from "@eslint/js";
 
 export default [
-    // Include recommended ESLint rules
     js.configs.recommended,
     
-    // Base configuration for TypeScript files
     {
         files: ["**/*.ts", "**/*.tsx"],
         plugins: {
@@ -17,19 +15,17 @@ export default [
         languageOptions: {
             parser: tsParser,
             parserOptions: {
-                // project: "./tsconfig.eslint.json", // Utilise le fichier tsconfig spécifique pour ESLint
+                project: "./tsconfig.eslint.json",
                 ecmaVersion: 2022,
                 sourceType: "module",
             },
             globals: {
-                // Ces globals seront disponibles dans tout le code
                 console: true,
                 process: true,
                 "__dirname": true,
             }
         },
         rules: {
-            // TypeScript rules
             "@typescript-eslint/no-unused-vars": ["error", { 
                 "vars": "all", 
                 "args": "after-used", 
@@ -54,9 +50,7 @@ export default [
             "no-invalid-regexp": "error",
             "no-irregular-whitespace": "error",
             "no-unreachable": "error",
-            // "no-console": ["warn", { "allow": ["warn", "error"] }],
 
-            // Code style
             "eqeqeq": ["error", "always"],
             "no-throw-literal": "error",
             "semi": ["error", "always"],
@@ -68,24 +62,21 @@ export default [
             "curly": ["warn", "multi-line"],
             "no-var": "error",
             
-            // Import rules
             "import/named": "error",
             "import/default": "error",
             "import/export": "error",
             "import/no-duplicates": "error",
             "import/no-mutable-exports": "error",
-            "import/no-unresolved": "off" // TypeScript handles this
+            "import/no-unresolved": "off"
         },
     },
 
-    // Ignore patterns
     {
         ignores: [
             "node_modules/**",
             "dist/**",
             "out/**",
             "test/**"
-            // Ne pas ignorer le dossier "ignored" pour ESLint
         ]
     }
 ];

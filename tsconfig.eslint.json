@@ -2,7 +2,7 @@
     "extends": "./tsconfig.json",
     "include": [
       "src/**/*",
-      "ignored/**/*"  // Ajoute les fichiers ignorés uniquement pour ESLint
+      "labs/**/*"
     ],
     "exclude": [
       "test/**/*"
