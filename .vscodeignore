@@ -16,6 +16,3 @@ eslint.config.mjs
 esbuild.js
 bump.sh
 .DS_Store
-
-# Exclure le dossier labs et ses sous-dossiers
-labs/**

@@ -14,5 +14,13 @@
     "**/dist/**": true
   },
   // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
-  "typescript.tsc.autoDetect": "off"
+  "typescript.tsc.autoDetect": "off",
+  "eslint.enable": true,
+  // "eslint.options": {
+  //   "overrideConfigFile": "./.eslintrc.json"
+  // },
+  "eslint.validate": ["javascript", "typescript"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
 }

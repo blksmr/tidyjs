@@ -5,7 +5,6 @@ import js from "@eslint/js";
 
 export default [
     js.configs.recommended,
-    
     {
         files: ["src/**/*.ts", "src/**/*.tsx"],
         plugins: {
@@ -69,14 +68,5 @@ export default [
             "import/no-mutable-exports": "error",
             "import/no-unresolved": "off"
         },
-    },
-
-    {
-        ignores: [
-            "node_modules/**",
-            "dist/**",
-            "out/**",
-            "test/**"
-        ]
     }
 ];
