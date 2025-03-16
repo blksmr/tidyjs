@@ -1,0 +1,66 @@
+{
+  "groups": [
+    {
+      "name": "Misc",
+      "order": 0,
+      "imports": [
+        {
+          "type": "default",
+          "source": "react",
+          "specifiers": [
+            "R",
+            "React",
+            "useEffect",
+            "useState"
+          ],
+          "raw": "import R from 'react';",
+          "groupName": "Misc",
+          "isPriority": true,
+          "appSubfolder": null
+        },
+        {
+          "type": "named",
+          "source": "react",
+          "specifiers": [
+            "Component as C",
+            "Fragment as F",
+            "useEffect",
+            "useState"
+          ],
+          "raw": "import { Component as C, Fragment as F, useEffect, useState } from 'react';",
+          "groupName": "Misc",
+          "isPriority": true,
+          "appSubfolder": null
+        },
+        {
+          "type": "typeNamed",
+          "source": "react",
+          "specifiers": [
+            "ComponentType as CT",
+            "FC"
+          ],
+          "raw": "import type { ComponentType as CT, FC } from 'react';",
+          "groupName": "Misc",
+          "isPriority": true,
+          "appSubfolder": null
+        }
+      ]
+    }
+  ],
+  "originalImports": [
+    "import React as R from 'react';",
+    "import * as React from 'react';",
+    "import { useState, useEffect, useState } from 'react';",
+    "import { Component as C, Fragment as F } from 'react';",
+    "import { useState, type FC, useEffect, type ComponentType as CT } from 'react';",
+    "import React, { useState, useEffect } from 'react';",
+    "import * as React, { useState } from 'react';"
+  ],
+  "appSubfolders": [],
+  "invalidImports": [
+    {
+      "raw": "import * as React, { useState } from 'react';",
+      "error": "Unexpected token, expected \"from\" (1:17) - Lors de l'utilisation d'un alias avec 'as', il faut l'inclure à l'intérieur des accolades pour les imports nommés ou l'utiliser avec un import par défaut. Exemple correct: import { Component as C } from 'module'; ou import Default as D from 'module';"
+    }
+  ]
+}

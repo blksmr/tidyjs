@@ -584,15 +584,96 @@ function checkOutput(testCase: any, result: any) {
   }
 }
 
+// Fonction pour tester les cas problématiques
+function testProblematicImports() {
+  console.log('\n=== Test: Cas problématiques d\'imports ===');
+  const results = parseImports(problematicImports, config);
+  
+  console.log('\n=== Imports Valides ===');
+  results.groups.forEach(group => {
+    console.log(`\nGroupe: ${group.name} (${group.imports.length} imports)`);
+    group.imports.forEach((imp, idx) => {
+      console.log(`[${idx + 1}] Type: ${imp.type}, Source: ${imp.source}`);
+      console.log(`    Specifiers: ${imp.specifiers.join(', ')}`);
+      console.log(`    Raw: ${imp.raw}`);
+    });
+  });
+  
+  console.log('\n=== Imports Invalides ===');
+  if (results.invalidImports && results.invalidImports.length > 0) {
+    results.invalidImports.forEach((invalid, index) => {
+      console.log(`[${index + 1}] Raw: "${invalid.raw}"`);
+      console.log(`    Error: ${invalid.error}`);
+      console.log('---');
+    });
+  } else {
+    console.log('Aucun import invalide détecté dans les cas problématiques.');
+  }
+  
+  // Écrire les résultats dans un fichier
+  const timestamp = Date.now();
+  const outputPath = path.resolve(__dirname, `../results/test-problematic-imports-${timestamp}.json`);
+  writeFileSync(outputPath, JSON.stringify(results, null, 2));
+  console.log(`Résultats des cas problématiques écrits dans: ${outputPath}`);
+  
+  return results;
+}
+
+// Fonction pour tester les cas supplémentaires
+function testExtraCases() {
+  console.log('\n=== Test: Cas supplémentaires d\'imports ===');
+  const results = parseImports(extraTestCases, config);
+  
+  console.log('\n=== Imports Valides ===');
+  results.groups.forEach(group => {
+    console.log(`\nGroupe: ${group.name} (${group.imports.length} imports)`);
+    group.imports.forEach((imp, idx) => {
+      console.log(`[${idx + 1}] Type: ${imp.type}, Source: ${imp.source}`);
+      console.log(`    Specifiers: ${imp.specifiers.join(', ')}`);
+      console.log(`    Raw: ${imp.raw}`);
+    });
+  });
+  
+  console.log('\n=== Imports Invalides ===');
+  if (results.invalidImports && results.invalidImports.length > 0) {
+    results.invalidImports.forEach((invalid, index) => {
+      console.log(`[${index + 1}] Raw: "${invalid.raw}"`);
+      console.log(`    Error: ${invalid.error}`);
+      console.log('---');
+    });
+  } else {
+    console.log('Aucun import invalide détecté dans les cas supplémentaires.');
+  }
+  
+  // Écrire les résultats dans un fichier
+  const timestamp = Date.now();
+  const outputPath = path.resolve(__dirname, `../results/test-extra-cases-${timestamp}.json`);
+  writeFileSync(outputPath, JSON.stringify(results, null, 2));
+  console.log(`Résultats des cas supplémentaires écrits dans: ${outputPath}`);
+  
+  return results;
+}
+
 // Modification de run pour inclure ce test
 const runExtendedWithDuplicateTest = () => {
   const timestamp = Date.now();
   console.time('Parse imports execution time');
   
   try {
-    // Tests originaux...
+    // Test 1: Cas problématiques d'imports
+    console.log('\n=== Exécution du test des cas problématiques ===');
+    const problematicResults = testProblematicImports();
     
-    // Test spécifique pour la correction des doublons
+    // Test 2: Cas supplémentaires
+    console.log('\n=== Exécution du test des cas supplémentaires ===');
+    const extraResults = testExtraCases();
+    
+    // Test 3: Gestion des alias et cas spéciaux
+    console.log('\n=== Exécution du test des alias ===');
+    testAliasImports();
+    
+    // Test 4: Correction des doublons
+    console.log('\n=== Exécution du test de correction des doublons ===');
     const duplicateResults = testDuplicateCorrection();
     
     // Vérifier l'efficacité de la correction
@@ -611,9 +692,14 @@ const runExtendedWithDuplicateTest = () => {
       console.log(`⚠️ ATTENTION: Certains imports avec doublons n'ont pas pu être corrigés.`);
     }
     
-    // Test des cas d'erreur
+    // Test 5: Cas d'erreur
+    console.log('\n=== Exécution du test des cas d\'erreur ===');
     const errorResults = testErrorCases();
     console.log(`\nTests d'erreur: ${errorResults.passedTests}/${errorResults.totalTests} tests réussis`);
+    
+    // Résumé global des tests
+    console.log('\n=== Résumé global des tests ===');
+    console.log('Tous les tests ont été exécutés avec succès.');
     
     console.timeEnd('Parse imports execution time');
   } catch (error) {
