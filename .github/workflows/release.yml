@@ -6,6 +6,11 @@ on:
       - 'v*' # Ce workflow sera déclenché lorsque vous poussez un tag commençant par 'v'
   workflow_dispatch: # Permet également le déclenchement manuel depuis l'interface GitHub
 
+# Définir les permissions nécessaires pour créer une release
+permissions:
+  contents: write
+  packages: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
