@@ -31,9 +31,7 @@ jobs:
         run: cat /home/runner/.npm/_logs/*-debug-*.log
         
       - name: Package extension
-        run: |
-          npm install -g @vscode/vsce
-          vsce package
+        run: vsce package
       
       - name: Create ZIP package
         run: |
