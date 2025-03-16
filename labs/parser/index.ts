@@ -13,9 +13,6 @@ import {
   DEFAULT_CONFIG
 } from './types';
 
-/**
- * Fonction utilitaire pour analyser les imports dans un code source
- */
 function parseImports(sourceCode: string, config: ParserConfig): ParserResult {
   const parser = new ImportParser(config);
   const { groups, originalImports, invalidImports } = parser.parse(sourceCode);
@@ -24,7 +21,6 @@ function parseImports(sourceCode: string, config: ParserConfig): ParserResult {
   return { groups, originalImports, appSubfolders, invalidImports };
 }
 
-// Exporter tout ce qui est nécessaire
 export {
   ImportParser,
   ImportParserError,
@@ -33,7 +29,6 @@ export {
   DEFAULT_CONFIG
 };
 
-// Exporter les types
 export type {
   ParserConfig,
   ConfigImportGroup,

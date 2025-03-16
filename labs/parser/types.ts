@@ -1,11 +1,8 @@
-/**
- * Types de configuration avancée pour le parser d'import
- */
 export type ConfigImportGroup = {
   name: string;
   regex: RegExp;
   order: number;
-  isDefault?: boolean; // Indique si ce groupe est utilisé par défaut pour les imports non classifiés
+  isDefault?: boolean;
 };
 
 export type ImportType = 'default' | 'named' | 'typeDefault' | 'typeNamed' | 'sideEffect';
@@ -17,18 +14,17 @@ export type TypeOrder = {
 };
 
 export type SourcePatterns = {
-  appSubfolderPattern?: RegExp; // Regex pour détecter les sous-dossiers @app
+  appSubfolderPattern?: RegExp;
 };
 
 export type ParserConfig = {
   importGroups: ConfigImportGroup[];
-  defaultGroupName?: string;    // Nom du groupe par défaut (si non spécifié, on utilise le premier groupe avec isDefault=true)
-  typeOrder?: TypeOrder;        // Ordre des types d'imports
-  TypeOrder?: TypeOrder;   // Ordre spécifique pour les imports React
-  patterns?: SourcePatterns;    // Patterns pour classification des sources
-  priorityImports?: RegExp[];   // Sources qui ont toujours priorité dans leur groupe
+  defaultGroupName?: string;
+  typeOrder?: TypeOrder;
+  TypeOrder?: TypeOrder;
+  patterns?: SourcePatterns;
+  priorityImports?: RegExp[];
 };
-
 export interface ParsedImport {
   type: ImportType;
   source: ImportSource;
@@ -45,13 +41,11 @@ export interface ImportGroup {
   imports: ParsedImport[];
 }
 
-// Ajouter cette interface pour les imports invalides
 export interface InvalidImport {
   raw: string;
   error: string;
 }
 
-// Modifier l'interface de retour du parser pour inclure les imports invalides
 export interface ParserResult {
   groups: ImportGroup[];
   originalImports: string[];
@@ -59,9 +53,6 @@ export interface ParserResult {
   invalidImports?: InvalidImport[];
 }
 
-/**
- * Configuration par défaut pour le parser
- */
 export const DEFAULT_CONFIG: Partial<ParserConfig> = {
   defaultGroupName: 'Misc',
   typeOrder: {

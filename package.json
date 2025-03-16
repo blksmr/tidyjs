@@ -120,13 +120,13 @@
     "labs:lint": "eslint --config eslint.labs.config.mjs labs",
     "labs:lint:fix": "eslint --config eslint.labs.config.mjs labs --fix",
     "labs:dev": "npm-run-all -p labs:watch labs:lint",
-    "labs:compile": "npm run labs:check-types && npm run labs:lint && npm run labs:build"
+    "labs:compile": "npm run labs:check-types && npm run labs:lint && npm run labs:build",
+    "labs:test": "ts-node ./labs/parser/test/runTest.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
     "@types/babel__generator": "^7.6.8",
     "@types/babel__traverse": "^7.20.6",
-    "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^8.25.0",
