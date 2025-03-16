@@ -1,18 +1,20 @@
-# ImportTidy
+# TidyImport
 
-ImportTidy est une extension VSCode qui organise automatiquement vos imports dans les fichiers TypeScript/JavaScript. Elle groupe vos imports par catégories personnalisables, aligne les mots-clés "from" avec un espacement configurable, et trie intelligemment selon le type et la longueur.
+TidyImport is a VSCode extension that automatically organizes and formats import declarations in TypeScript and JavaScript files. It groups imports by customizable categories, perfectly aligns 'from' keywords, and intelligently sorts imports by type and length.
 
-## Fonctionnalités
+## Features
 
-- Regroupement des imports par catégories configurables
-- Alignement des mots-clés "from" pour une meilleure lisibilité
-- Tri intelligent des imports par type et longueur
-- Espacement configurable entre les imports et les mots-clés "from"
-- Fonctionne sur TypeScript, JavaScript, TSX et JSX
+- Group imports by configurable categories
+- Align 'from' keywords for improved readability
+- Sort imports by type hierarchy (side-effects, default, named, type)
+- Handle React imports with special priority
+- Dynamically create groups based on import paths
+- Support for TypeScript, JavaScript, TSX and JSX files
+- Configurable spacing and maximum line length
 
-## Exemple
+## Example
 
-Avant :
+Before:
 ```typescript
 import { YpTable, YpDivider, YpTypography, YpElement, YpTag, YpButton } from 'ds';
 import React, { FC, useState } from 'react';
@@ -22,7 +24,7 @@ import { formatDate } from '@library/helpers';
 import { useTranslation } from '@core/i18n';
 ```
 
-Après :
+After:
 ```typescript
 // Misc
 import React, { FC, useState } from 'react';
@@ -30,11 +32,11 @@ import cn                      from 'classnames';
 
 // DS
 import {
+    YpButton,
+    YpDivider,
+    YpElement,
     YpTag,
     YpTable,
-    YpButton,
-    YpElement,
-    YpDivider,
     YpTypography
 } from 'ds';
 
@@ -51,7 +53,7 @@ import { formatDate } from '@library/helpers';
 ## Configuration
 
 ```json
-"importFormatter.groups": [
+"tidyimport.groups": [
   {
     "name": "Misc",
     "regex": "^(react|lodash|date-fns)$",
@@ -62,35 +64,50 @@ import { formatDate } from '@library/helpers';
     "regex": "^ds$",
     "order": 1
   },
-  // autres groupes...
+  {
+    "name": "@app/dossier",
+    "regex": "^@app\\/dossier",
+    "order": 2
+  },
+  // other groups...
 ],
-"importFormatter.alignmentSpacing": 2
+"tidyimport.alignmentSpacing": 0,
+"tidyimport.formatOnSave": false,
+"tidyimport.maxLineLength": 150
 ```
 
-## Utilisation
+## Usage
 
-- Utilisez la commande "Format Document" de VSCode (Alt+Shift+F)
-- Ou utilisez la commande "Format Imports" dans la palette de commandes
+- Use VSCode's "Format Document" command (Alt+Shift+F)
+- Use the keyboard shortcut Ctrl+Shift+I (Cmd+Shift+I on macOS)
+- Or use the "Format Imports" command from the command palette
 
-## Bugs connus
+## Import Sorting Rules
 
-Si un fichier commence par un import nommé contenant des commentaires en ligne, l'import peut être mal formaté :
+TidyImport sorts imports according to the following hierarchy:
+1. React imports always come first within their group
+2. Side-effect imports (e.g., `import 'module'`)
+3. Default non-type imports
+4. Named non-type imports
+5. Default type imports
+6. Named type imports
 
-Ce code :
+Within each category, imports are sorted alphabetically.
+
+## Known Issues
+
+If a file begins with a named import containing inline comments, the import may be improperly formatted. This issue is currently being addressed.
+
 ```typescript
+// Before
 import {
   getUserByAge, // Get user by age and ID
   useDataFromStorage // Hook to get data from storage
 } from '@app/dossier/help';
-```
 
-Devient : 
-```typescript
-
+// After (problematic)
 
     getUserByAge, // Get user by age and ID
     useDataFromStorage // Hook to get data from storage
 } from '@app/dossier/help';
 ```
-
-Je travailles actuellement sur une correction de ce problème.
