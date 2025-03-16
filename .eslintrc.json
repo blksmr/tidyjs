@@ -8,6 +8,17 @@
     {
       "files": ["labs/**/*.ts"],
       "extends": ["./eslint.labs.config.mjs"]
+    },
+    {
+      "files": ["*.js"],
+      "excludedFiles": ["src/**/*.js", "labs/**/*.js"],
+      "env": {
+        "node": true,
+        "commonjs": true
+      },
+      "rules": {
+        "no-undef": "off"
+      }
     }
   ]
 }

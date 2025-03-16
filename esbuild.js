@@ -2,7 +2,7 @@ const esbuild = require("esbuild");
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
-
+const clear = require("esbuild-plugin-output-reset");
 /**
  * @type {import('esbuild').Plugin}
  */
@@ -31,6 +31,9 @@ async function main() {
 		bundle: true,
 		format: 'cjs',
 		minify: production,
+		minifyWhitespace: production,
+		minifyIdentifiers: production,
+		minifySyntax: production,
 		sourcemap: !production,
 		sourcesContent: false,
 		platform: 'node',
@@ -40,6 +43,7 @@ async function main() {
 		plugins: [
 			/* add to the end of plugins array */
 			esbuildProblemMatcherPlugin,
+			clear()
 		],
 	});
 	if (watch) {
