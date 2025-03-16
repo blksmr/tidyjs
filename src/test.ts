@@ -1,5 +1,7 @@
 import { ImportParser } from 'tidyimport-parser';
+import { formatImports } from './formatter';
 
+// Créer une instance du parser avec la configuration
 const parser = new ImportParser({
   defaultGroupName: 'Misc',
   typeOrder: {
@@ -39,6 +41,25 @@ const parser = new ImportParser({
   ]
 });
 
-const parsed = JSON.stringify(parser.parse('import { a, b } from "module";'), null, 2);
+// Exemple d'imports à formater
+const code = `
+import { a, b } from "module";
+import React from 'react';
+import { useState, useEffect } from 'react';
+import { Button } from 'ds';
+import { UserService } from '@app/services';
+`;
 
-console.log(parsed);
+// Analyser le code avec le parser
+const parsedImports = parser.parse(code);
+
+// Afficher la structure analysée
+console.log('Parsed imports:');
+console.log(JSON.stringify(parsedImports, null, 2));
+
+// Formater les imports
+const formattedCode = formatImports(parsedImports);
+
+// Afficher le résultat formaté
+console.log('\nFormatted code:');
+console.log(formattedCode);

@@ -1,8 +1,37 @@
 import * as vscode from 'vscode';
+import { ImportParser } from 'tidyimport-parser';
 
 import { formatImports } from './formatter';
 import { configManager } from './utils/config';
 import { logDebug, logError } from './utils/log';
+
+// Créer une instance du parser avec la configuration
+const parser = new ImportParser({
+  defaultGroupName: 'Misc',
+  typeOrder: {
+    sideEffect: 0,
+    default: 1,
+    named: 2,
+    typeDefault: 3,
+    typeNamed: 4
+  },
+  TypeOrder: {
+    default: 0,
+    named: 1,
+    typeDefault: 2,
+    typeNamed: 3,
+    sideEffect: 4
+  },
+  patterns: {
+    appSubfolderPattern: /@app\/([^/]+)/
+  },
+  importGroups: configManager.getImportGroups().map(group => ({
+    name: group.name,
+    regex: group.regex,
+    order: group.order,
+    isDefault: group.name === 'Misc'
+  }))
+});
 
 export function activate(context: vscode.ExtensionContext) : void {
   configManager.loadConfiguration();
@@ -33,8 +62,11 @@ export function activate(context: vscode.ExtensionContext) : void {
         const selectedText = document.getText(selectedRange);
 
         try {
+          // Analyser le texte sélectionné avec le parser
+          const parsedImports = parser.parse(selectedText);
+          
           // Tenter de formater les imports uniquement dans cette sélection
-          const formattedText = await formatImports(selectedText);
+          const formattedText = formatImports(parsedImports);
 
           if (formattedText !== selectedText) {
             editor.edit((editBuilder) => {
@@ -59,8 +91,11 @@ export function activate(context: vscode.ExtensionContext) : void {
       }
 
       try {
+        // Analyser le document avec le parser
+        const parsedImports = parser.parse(documentText);
+        
         // Formater tout le document en ne modifiant que les imports
-        const formattedDocument = await formatImports(documentText);
+        const formattedDocument = formatImports(parsedImports);
 
         // Vérifier si le texte a été modifié avant d'appliquer les changements
         if (formattedDocument !== documentText) {
@@ -106,7 +141,8 @@ export function activate(context: vscode.ExtensionContext) : void {
 
     try {
       const documentText = event.document.getText();
-      const formattedDocument = await formatImports(documentText);
+      const parsedImports = parser.parse(documentText);
+      const formattedDocument = formatImports(parsedImports);
 
       // Vérifier si le texte a été modifié
       if (formattedDocument !== documentText) {
