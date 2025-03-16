@@ -1,5 +1,6 @@
 import * as ts from 'typescript';
 
+import { parseImports } from './parser';
 import type { FormattedImport, FormatterConfig, FormattedImportGroup, ImportNameWithComment } from './types';
 import { configManager } from './utils/config';
 import { logDebug } from './utils/log';

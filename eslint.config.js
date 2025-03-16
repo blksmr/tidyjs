@@ -8,6 +8,7 @@ module.exports = [
         ignores: [
             'node_modules/**',
             'dist/**',
+            'test',
             'coverage/**',
             '*.js',
             '*.d.ts',
