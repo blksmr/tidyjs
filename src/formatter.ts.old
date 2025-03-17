@@ -1,11 +1,11 @@
 import { configManager } from './utils/config';
 import { logDebug } from './utils/log';
-import { alignFromKeyword, formatSimpleImport, getFromIndex, isCommentLine, isEmptyLine } from './utils/misc';
-import type { FormatterConfig } from './types';
+import { alignFromKeyword, formatSimpleImport, getFromIndex, isCommentLine, isEmptyLine, sortImportNamesByLength } from './utils/misc';
+import type { FormatterConfig, FormattedImportGroup } from './types';
 
-// Types pour la structure du parser
+// Types pour la nouvelle structure du parser
 interface ImportSpecifier {
-  type: 'default' | 'named' | 'typeDefault' | 'typeNamed' | 'sideEffect';
+  type: 'named' | 'default' | 'typeNamed' | 'typeDefault' | 'sideEffect';
   source: string;
   specifiers: Array<{
     name: string;
@@ -26,18 +26,12 @@ interface ImportGroup {
 interface ParsedImports {
   groups: ImportGroup[];
   originalImports: string[];
-  invalidImports: Array<{
-    raw: string;
-    error: string;
-  }>;
+  invalidImports: string[];
 }
 
 // Cache pour la memoization des calculs de longueur
 const lengthMemoCache = new Map<string, number>();
 
-/**
- * Nettoie les lignes en supprimant les commentaires dupliqués et les lignes vides consécutives
- */
 function cleanUpLines(lines: string[]): string[] {
   const cleanedLines: string[] = [];
   let previousLine = '';
@@ -74,14 +68,11 @@ function cleanUpLines(lines: string[]): string[] {
   return cleanedLines;
 }
 
-/**
- * Aligne les imports dans un groupe en fonction du mot-clé 'from'
- */
 function alignImportsInGroup(
   importLines: string[],
   config: FormatterConfig
 ): string[] {
-  // Calculer les indices "from" en une seule passe
+  // Optimisation: Calculer les indices "from" en une seule passe
   const fromIndices = new Map<string, number>();
   let maxWidth = 0;
 
@@ -105,9 +96,6 @@ function alignImportsInGroup(
   });
 }
 
-/**
- * Aligne les imports par section (groupe)
- */
 function alignImportsBySection(
   formattedGroups: FormattedImportGroup[],
   config: FormatterConfig = configManager.getFormatterConfig()
@@ -116,7 +104,7 @@ function alignImportsBySection(
   const seenGroups = new Set<string>();
 
   for (const group of formattedGroups) {
-    const { groupName, commentLine, importLines } = group;
+    const { groupName, importLines } = group;
 
     // Si ce groupe a déjà été traité, ignorer son commentaire
     if (seenGroups.has(groupName)) {
@@ -126,8 +114,8 @@ function alignImportsBySection(
 
     seenGroups.add(groupName);
 
-    // Ajouter le commentaire de groupe
-    resultLines.push(commentLine);
+    // Ajouter le commentaire de groupe normalisé
+    resultLines.push(`// ${groupName}`);
 
     // Aligner les imports au sein du groupe
     const alignedImports = alignImportsInGroup(importLines, config);
@@ -143,9 +131,6 @@ function alignImportsBySection(
   return cleanUpLines(resultLines);
 }
 
-/**
- * Calcule la longueur effective d'un import pour le tri
- */
 function getMemoizedLength(importItem: ImportSpecifier): number {
   // Créer une clé unique basée sur les propriétés de l'import
   const cacheKey = `${importItem.source}_${importItem.type}_${importItem.specifiers.join(',')}`;
@@ -159,9 +144,6 @@ function getMemoizedLength(importItem: ImportSpecifier): number {
   return length;
 }
 
-/**
- * Calcule la longueur effective d'un import pour le tri
- */
 function calculateEffectiveLengthForSorting(importItem: ImportSpecifier): number {
   const { type, specifiers } = importItem;
 
@@ -172,7 +154,7 @@ function calculateEffectiveLengthForSorting(importItem: ImportSpecifier): number
 
   // Imports nommés sans import par défaut
   if (type === 'named' && specifiers.length > 0) {
-    // Trouver le nom d'import le plus long
+    // Optimisation: Éviter de mapper puis de prendre le max
     let maxLength = 0;
     for (const spec of specifiers) {
       maxLength = Math.max(maxLength, spec.name.length);
@@ -200,9 +182,6 @@ function calculateEffectiveLengthForSorting(importItem: ImportSpecifier): number
 
 const getEffectiveLengthForSorting = getMemoizedLength;
 
-/**
- * Formate un import par défaut
- */
 function formatDefaultImport(
   defaultSpec: { name: string; isType?: boolean },
   moduleName: string,
@@ -212,37 +191,97 @@ function formatDefaultImport(
   return `import ${typePrefix}${defaultSpec.name} from '${moduleName}';`;
 }
 
-/**
- * Formate des imports nommés
- */
 function formatNamedImports(
   namedImports: Array<{ name: string; isType?: boolean }>,
   moduleName: string,
   isTypeImport: boolean
 ): string {
-  // Trier les imports nommés alphabétiquement
-  const sortedImports = [...namedImports].sort((a, b) => a.name.localeCompare(b.name));
-
   // Formatter les imports en préservant les préfixes "type" individuels
-  const formattedItems = sortedImports.map(spec => {
+  const formattedItems = namedImports.map(spec => {
     const typePrefix = (spec.isType || isTypeImport) ? 'type ' : '';
-    return `${typePrefix}${spec.name}`;
+    return `${typePrefix}${spec.name.trim()}`;
   });
 
-  // Format multi-ligne si plus de 3 imports
-  if (formattedItems.length > 3) {
-    return `import {
-    ${formattedItems.join(',\n    ')}
-} from '${moduleName}';`;
+  // Filtrer les éléments vides
+  const cleanedItems = formattedItems.filter(item => item.trim() !== '');
+
+  if (cleanedItems.length === 1) {
+    return `import { ${cleanedItems[0]} } from '${moduleName}';`;
   } else {
-    return `import { ${formattedItems.join(', ')} } from '${moduleName}';`;
+    return `import {
+    ${cleanedItems.join(',\n    ')}
+} from '${moduleName}';`;
   }
 }
 
+function formatDefaultAndNamedImports(
+  defaultSpec: { name: string; isType?: boolean },
+  namedImports: Array<{ name: string; isType?: boolean }>,
+  moduleName: string,
+  isTypeImport: boolean
+): string {
+  // Format default import
+  const defaultImport = formatDefaultImport(defaultSpec, moduleName, isTypeImport);
 
-/**
- * Trie les imports dans un groupe selon les règles spécifiées
- */
+  // Format named imports
+  const namedImport = formatNamedImports(namedImports, moduleName, isTypeImport);
+
+  // Return both imports as separate statements
+  return `${defaultImport}\n${namedImport}`;
+}
+
+function formatImportItem(
+  importItem: ImportSpecifier,
+  statements: string[]
+): void {
+  const {
+    source: moduleName,
+    specifiers,
+    type
+  } = importItem;
+
+  // Si aucun nom d'import, c'est un import de module simple (side-effect import)
+  if (type === 'sideEffect' || specifiers.length === 0) {
+    statements.push(formatSimpleImport(moduleName));
+    return;
+  }
+
+  const isTypeImport = type === 'typeDefault' || type === 'typeNamed';
+  const isDefaultImport = type === 'default' || type === 'typeDefault';
+  const isNamedImport = type === 'named' || type === 'typeNamed';
+  const hasNamedImports = isNamedImport || (specifiers.length > 1 && isDefaultImport);
+
+  // Filtrer et trier les imports nommés
+  const namedImports = hasNamedImports
+    ? (isDefaultImport ? specifiers.slice(1) : specifiers)
+    : [];
+
+  // Import par défaut uniquement
+  if (isDefaultImport && namedImports.length === 0) {
+    const defaultSpec = specifiers[0];
+    statements.push(formatDefaultImport(defaultSpec, moduleName, isTypeImport));
+    return;
+  }
+
+  // Tri par longueur des noms d'import
+  const sortedNamedImports = sortImportNamesByLength(namedImports);
+
+  // Import par défaut ET imports nommés
+  if (isDefaultImport && namedImports.length > 0) {
+    const defaultSpec = specifiers[0];
+    statements.push(formatDefaultAndNamedImports(
+      defaultSpec,
+      sortedNamedImports,
+      moduleName,
+      isTypeImport
+    ));
+  }
+  // Uniquement des imports nommés
+  else if (namedImports.length > 0) {
+    statements.push(formatNamedImports(sortedNamedImports, moduleName, isTypeImport));
+  }
+}
+
 function sortImportsInGroup(imports: ImportSpecifier[]): ImportSpecifier[] {
   return imports.sort((a, b) => {
     // First sort side-effect imports to the top
@@ -278,154 +317,25 @@ function sortImportsInGroup(imports: ImportSpecifier[]): ImportSpecifier[] {
       if (b.type === 'typeNamed' && a.type !== 'typeNamed') return 1;
     }
 
-    // Pour les imports non-React, trier d'abord par type
-    if (a.type !== b.type) {
-      const typeOrder = {
-        default: 0,
-        named: 1,
-        typeDefault: 2,
-        typeNamed: 3,
-        sideEffect: 4
-      };
-      return typeOrder[a.type] - typeOrder[b.type];
-    }
-
-    // Pour les imports du même type, trier par nom de module
+    // For non-React modules, sort by module name
     if (a.source !== b.source) {
       return a.source.localeCompare(b.source);
     }
 
-    // Pour les imports du même module et du même type, trier par longueur effective
+    // Within the same module type, sort by type (non-type first)
+    const aIsType = a.type === 'typeDefault' || a.type === 'typeNamed';
+    const bIsType = b.type === 'typeDefault' || b.type === 'typeNamed';
+    if (aIsType !== bIsType) {
+      return aIsType ? 1 : -1;
+    }
+
+    // Sort by effective length for imports of the same type
     const aLength = getEffectiveLengthForSorting(a);
     const bLength = getEffectiveLengthForSorting(b);
     return bLength - aLength;
   });
 }
 
-/**
- * Interface pour les groupes d'imports formatés
- */
-interface FormattedImportGroup {
-  groupName: string;
-  commentLine: string;
-  importLines: string[];
-}
-
-/**
- * Regroupe les imports du même module
- */
-function groupImportsByModule(imports: ImportSpecifier[]): Map<string, ImportSpecifier[]> {
-  const moduleMap = new Map<string, ImportSpecifier[]>();
-  
-  for (const importItem of imports) {
-    const { source } = importItem;
-    
-    if (!moduleMap.has(source)) {
-      moduleMap.set(source, []);
-    }
-    
-    moduleMap.get(source)!.push(importItem);
-  }
-  
-  return moduleMap;
-}
-
-/**
- * Fusionne les imports du même module
- */
-function mergeImportsForModule(moduleImports: ImportSpecifier[]): string[] {
-  // Séparer les imports par type
-  const defaultImports: ImportSpecifier[] = [];
-  const namedImports: ImportSpecifier[] = [];
-  const typeDefaultImports: ImportSpecifier[] = [];
-  const typeNamedImports: ImportSpecifier[] = [];
-  const sideEffectImports: ImportSpecifier[] = [];
-  
-  for (const importItem of moduleImports) {
-    switch (importItem.type) {
-      case 'default':
-        defaultImports.push(importItem);
-        break;
-      case 'named':
-        namedImports.push(importItem);
-        break;
-      case 'typeDefault':
-        typeDefaultImports.push(importItem);
-        break;
-      case 'typeNamed':
-        typeNamedImports.push(importItem);
-        break;
-      case 'sideEffect':
-        sideEffectImports.push(importItem);
-        break;
-    }
-  }
-  
-  const result: string[] = [];
-  const moduleName = moduleImports[0].source;
-  
-  // Traiter les imports side-effect
-  if (sideEffectImports.length > 0) {
-    result.push(formatSimpleImport(moduleName));
-  }
-  
-  // Traiter les imports par défaut
-  for (const importItem of defaultImports) {
-    if (importItem.specifiers.length > 0) {
-      result.push(formatDefaultImport(importItem.specifiers[0], moduleName, false));
-    }
-  }
-  
-  // Séparer les imports nommés réguliers et les imports de type
-  const regularNamedSpecifiers: Array<{ name: string; isType?: boolean }> = [];
-  const typeNamedSpecifiers: Array<{ name: string; isType?: boolean }> = [];
-  
-  // Parcourir tous les imports nommés
-  for (const importItem of namedImports) {
-    for (const specifier of importItem.specifiers) {
-      // Si le spécificateur a la propriété isType à true, c'est un import de type
-      if (specifier.isType) {
-        typeNamedSpecifiers.push(specifier);
-      } else {
-        regularNamedSpecifiers.push(specifier);
-      }
-    }
-  }
-  
-  // Ajouter également les imports de type nommés explicites
-  for (const importItem of typeNamedImports) {
-    typeNamedSpecifiers.push(...importItem.specifiers);
-  }
-  
-  // Fusionner tous les imports nommés réguliers
-  if (regularNamedSpecifiers.length > 0) {
-    // Trier les spécificateurs par ordre alphabétique
-    regularNamedSpecifiers.sort((a, b) => a.name.localeCompare(b.name));
-    
-    result.push(formatNamedImports(regularNamedSpecifiers, moduleName, false));
-  }
-  
-  // Traiter les imports de type par défaut
-  for (const importItem of typeDefaultImports) {
-    if (importItem.specifiers.length > 0) {
-      result.push(formatDefaultImport(importItem.specifiers[0], moduleName, true));
-    }
-  }
-  
-  // Fusionner tous les imports de type nommés
-  if (typeNamedSpecifiers.length > 0) {
-    // Trier les spécificateurs par ordre alphabétique
-    typeNamedSpecifiers.sort((a, b) => a.name.localeCompare(b.name));
-    
-    result.push(formatNamedImports(typeNamedSpecifiers, moduleName, true));
-  }
-  
-  return result;
-}
-
-/**
- * Génère les imports formatés à partir des imports analysés
- */
 function generateFormattedImports(
   parsedImports: ParsedImports,
   config: FormatterConfig = configManager.getFormatterConfig()
@@ -442,24 +352,6 @@ function generateFormattedImports(
 
   // Trier les groupes selon l'ordre défini
   const sortedGroups = [...parsedImports.groups].sort((a, b) => {
-    // Traitement spécial pour les groupes @app
-    const aIsAppSubfolder = a.name.startsWith('@app/');
-    const bIsAppSubfolder = b.name.startsWith('@app/');
-
-    // Grouper tous les sous-dossiers @app ensemble
-    if (aIsAppSubfolder && !bIsAppSubfolder) {
-      return preferredOrderMap.has('@app') ? -1 : 1;
-    }
-    if (!aIsAppSubfolder && bIsAppSubfolder) {
-      return preferredOrderMap.has('@app') ? 1 : -1;
-    }
-
-    // Trier les sous-dossiers @app alphabétiquement
-    if (aIsAppSubfolder && bIsAppSubfolder) {
-      return a.name.localeCompare(b.name);
-    }
-
-    // Pour les autres groupes, utiliser l'ordre configuré
     const indexA = preferredOrderMap.has(a.name)
       ? preferredOrderMap.get(a.name)!
       : Infinity;
@@ -491,54 +383,21 @@ function generateFormattedImports(
       continue;
     }
 
-    // Générer le commentaire de section avec annotation si nécessaire
-    let commentLine = `// ${group.name}`;
-    
-    // Ajouter des annotations pour les groupes spéciaux
-    if (group.name === 'Misc') {
-      commentLine += ' (group Misc)';
-    } else if (group.name === 'DS') {
-      commentLine += ' (Alphabetical order + group DS + aligned from based on longest length name)';
-    } else if (group.name.startsWith('@app/')) {
-      commentLine += ` (group ${group.name})`;
-    } else if (group.name === 'Utils') {
-      // Pour le groupe Utils, on utilisera un commentaire multi-lignes plus tard
-      commentLine = `// ${group.name} (group Utils)`;
-    }
-
     const groupResult: FormattedImportGroup = {
       groupName: group.name,
-      commentLine,
+      commentLine: `// ${group.name}`,
       importLines: [],
     };
 
-    // Trier les imports dans le groupe
     const sortedImports = sortImportsInGroup(group.imports);
-    
-    // Regrouper les imports par module
-    const moduleMap = groupImportsByModule(sortedImports);
-    
-    // Pour chaque module, fusionner les imports
-    for (const moduleImports of moduleMap.values()) {
-      const mergedImports = mergeImportsForModule(moduleImports);
-      groupResult.importLines.push(...mergedImports);
+
+    for (const importItem of sortedImports) {
+      const formattedLines: string[] = [];
+      formatImportItem(importItem, formattedLines);
+      groupResult.importLines.push(...formattedLines);
     }
 
     formattedGroups.push(groupResult);
-  }
-
-  // Cas spécial pour le groupe Utils - ajouter un commentaire multi-lignes explicatif
-  const utilsGroupIndex = formattedGroups.findIndex(g => g.groupName === 'Utils');
-  if (utilsGroupIndex !== -1) {
-    formattedGroups[utilsGroupIndex].commentLine = `/*
-*  Utils (group Utils)
-*  Import nommée donc nous faisons ce raisonnement :
-*  On parcour les noms des imports par longueur = getTextPreview.length : Ce qui ici nous donne 14 charactère
-*  Nous avons ensuite 4 espace d'indentation
-*  Sur la ligne on a donc 4 charactère (Parce que on as 3 espaces et une accolade de fermeture \`}\`)
-*  + 1 charactère d'espacement avant from (Toujours)
-*  Ce qui nous donne 19 charactères avant "from 'yutils/text'".
-*/`;
   }
 
   // Utiliser la fonction d'alignement par section avec la configuration
@@ -547,9 +406,6 @@ function generateFormattedImports(
   return alignedLines.join('\n');
 }
 
-/**
- * Fonction principale pour formater les imports
- */
 export function formatImports(
   parsedImports: ParsedImports,
   config: FormatterConfig = configManager.getFormatterConfig()

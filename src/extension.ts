@@ -1,9 +1,55 @@
 import * as vscode from 'vscode';
-import { ImportParser } from 'tidyimport-parser';
+import { ImportParser, type ImportParserConfig } from 'tidyimport-parser';
 
 import { formatImports } from './formatter';
 import { configManager } from './utils/config';
 import { logDebug, logError } from './utils/log';
+import { isEmptyLine, isCommentLine } from './utils/misc';
+
+// Fonction pour trouver la plage des imports dans un document
+function findImportsRange(documentText: string, config: ImportParserConfig): { startLine: number; endLine: number; importsText: string } {
+  const lines = documentText.split('\n');
+  let startLine = 0;
+  let endLine = 0;
+
+  // Ignorer les lignes vides ou commentaires au début
+  while (startLine < lines.length && (isEmptyLine(lines[startLine]) || isCommentLine(lines[startLine]))) {
+    startLine++;
+  }
+
+  // Trouver la fin des imports
+  endLine = startLine;
+  while (endLine < lines.length) {
+    const line = lines[endLine];
+    // Vérifier si la ligne est un import, une ligne vide, un commentaire de section ou un fragment d'import
+    // Créer une nouvelle instance de l'expression régulière à chaque itération pour éviter les problèmes avec le flag 'g'
+    const importLineRegex = new RegExp(config.regexPatterns.importLine.source, 'i');
+    const importFragmentRegex = new RegExp(config.regexPatterns.importFragment.source);
+    const sectionCommentRegex = new RegExp(config.regexPatterns.sectionCommentPattern.source);
+    
+    if (importLineRegex.test(line) || 
+        isEmptyLine(line) || 
+        importFragmentRegex.test(line)) {
+      endLine++;
+    } else if (isCommentLine(line)) {
+      // Si c'est un commentaire, vérifier si c'est un commentaire de section d'imports
+      if (sectionCommentRegex.test(line)) {
+        endLine++;
+      } else {
+        // Si ce n'est pas un commentaire de section d'imports, on s'arrête
+        break;
+      }
+    } else {
+      // Si on trouve une ligne qui n'est pas un import, une ligne vide ou un commentaire de section, on s'arrête
+      break;
+    }
+  }
+
+  // Extraire le texte des imports
+  const importsText = lines.slice(startLine, endLine).join('\n');
+
+  return { startLine, endLine, importsText };
+}
 
 // Créer une instance du parser avec la configuration
 const parser = new ImportParser({
@@ -56,77 +102,44 @@ export function activate(context: vscode.ExtensionContext) : void {
       const document = editor.document;
       const documentText = document.getText();
 
-      // Si une sélection existe, formatter uniquement les imports dans cette sélection
-      if (!editor.selection.isEmpty) {
-        const selectedRange = editor.selection;
-        const selectedText = document.getText(selectedRange);
-
-        try {
-          // Analyser le texte sélectionné avec le parser
-          const parsedImports = parser.parse(selectedText);
-          
-          // Tenter de formater les imports uniquement dans cette sélection
-          const formattedText = formatImports(parsedImports);
-
-          if (formattedText !== selectedText) {
-            editor.edit((editBuilder) => {
-              editBuilder.replace(selectedRange, formattedText);
-            }).then((success) => {
-              if (success) {
-                logDebug('Successfully formatted imports in selection');
-                vscode.window.showInformationMessage('Imports formatted successfully!');
-              } else {
-                vscode.window.showErrorMessage('Failed to format imports in selection');
-              }
-            });
-          } else {
-            logDebug('No changes needed for the selection');
-          }
-        } catch (error) {
-          logError('Error in selection:', error);
-          const errorMessage = String(error);
-          vscode.window.showErrorMessage(errorMessage);
-        }
-        return;
-      }
-
-      try {
-        // Analyser le document avec le parser
-        const parsedImports = parser.parse(documentText);
+      const { startLine, endLine, importsText } = findImportsRange(documentText, config);
+      
+      // Analyser les imports avec le parser
+      const parsedImports = parser.parse(importsText);
+      
+      // Formater les imports
+      const formattedImports = formatImports(parsedImports);
+      
+      // Appliquer les modifications
+      if (formattedImports !== importsText) {
+        const lines = documentText.split('\n');
+        const beforeImports = lines.slice(0, startLine).join('\n');
+        const afterImports = lines.slice(endLine).join('\n');
         
-        // Formater tout le document en ne modifiant que les imports
-        const formattedDocument = formatImports(parsedImports);
-
-        // Vérifier si le texte a été modifié avant d'appliquer les changements
-        if (formattedDocument !== documentText) {
-          const fullDocumentRange = new vscode.Range(
-            document.positionAt(0),
-            document.positionAt(documentText.length)
-          );
-
-          // Remplacer tout le document par la version formatée
-          await editor.edit((editBuilder) => {
-            editBuilder.replace(fullDocumentRange, formattedDocument);
-          }).then((success) => {
-            if (success) {
-              logDebug('Successfully formatted imports in document');
-              vscode.window.showInformationMessage('Imports formatted successfully!');
-            } else {
-              vscode.window.showErrorMessage('Failed to format imports in document');
-            }
-          });
-        } else {
-          logDebug('No changes needed for the document');
-        }
-      } catch (error) {
-        logError('Error:', error);
-        const errorMessage = String(error);
-        vscode.window.showErrorMessage(errorMessage);
+        const newDocumentText = 
+          (beforeImports ? beforeImports + '\n' : '') + 
+          formattedImports + 
+          (afterImports ? '\n' + afterImports : '');
+        
+        // Créer une plage pour tout le document
+        const fullDocumentRange = new vscode.Range(
+          document.positionAt(0),
+          document.positionAt(documentText.length)
+        );
+        
+        // Appliquer les modifications
+        editor.edit(editBuilder => {
+          editBuilder.replace(fullDocumentRange, newDocumentText);
+        });
+        
+        logDebug('Imports formatés avec succès');
+      } else {
+        logDebug('Aucune modification nécessaire');
       }
     }
   );
+  context.subscriptions.push(formatImportsCommand);
 
-  // Ajouter un écouteur d'événement pour la sauvegarde
   const formatOnSave = vscode.workspace.onWillSaveTextDocument(async (event) => {
     // Vérifier si le formatage à la sauvegarde est activé dans la configuration
     if (!config.formatOnSave) {
@@ -141,19 +154,42 @@ export function activate(context: vscode.ExtensionContext) : void {
 
     try {
       const documentText = event.document.getText();
-      const parsedImports = parser.parse(documentText);
-      const formattedDocument = formatImports(parsedImports);
-
-      // Vérifier si le texte a été modifié
-      if (formattedDocument !== documentText) {
+      
+      // Trouver la plage des imports dans le document
+      const { startLine, endLine, importsText } = findImportsRange(documentText, config);
+      
+      // Si aucun import n'est trouvé, ne rien faire
+      if (importsText.trim() === '') {
+        return;
+      }
+      
+      // Analyser les imports avec le parser
+      const parsedImports = parser.parse(importsText);
+      
+      // Formater les imports
+      const formattedImports = formatImports(parsedImports);
+      
+      // Vérifier si les imports ont été modifiés
+      if (formattedImports !== importsText) {
+        // Reconstruire le document avec les imports formatés
+        const lines = documentText.split('\n');
+        const beforeImports = lines.slice(0, startLine).join('\n');
+        const afterImports = lines.slice(endLine).join('\n');
+        
+        const newDocumentText = 
+          (beforeImports ? beforeImports + '\n' : '') + 
+          formattedImports + 
+          (afterImports ? '\n' + afterImports : '');
+        
+        // Créer une plage pour tout le document
         const fullDocumentRange = new vscode.Range(
           event.document.positionAt(0),
           event.document.positionAt(documentText.length)
         );
-
+        
         // Ajouter l'édition à la liste des éditions à appliquer lors de la sauvegarde
         event.waitUntil(Promise.resolve([
-          new vscode.TextEdit(fullDocumentRange, formattedDocument)
+          new vscode.TextEdit(fullDocumentRange, newDocumentText)
         ]));
       }
     } catch (error) {
@@ -161,7 +197,5 @@ export function activate(context: vscode.ExtensionContext) : void {
       // Ne pas bloquer la sauvegarde en cas d'erreur
     }
   });
-
-  context.subscriptions.push(formatImportsCommand);
   context.subscriptions.push(formatImportsCommand, formatOnSave);
 }

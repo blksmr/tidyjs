@@ -1,20 +1,18 @@
 import { FormatterConfig } from '../types';
 
-// Helper : Function to sort import names alphabetically and then by length (longest first)
-export function sortImportNamesByLength(names: string[]): string[] {
-    return [...names].sort((a, b) => {
-        // Extract actual name without 'type' keyword for comparison
-        const aName = a.startsWith('type ') ? a.substring(5) : a;
-        const bName = b.startsWith('type ') ? b.substring(5) : b;
-        
+// Helper : Function to sort import specifiers alphabetically and then by length (longest first)
+export function sortImportNamesByLength(
+    specs: Array<{ name: string; isType?: boolean }>
+): Array<{ name: string; isType?: boolean }> {
+    return [...specs].sort((a, b) => {
         // First sort alphabetically
-        const alphabeticalCompare = aName.localeCompare(bName);
+        const alphabeticalCompare = a.name.localeCompare(b.name);
         if (alphabeticalCompare !== 0) {
             return alphabeticalCompare;
         }
         
         // Then sort by length (longest first)
-        return bName.length - aName.length;
+        return b.name.length - a.name.length;
     });
 }
 
