@@ -82,9 +82,9 @@ read -p "Do you want to push the commit and tag to GitHub? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
   # Push the commit and tag
-  git push origin master
+  git push origin main
   git push origin "v$NEW_VERSION"
   echo "Commit and tag successfully pushed. GitHub Actions will now create a release."
 else
-  echo "Commit and tag created locally. Use 'git push origin master && git push origin v$NEW_VERSION' to trigger the release creation."
+  echo "Commit and tag created locally. Use 'git push origin main && git push origin v$NEW_VERSION' to trigger the release creation."
 fi
