@@ -108,7 +108,7 @@ class ConfigManager {
   }
 
   public loadConfiguration(): void {
-    const vsConfig = vscode.workspace.getConfiguration('importFormatter');
+    const vsConfig = vscode.workspace.getConfiguration('tidyimport');
 
     const customGroups = vsConfig.get<Array<{ name: string; regex: string; order: number }>>('groups');
     if (customGroups && customGroups.length > 0) {

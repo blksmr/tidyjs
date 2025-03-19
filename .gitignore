@@ -12,3 +12,4 @@ out
 *.vsix
 labs/dist
 labs/results
+.DS_Store
