@@ -57,37 +57,6 @@ export function activate(context: vscode.ExtensionContext): void {
       const document = editor.document;
       const documentText = document.getText();
 
-
-      if (!editor.selection.isEmpty) {
-        const selectedRange = editor.selection;
-        const selectedText = document.getText(selectedRange);
-
-        try {
-
-          const formattedText = formatImports(selectedText);
-
-          if (formattedText !== selectedText) {
-            editor.edit((editBuilder) => {
-              editBuilder.replace(selectedRange, formattedText);
-            }).then((success) => {
-              if (success) {
-                logDebug('Successfully formatted imports in selection');
-                vscode.window.showInformationMessage('Imports formatted successfully!');
-              } else {
-                vscode.window.showErrorMessage('Failed to format imports in selection');
-              }
-            });
-          } else {
-            logDebug('No changes needed for the selection');
-          }
-        } catch (error) {
-          logError('Error in selection:', error);
-          const errorMessage = String(error);
-          vscode.window.showErrorMessage(errorMessage);
-        }
-        return;
-      }
-
       try {
         // Utiliser le nouveau parser pour analyser les imports
         const parserResult = parser.parse(documentText) as ImportParserResult;
