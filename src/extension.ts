@@ -1,6 +1,45 @@
 import * as vscode from 'vscode';
-
 import { formatImports } from './formatter';
+import { ImportParser } from 'tidyimport-parser';
+
+const parser = new ImportParser({
+  defaultGroupName: 'Misc',
+  typeOrder: {
+    sideEffect: 0,
+    default: 1,
+    named: 2,
+    typeDefault: 3,
+    typeNamed: 4
+  },
+  TypeOrder: {
+    default: 0,
+    named: 1,
+    typeDefault: 2,
+    typeNamed: 3,
+    sideEffect: 4
+  },
+  patterns: {
+    appSubfolderPattern: /@app\/([^/]+)/
+  },
+  importGroups: [
+    {
+      name: 'Misc',
+      regex: /^(react|lodash|date-fns)$/,
+      order: 0,
+      isDefault: true
+    },
+    {
+      name: 'DS',
+      regex: /^ds$/,
+      order: 1
+    },
+    {
+      name: '@app',
+      regex: /^@app/,
+      order: 2
+    }
+  ]
+});
 import { configManager } from './utils/config';
 import { logDebug, logError } from './utils/log';
 
@@ -14,7 +53,6 @@ export function activate(context: vscode.ExtensionContext): void {
   });
 
   const config = configManager.getFormatterConfig();
-  console.log('🚀 ~ extension.ts:17 ~ activate ~ config:', config.formatOnSave);
 
   const formatImportsCommand = vscode.commands.registerCommand(
     'extension.formatImports',
@@ -92,38 +130,38 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   );
 
-  const formatOnSave = vscode.workspace.onWillSaveTextDocument((event) => {
-    if (!config.formatOnSave) {
-      return;
-    }
+  // const formatOnSave = vscode.workspace.onWillSaveTextDocument((event) => {
+  //   if (!config.formatOnSave) {
+  //     return;
+  //   }
 
-    const supportedLanguages = ['typescript', 'javascript', 'typescriptreact', 'javascriptreact'];
-    if (!supportedLanguages.includes(event.document.languageId)) {
-      return;
-    }
+  //   const supportedLanguages = ['typescript', 'javascript', 'typescriptreact', 'javascriptreact'];
+  //   if (!supportedLanguages.includes(event.document.languageId)) {
+  //     return;
+  //   }
 
-    const documentText = event.document.getText();
+  //   const documentText = event.document.getText();
     
-    try {
-      const formattedDocument = formatImports(documentText);
+  //   try {
+  //     const formattedDocument = formatImports(documentText);
       
-      if (formattedDocument !== documentText) {
-        const fullDocumentRange = new vscode.Range(
-          event.document.positionAt(0),
-          event.document.positionAt(documentText.length)
-        );
+  //     if (formattedDocument !== documentText) {
+  //       const fullDocumentRange = new vscode.Range(
+  //         event.document.positionAt(0),
+  //         event.document.positionAt(documentText.length)
+  //       );
         
-        event.waitUntil(
-          Promise.resolve([
-            new vscode.TextEdit(fullDocumentRange, formattedDocument)
-          ])
-        );
-      }
-    } catch (error) {
-      logError('Error formatting on save:', error);
-    }
-  });
+  //       event.waitUntil(
+  //         Promise.resolve([
+  //           new vscode.TextEdit(fullDocumentRange, formattedDocument)
+  //         ])
+  //       );
+  //     }
+  //   } catch (error) {
+  //     logError('Error formatting on save:', error);
+  //   }
+  // });
 
   context.subscriptions.push(formatImportsCommand);
-  context.subscriptions.push(formatImportsCommand, formatOnSave);
+  // context.subscriptions.push(formatImportsCommand, formatOnSave);
 }
