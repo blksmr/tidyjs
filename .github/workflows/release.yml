@@ -3,10 +3,9 @@ name: Create Release
 on:
   push:
     tags:
-      - 'v*' # Ce workflow sera déclenché lorsque vous poussez un tag commençant par 'v'
-  workflow_dispatch: # Permet également le déclenchement manuel depuis l'interface GitHub
+      - 'v*'
+  workflow_dispatch: 
 
-# Définir les permissions nécessaires pour créer une release
 permissions:
   contents: write
   packages: read
@@ -21,30 +20,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'  # Updated Node.js version
+          node-version: '18'
           
       - name: Install dependencies
         run: npm install
         
-      - name: Troubleshoot npm instal failure
-        if: failure()
-        run: cat /home/runner/.npm/_logs/*-debug-*.log
-        
       - name: Package extension
-        run: vsce package
+        run: npm run package
       
-      - name: Create ZIP package
-        run: |
-          mkdir -p dist
-          zip -r "dist/tidyimport-${{ github.ref_name }}.zip" . -x "node_modules/*" ".git/*" ".github/*" "dist/*" "labs/*"
-          
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             *.vsix
-            dist/*.zip
           draft: false
           prerelease: false
           generate_release_notes: true
