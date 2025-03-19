@@ -1,6 +1,5 @@
 import * as ts from 'typescript';
-
-import { parseImports } from './parser';
+import { adaptParserOutput, parseImports } from './parser';
 import type { FormattedImport, FormatterConfig, FormattedImportGroup, ImportNameWithComment } from './types';
 import { configManager } from './utils/config';
 import { logDebug } from './utils/log';
@@ -798,9 +797,12 @@ function findAllImportsRange(text: string, config: FormatterConfig = configManag
     return { start: sectionStart, end: sectionEnd };
 }
 
+import { ImportParserResult } from './parser';
+
 export function formatImports(
     sourceText: string, 
-    config: FormatterConfig = configManager.getFormatterConfig()
+    config: FormatterConfig = configManager.getFormatterConfig(),
+    parserResult?: ImportParserResult
 ): string {
     config.importGroups = configManager.getImportGroups();
     config.alignmentSpacing = configManager.getAlignmentSpacing();
@@ -839,45 +841,53 @@ export function formatImports(
     if (!validation.valid) {
         throw new Error(validation.message);
     }
-    
-    const cleanedImportText = removeCommentsFromImports(importSectionText, config);
 
-    const sourceFile = ts.createSourceFile(
-        'temp.ts',
-        cleanedImportText,
-        ts.ScriptTarget.Latest,
-        true
-    );
+    let formattedImports;
 
-    const importNodes: ts.ImportDeclaration[] = [];
-    
-    function visit(node: ts.Node) : void {
-        if (ts.isImportDeclaration(node)) {
-            importNodes.push(node);
-            
-            if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-                const modulePath = node.moduleSpecifier.text;
-                const appSubfolderMatch = modulePath.match(config.regexPatterns.appSubfolderPattern);
+    // Si nous avons un résultat du parser, l'utiliser
+    if (parserResult) {
+        formattedImports = adaptParserOutput(parserResult, config.importGroups);
+    } else {
+        // Sinon, utiliser l'ancien parser
+        const cleanedImportText = removeCommentsFromImports(importSectionText, config);
+
+        const sourceFile = ts.createSourceFile(
+            'temp.ts',
+            cleanedImportText,
+            ts.ScriptTarget.Latest,
+            true
+        );
+
+        const importNodes: ts.ImportDeclaration[] = [];
+        
+        function visit(node: ts.Node) : void {
+            if (ts.isImportDeclaration(node)) {
+                importNodes.push(node);
                 
-                if (appSubfolderMatch?.[1]) {
-                    const subfolder = appSubfolderMatch[1];
-                    if (typeof configManager.registerAppSubfolder === 'function') {
-                        configManager.registerAppSubfolder(subfolder);
+                if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+                    const modulePath = node.moduleSpecifier.text;
+                    const appSubfolderMatch = modulePath.match(config.regexPatterns.appSubfolderPattern);
+                    
+                    if (appSubfolderMatch?.[1]) {
+                        const subfolder = appSubfolderMatch[1];
+                        if (typeof configManager.registerAppSubfolder === 'function') {
+                            configManager.registerAppSubfolder(subfolder);
+                        }
                     }
                 }
             }
+            ts.forEachChild(node, visit);
         }
-        ts.forEachChild(node, visit);
+
+        visit(sourceFile);
+
+        if (importNodes.length === 0) {
+            return sourceText;
+        }
+
+        config.importGroups = configManager.getImportGroups();
+        formattedImports = parseImports(importNodes, sourceFile, config.importGroups);
     }
-
-    visit(sourceFile);
-
-    if (importNodes.length === 0) {
-        return sourceText;
-    }
-
-    config.importGroups = configManager.getImportGroups();
-    const formattedImports = parseImports(importNodes, sourceFile, config.importGroups);
     const groupedImports = groupImportsOptimized(formattedImports);
     let formattedText = generateFormattedImportsOptimized(groupedImports, config);
     

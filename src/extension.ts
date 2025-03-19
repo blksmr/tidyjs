@@ -1,7 +1,11 @@
 import * as vscode from 'vscode';
 import { formatImports } from './formatter';
 import { ImportParser } from 'tidyimport-parser';
+import { ImportParserResult } from './parser';
+import { configManager } from './utils/config';
+import { logDebug, logError } from './utils/log';
 
+// Initialiser le parser avec la configuration
 const parser = new ImportParser({
   defaultGroupName: 'Misc',
   typeOrder: {
@@ -21,27 +25,13 @@ const parser = new ImportParser({
   patterns: {
     appSubfolderPattern: /@app\/([^/]+)/
   },
-  importGroups: [
-    {
-      name: 'Misc',
-      regex: /^(react|lodash|date-fns)$/,
-      order: 0,
-      isDefault: true
-    },
-    {
-      name: 'DS',
-      regex: /^ds$/,
-      order: 1
-    },
-    {
-      name: '@app',
-      regex: /^@app/,
-      order: 2
-    }
-  ]
+  importGroups: configManager.getImportGroups().map(group => ({
+    name: group.name,
+    regex: group.regex,
+    order: group.order,
+    isDefault: group.name === 'Misc'
+  }))
 });
-import { configManager } from './utils/config';
-import { logDebug, logError } from './utils/log';
 
 export function activate(context: vscode.ExtensionContext): void {
   configManager.loadConfiguration();
@@ -52,7 +42,8 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   });
 
-  const config = configManager.getFormatterConfig();
+  // Récupérer la configuration pour le formatage
+  configManager.getFormatterConfig();
 
   const formatImportsCommand = vscode.commands.registerCommand(
     'extension.formatImports',
@@ -98,9 +89,12 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       try {
-
-        const formattedDocument = formatImports(documentText);
-
+        // Utiliser le nouveau parser pour analyser les imports
+        const parserResult = parser.parse(documentText) as ImportParserResult;
+        console.log('🚀 ~ extension.ts:94 ~ parserResult:', JSON.stringify(parserResult, null, 2));
+        
+        // Formater les imports en utilisant le résultat du parser
+        const formattedDocument = formatImports(documentText, configManager.getFormatterConfig(), parserResult);
 
         if (formattedDocument !== documentText) {
           const fullDocumentRange = new vscode.Range(
