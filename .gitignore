@@ -3,13 +3,12 @@ node_modules
 *.map
 dist/**.map
 repomix-output.txt
-src/.DS_Store
 .repomix/bundles.json
-.DS_Store
 dist
 out
 */prompts/**/*
 *.vsix
 labs/dist
 labs/results
-.DS_Store
+# Ignorer tous les fichiers .DS_Store
+**/.DS_Store
