@@ -60,8 +60,10 @@ export interface ParsedImport {
 
 
 export interface InvalidImport {
-    raw: string;
+    raw?: string;
     error: string;
+    line?: number;
+    column?: number;
 }
 
 export interface ParserResult {
