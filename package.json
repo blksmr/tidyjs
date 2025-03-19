@@ -3,7 +3,7 @@
   "displayName": "tidyimport",
   "description": "tidyimport est une extension VSCode qui organise et formate automatiquement vos déclarations d'import dans les fichiers TypeScript et JavaScript. Elle groupe vos imports par catégories personnalisables, aligne parfaitement les mots-clés 'from', et trie intelligemment vos imports selon leur type et leur longueur. Configurez facilement vos propres groupes d'imports et personnalisez l'espacement pour créer une structure d'imports cohérente et lisible pour vos projets.",
   "publisher": "asmirbelkic",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "icon": "images/icon.png",
   "repository": {
     "type": "git",
