@@ -39,16 +39,100 @@ function alignMultilineFromKeyword(line: string, fromIndex: number, maxFromIndex
         return line;
     }
     
-    // Calculer l'espacement nécessaire pour un alignement parfait
-    const paddingSize = maxFromIndex - fromIndexInLastLine;
-    const newLastLine = lastLine.substring(0, fromIndexInLastLine) + ' '.repeat(paddingSize) + lastLine.substring(fromIndexInLastLine);
+    // Trouver le contenu avant "from" (en éliminant les espaces existants)
+    const closeBraceIndex = lastLine.indexOf('}');
+    if (closeBraceIndex === -1) return line;
     
-    // Remplacer la dernière ligne par la version alignée
+    // Créer une nouvelle version de la dernière ligne avec un alignement précis
+    const beforeContent = lastLine.substring(0, closeBraceIndex + 1);
+    const exactSpaces = maxFromIndex - (closeBraceIndex + 1);
+    const fromAndAfter = lastLine.substring(fromIndexInLastLine);
+    
+    const newLastLine = beforeContent + ' '.repeat(exactSpaces) + fromAndAfter;
     lines[lastLineIndex] = newLastLine;
     
     return lines.join('\n');
 }
 
+/**
+ * Aligne tous les mots-clés 'from' dans un groupe d'imports en utilisant l'indice le plus à droite
+ */
+function alignImportsInGroup(importLines: string[]): string[] {
+    if (importLines.length === 0) {
+        return importLines;
+    }
+    
+    // Calculer les indices "from" pour tous les imports
+    const fromIndices = new Map<string, number>();
+    
+    // Première passe : calculer la position idéale du "from" pour chaque import
+    let globalMaxFromPosition = 0;
+    
+    for (const line of importLines) {
+        if (line.includes('\n')) {
+            // Pour les imports multilignes
+            const lines = line.split('\n');
+            
+            // Calculer le spécificateur le plus long
+            let longestSpecifier = 0;
+            let longestSpecifierIndex = -1;
+            
+            for (let i = 1; i < lines.length - 1; i++) {
+                const specifierLine = lines[i].trim();
+                const specifierWithoutComma = specifierLine.replace(/,$/, '').trim();
+                
+                if (specifierWithoutComma.length > longestSpecifier) {
+                    longestSpecifier = specifierWithoutComma.length;
+                    longestSpecifierIndex = i;
+                }
+            }
+            
+            // Position de base: indentation (4 espaces) + longueur du spécificateur le plus long + 1 espace
+            let idealFromPosition = 4 + longestSpecifier + 1;
+            
+            // Si le spécificateur le plus long n'est pas le dernier (donc a une virgule), ajouter un espace
+            const lastSpecifierIndex = lines.length - 2;
+            if (longestSpecifierIndex !== lastSpecifierIndex && longestSpecifierIndex !== -1) {
+                idealFromPosition += 1;
+            }
+            
+            globalMaxFromPosition = Math.max(globalMaxFromPosition, idealFromPosition);
+            
+            // Enregistrer la position actuelle du "from" pour l'alignement final
+            const lastLine = lines[lines.length - 1];
+            const fromIndex = lastLine.indexOf('from');
+            if (fromIndex !== -1) {
+                fromIndices.set(line, fromIndex);
+            }
+        } else {
+            // Pour les imports sur une ligne
+            const importParts = line.split('from');
+            if (importParts.length === 2) {
+                const beforeFrom = importParts[0].trim();
+                const fromPosition = line.indexOf('from');
+                fromIndices.set(line, fromPosition);
+                globalMaxFromPosition = Math.max(globalMaxFromPosition, beforeFrom.length + 1);
+            }
+        }
+    }
+    
+    // Deuxième passe : aligner tous les imports sur la position globale maximale
+    return importLines.map(line => {
+        const fromIndex = fromIndices.get(line);
+        
+        if (fromIndex === undefined) {
+            return line;
+        }
+        
+        if (!line.includes('\n')) {
+            // Import sur une ligne
+            return alignFromKeyword(line, fromIndex, globalMaxFromPosition);
+        } else {
+            // Import multiligne
+            return alignMultilineFromKeyword(line, fromIndex, globalMaxFromPosition);
+        }
+    });
+}
 /**
  * Nettoie les lignes pour éviter les commentaires dupliqués et les lignes vides consécutives
  */
@@ -87,60 +171,6 @@ function cleanUpLines(lines: string[]): string[] {
     cleanedLines.push('');
 
     return cleanedLines;
-}
-
-/**
- * Aligne tous les mots-clés 'from' dans un groupe d'imports en utilisant l'indice le plus à droite
- */
-function alignImportsInGroup(importLines: string[]): string[] {
-    if (importLines.length === 0) {
-        return importLines;
-    }
-    
-    // Calculer les indices "from" pour tous les imports
-    const fromIndices = new Map<string, number>();
-    let maxRightPosition = 0;
-    
-    for (const line of importLines) {
-        let fromPosition;
-        
-        if (line.includes('\n')) {
-            // Pour les imports multilignes
-            const lines = line.split('\n');
-            const lastLine = lines[lines.length - 1];
-            const fromIndex = lastLine.indexOf('from');
-            
-            if (fromIndex !== -1) {
-                // Calculer la position absolue du "from" dans la dernière ligne
-                fromPosition = fromIndex;
-            }
-        } else {
-            // Pour les imports sur une ligne
-            fromPosition = line.indexOf('from');
-        }
-        
-        if (fromPosition !== undefined && fromPosition > 0) {
-            fromIndices.set(line, fromPosition);
-            maxRightPosition = Math.max(maxRightPosition, fromPosition);
-        }
-    }
-    
-    // Aligner tous les imports sur la position la plus à droite
-    return importLines.map(line => {
-        const fromIndex = fromIndices.get(line);
-        
-        if (fromIndex === undefined) {
-            return line;
-        }
-        
-        if (!line.includes('\n')) {
-            // Import sur une ligne
-            return alignFromKeyword(line, fromIndex, maxRightPosition);
-        } else {
-            // Import multiligne
-            return alignMultilineFromKeyword(line, fromIndex, maxRightPosition);
-        }
-    });
 }
 
 /**
