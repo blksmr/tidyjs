@@ -17,7 +17,7 @@ export function isCommentLine(line: string): boolean {
 /**
  * Vérifie si une ligne est un commentaire de section
  */
-export function isSectionComment(line: string, config: any): boolean {
+export function isSectionComment(line: string, config: { regexPatterns: { sectionComment: RegExp } }): boolean {
     return config.regexPatterns.sectionComment.test(line);
 }
 
@@ -70,10 +70,20 @@ export function getFromIndex(line: string, isMultiline: boolean): number {
 }
 
 /**
+ * Type pour représenter un import nommé qui peut avoir un commentaire
+ */
+export interface NamedImportWithComment {
+    name: string;
+    comment?: string;
+}
+
+/**
  * Trie les noms d'import par longueur (du plus court au plus long)
+ * @param namedImports Liste des imports nommés à trier
+ * @returns Liste triée des noms d'imports
  */
 export function sortImportNamesByLength(
-    namedImports: (string | { name: string; comment?: string })[]
+    namedImports: (string | NamedImportWithComment)[]
 ): string[] {
     return namedImports
         .map(item => (typeof item === 'string' ? item : item.name))
@@ -82,8 +92,9 @@ export function sortImportNamesByLength(
 
 /**
  * Fonction de log de debug
+ * @param args Les arguments à logger
  */
-export function logDebug(...args: any[]): void {
+export function logDebug(...args: unknown[]): void {
     if (process.env.NODE_ENV === 'development') {
         console.log('[DEBUG]', ...args);
     }
@@ -91,17 +102,16 @@ export function logDebug(...args: any[]): void {
 
 /**
  * Fonction de log d'erreur
+ * @param args Les arguments à logger
  */
-export function logError(...args: any[]): void {
+export function logError(...args: unknown[]): void {
     console.error('[ERROR]', ...args);
 }
 
 
 /**
- * Fonction d'affichage d'un message showInformationMessage ou showErrorMessage (I want to use it like showMessage.error or showMessage.info)
- */
-/**
- * Fonction d'affichage d'un message showInformationMessage ou showErrorMessage (I want to use it like showMessage.error or showMessage.info)
+ * Fonctions d'affichage de messages dans l'interface de VSCode
+ * Permet d'utiliser showMessage.info(), showMessage.error() ou showMessage.warning()
  */
 export const showMessage = {
     /**
