@@ -82,7 +82,8 @@ function cleanUpLines(lines: string[]): string[] {
         cleanedLines.pop();
     }
 
-    // Ajouter une ligne vide finale pour séparer les imports du reste du code
+    // Ajouter deux lignes vides finales pour séparer les imports du reste du code
+    cleanedLines.push('');
     cleanedLines.push('');
 
     return cleanedLines;
