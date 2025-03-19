@@ -1,9 +1,7 @@
-<div align="center"><img src="./media/icon2.png" width="120" alt="Yeap Theme Logo" />
-  <h1 align="center">Yeap Theme</h1>
-  <p align="center">An official Yeap theme for Visual Studio Code.</p>
+<div align="center"><img src="./media/icon2.png" width="120" alt="TidyImport Logo" />
+  <h1 align="center">TidyImport</h1>
+  <p align="center">TidyImport is a VSCode extension that automatically organizes and formats import declarations in TypeScript and JavaScript files. It groups imports by customizable categories, perfectly aligns 'from' keywords, and intelligently sorts imports by type and length.</p>
 </div>
-
-TidyImport is a VSCode extension that automatically organizes and formats import declarations in TypeScript and JavaScript files. It groups imports by customizable categories, perfectly aligns 'from' keywords, and intelligently sorts imports by type and length.
 
 ## Features
 
