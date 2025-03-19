@@ -10,5 +10,4 @@ out
 *.vsix
 labs/dist
 labs/results
-# Ignorer tous les fichiers .DS_Store
 **/.DS_Store

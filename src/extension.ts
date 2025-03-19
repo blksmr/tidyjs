@@ -105,7 +105,6 @@ export function activate(context: vscode.ExtensionContext): void {
     const documentText = event.document.getText();
     
     try {
-      // Appeler formatImports de manière synchrone
       const formattedDocument = formatImports(documentText);
       
       if (formattedDocument !== documentText) {
@@ -114,7 +113,6 @@ export function activate(context: vscode.ExtensionContext): void {
           event.document.positionAt(documentText.length)
         );
         
-        // Utiliser waitUntil avec une promesse déjà résolue
         event.waitUntil(
           Promise.resolve([
             new vscode.TextEdit(fullDocumentRange, formattedDocument)
