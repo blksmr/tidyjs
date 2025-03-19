@@ -1,4 +1,3 @@
-import * as vscode from 'vscode';
 
 export interface ImportGroup {
     name: string;
@@ -6,17 +5,29 @@ export interface ImportGroup {
     order: number;
 }
 
-export interface ImportNode {
-    text: string;
-    defaultImport: string | null;
-    namedImports: string[];
-    typeImports: string[];
-    source: string;
-    isTypeOnly: boolean;
-    originalText: string;
-    range: vscode.Range;
-    group: string;
+export interface FormatterConfig {
+    alignmentSpacing: number;
+    importGroups: ImportGroup[];
+    formatOnSave: boolean;
+    maxLineLength: number;
+    regexPatterns: {
+        importLine: RegExp;
+        sectionComment: RegExp;
+        importFragment: RegExp;
+        anyComment: RegExp;
+        typeDeclaration: RegExp;
+        codeDeclaration: RegExp;
+        appSubfolderPattern: RegExp;
+    };
 }
+
+
+export interface FormattedImportGroup {
+    groupName: string;
+    commentLine: string;
+    importLines: string[];
+}
+
 
 export interface ImportNameWithComment {
     name: string;
@@ -31,29 +42,4 @@ export interface FormattedImport {
     isTypeImport: boolean;
     isDefaultImport: boolean;
     hasNamedImports: boolean;
-}
-
-export interface FormattedImportGroup {
-    groupName: string;
-    commentLine: string;
-    importLines: string[];
-}
-
-export interface FormatterConfig {
-    importGroups: ImportGroup[];
-    alignmentSpacing: number;
-    regexPatterns: {
-        importLine: RegExp;
-        appSubfolderPattern: RegExp;
-        sectionComment: RegExp;
-        importFragment: RegExp;
-        sectionCommentPattern: RegExp;
-        anyComment: RegExp;
-        codeDeclaration: RegExp;
-        typeDeclaration: RegExp;
-        orphanedFragments: RegExp;
-        possibleCommentFragment: RegExp;
-    };
-    formatOnSave: boolean;
-    maxLineLength: number;
 }
