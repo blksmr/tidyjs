@@ -1,85 +1,95 @@
-import { FormatterConfig } from '../types';
-
-// Helper : Function to sort import names alphabetically and then by length (longest first)
-export function sortImportNamesByLength(names: string[]): string[] {
-    return [...names].sort((a, b) => {
-        // Extract actual name without 'type' keyword for comparison
-        const aName = a.startsWith('type ') ? a.substring(5) : a;
-        const bName = b.startsWith('type ') ? b.substring(5) : b;
-        
-        // First sort alphabetically
-        const alphabeticalCompare = aName.localeCompare(bName);
-        if (alphabeticalCompare !== 0) {
-            return alphabeticalCompare;
-        }
-        
-        // Then sort by length (longest first)
-        return bName.length - aName.length;
-    });
-}
-
-// Helper function to get the index of the 'from' keyword in an import statement
-export function getFromIndex(line: string, isMultiline: boolean = false): number {
-    if (isMultiline) {
-        const lines = line.split('\n');
-        const lastLine = lines[lines.length - 1];
-        const fromIndex = lastLine.indexOf('from');
-        return fromIndex > 0 ? fromIndex : -1;
-    } else {
-        const fromIndex = line.indexOf('from');
-        return fromIndex > 0 ? fromIndex : -1;
-    }
-}
-
-// Helper : Function to align imports
-export function alignFromKeyword(
-    line: string, 
-    fromIndex: number, 
-    maxWidth: number, 
-    spacingWidth: number
-): string {
-    if (fromIndex <= 0) return line;
-    
-    const padding = ' '.repeat(maxWidth - fromIndex + spacingWidth);
-    
-    if (line.includes('\n')) {
-        const lines = line.split('\n');
-        const lastLineIndex = lines.length - 1;
-        const lastLine = lines[lastLineIndex];
-        
-        lines[lastLineIndex] = 
-            lastLine.substring(0, fromIndex) +
-            padding +
-            'from' +
-            lastLine.substring(fromIndex + 4);
-        
-        return lines.join('\n');
-    } else {
-        return (
-            line.substring(0, fromIndex) +
-            padding +
-            'from' +
-            line.substring(fromIndex + 4)
-        );
-    }
-}
-
-// Helper: Vérifie si une ligne est vide
+/**
+ * Vérifie si une ligne est vide (ne contient que des espaces)
+ */
 export function isEmptyLine(line: string): boolean {
     return line.trim() === '';
 }
 
-// Helper: Vérifie si une ligne est un commentaire
+/**
+ * Vérifie si une ligne est un commentaire
+ */
 export function isCommentLine(line: string): boolean {
     return line.trim().startsWith('//');
 }
 
-// Helper: Vérifie si une ligne est un commentaire de section
-export function isSectionComment(line: string, config: FormatterConfig): boolean {
-    return config.regexPatterns.sectionCommentPattern.test(line);
+/**
+ * Vérifie si une ligne est un commentaire de section
+ */
+export function isSectionComment(line: string, config: any): boolean {
+    return config.regexPatterns.sectionComment.test(line);
 }
 
-// Helper: Vérifie si une ligne est une section de commentaire
+/**
+ * Formatte un import simple (side-effect)
+ */
 export function formatSimpleImport(moduleName: string): string {
     return `import '${moduleName}';`;
+}
+
+/**
+ * Aligne le mot-clé 'from' dans une ligne d'import
+ */
+export function alignFromKeyword(
+    line: string,
+    fromIndex: number,
+    maxFromIndex: number,
+    spacingConfig: number = 1
+): string {
+    if (fromIndex <= 0 || line.indexOf('from') === -1) {
+        return line;
+    }
+
+    const beforeFrom = line.substring(0, fromIndex);
+    const afterFrom = line.substring(fromIndex);
+    const paddingSize = maxFromIndex - fromIndex + spacingConfig;
+    const padding = ' '.repeat(paddingSize);
+
+    return beforeFrom + padding + afterFrom;
+}
+
+/**
+ * Trouve l'index du mot-clé 'from' dans une ligne d'import
+ */
+export function getFromIndex(line: string, isMultiline: boolean): number {
+    if (isMultiline) {
+        // Pour les imports multilignes, chercher 'from' sur la dernière ligne
+        const lines = line.split('\n');
+        const lastLine = lines[lines.length - 1];
+        const fromIndex = lastLine.indexOf('from');
+        if (fromIndex !== -1) {
+            // Calculer l'index global en ajoutant la longueur des lignes précédentes
+            return lines.slice(0, lines.length - 1).join('\n').length + fromIndex + 1;
+        }
+        return -1;
+    }
+
+    // Pour les imports simples, trouver directement l'index
+    return line.indexOf('from');
+}
+
+/**
+ * Trie les noms d'import par longueur (du plus court au plus long)
+ */
+export function sortImportNamesByLength(
+    namedImports: (string | { name: string; comment?: string })[]
+): string[] {
+    return namedImports
+        .map(item => (typeof item === 'string' ? item : item.name))
+        .sort((a, b) => a.length - b.length);
+}
+
+/**
+ * Fonction de log de debug
+ */
+export function logDebug(...args: any[]): void {
+    if (process.env.NODE_ENV === 'development') {
+        console.log('[DEBUG]', ...args);
+    }
+}
+
+/**
+ * Fonction de log d'erreur
+ */
+export function logError(...args: any[]): void {
+    console.error('[ERROR]', ...args);
 }

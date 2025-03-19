@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { formatImports } from './formatter';
-import { ImportParser } from 'tidyimport-parser';
-import { ImportParserResult } from './parser';
+import { ImportParser, ParserResult } from 'tidyimport-parser';
 import { configManager } from './utils/config';
 import { logDebug, logError } from './utils/log';
 
@@ -58,19 +57,22 @@ export function activate(context: vscode.ExtensionContext): void {
       const documentText = document.getText();
 
       try {
-        // Utiliser le nouveau parser pour analyser les imports
-        const parserResult = parser.parse(documentText) as ImportParserResult;
-        console.log('[PARSER]',JSON.stringify(parserResult, null, 2));
+        // Utiliser le parser pour analyser les imports
+        const parserResult = parser.parse(documentText) as ParserResult;
+        logDebug('Parser result:', JSON.stringify(parserResult, null, 2));
         
         // Formater les imports en utilisant le résultat du parser
-        const formattedDocument = formatImports(documentText, configManager.getFormatterConfig(), parserResult);
+        const formattedDocument = formatImports(
+          documentText, 
+          configManager.getFormatterConfig(), 
+          parserResult
+        );
 
         if (formattedDocument !== documentText) {
           const fullDocumentRange = new vscode.Range(
             document.positionAt(0),
             document.positionAt(documentText.length)
           );
-
 
           await editor.edit((editBuilder) => {
             editBuilder.replace(fullDocumentRange, formattedDocument);
@@ -88,43 +90,10 @@ export function activate(context: vscode.ExtensionContext): void {
       } catch (error) {
         logError('Error:', error);
         const errorMessage = String(error);
-        vscode.window.showErrorMessage(errorMessage);
+        vscode.window.showErrorMessage(`Error formatting imports: ${errorMessage}`);
       }
     }
   );
 
-  // const formatOnSave = vscode.workspace.onWillSaveTextDocument((event) => {
-  //   if (!config.formatOnSave) {
-  //     return;
-  //   }
-
-  //   const supportedLanguages = ['typescript', 'javascript', 'typescriptreact', 'javascriptreact'];
-  //   if (!supportedLanguages.includes(event.document.languageId)) {
-  //     return;
-  //   }
-
-  //   const documentText = event.document.getText();
-    
-  //   try {
-  //     const formattedDocument = formatImports(documentText);
-      
-  //     if (formattedDocument !== documentText) {
-  //       const fullDocumentRange = new vscode.Range(
-  //         event.document.positionAt(0),
-  //         event.document.positionAt(documentText.length)
-  //       );
-        
-  //       event.waitUntil(
-  //         Promise.resolve([
-  //           new vscode.TextEdit(fullDocumentRange, formattedDocument)
-  //         ])
-  //       );
-  //     }
-  //   } catch (error) {
-  //     logError('Error formatting on save:', error);
-  //   }
-  // });
-
   context.subscriptions.push(formatImportsCommand);
-  // context.subscriptions.push(formatImportsCommand, formatOnSave);
 }
