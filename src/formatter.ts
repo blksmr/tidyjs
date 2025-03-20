@@ -3,18 +3,20 @@ import { isEmptyLine, logError, showMessage } from './utils/misc';
 import { logDebug } from './utils/log';
 import { ParsedImport, ParserResult } from 'tidyimport-parser';
 
+const fromKeywordRegex = /\bfrom\b/;
+const multilineCommentStartRegex = /\/\*/;
+const multilineCommentEndRegex = /\*\//;
+const importStartRegex = /^import\s/;
+
 function alignFromKeyword(line: string, fromIndex: number, maxFromIndex: number): string {
-    if (fromIndex <= 0 || line.indexOf('from') === -1) {
+    if (fromIndex <= 0 || !fromKeywordRegex.test(line)) {
         return line;
     }
 
-    const beforeFrom = line.substring(0, fromIndex);
-    const afterFrom = line.substring(fromIndex);
+    const prefix = line.substring(0, fromIndex);
+    const suffix = line.substring(fromIndex);
     
-    const paddingSize = maxFromIndex - fromIndex;
-    const padding = ' '.repeat(paddingSize);
-
-    return beforeFrom + padding + afterFrom;
+    return prefix.padEnd(maxFromIndex) + suffix;
 }
 
 function alignMultilineFromKeyword(line: string, fromIndex: number, maxFromIndex: number): string {
@@ -26,8 +28,8 @@ function alignMultilineFromKeyword(line: string, fromIndex: number, maxFromIndex
     const lastLineIndex = lines.length - 1;
     const lastLine = lines[lastLineIndex];
     
-    const fromIndexInLastLine = lastLine.indexOf('from');
-    if (fromIndexInLastLine === -1) {
+    const fromMatch = lastLine.match(fromKeywordRegex);
+    if (!fromMatch || fromMatch.index === undefined) {
         return line;
     }
     
@@ -36,7 +38,7 @@ function alignMultilineFromKeyword(line: string, fromIndex: number, maxFromIndex
     
     const beforeContent = lastLine.substring(0, closeBraceIndex + 1);
     const exactSpaces = maxFromIndex - (closeBraceIndex + 1);
-    const fromAndAfter = lastLine.substring(fromIndexInLastLine);
+    const fromAndAfter = lastLine.substring(fromMatch.index);
     
     const newLastLine = beforeContent + ' '.repeat(exactSpaces) + fromAndAfter;
     lines[lastLineIndex] = newLastLine;
@@ -48,83 +50,79 @@ function alignImportsInGroup(importLines: string[]): string[] {
     if (importLines.length === 0) {
         return importLines;
     }
-    
-    const fromIndices = new Map<string, number>();
-    
-    let globalMaxFromPosition = 0;
-    
-    for (const line of importLines) {
-        if (line.includes('\n')) {
-            const lines = line.split('\n');
-            
-            let longestSpecifier = 0;
-            let longestSpecifierIndex = -1;
-            
-            for (let i = 1; i < lines.length - 1; i++) {
-                const specifierLine = lines[i].trim();
-                const specifierWithoutComma = specifierLine.replace(/,$/, '').trim();
-                
-                if (specifierWithoutComma.length > longestSpecifier) {
-                    longestSpecifier = specifierWithoutComma.length;
-                    longestSpecifierIndex = i;
-                }
-            }
-            
-            let idealFromPosition = 4 + longestSpecifier + 1;
-            
-            const lastSpecifierIndex = lines.length - 2;
-            if (longestSpecifierIndex !== lastSpecifierIndex && longestSpecifierIndex !== -1) {
-                idealFromPosition += 1;
-            }
-            
-            globalMaxFromPosition = Math.max(globalMaxFromPosition, idealFromPosition);
-            
-            const lastLine = lines[lines.length - 1];
-            const fromIndex = lastLine.indexOf('from');
-            if (fromIndex !== -1) {
-                fromIndices.set(line, fromIndex);
-            }
-        } else {
-            const importParts = line.split('from');
-            if (importParts.length === 2) {
-                const beforeFrom = importParts[0].trim();
-                const fromPosition = line.indexOf('from');
-                fromIndices.set(line, fromPosition);
-                globalMaxFromPosition = Math.max(globalMaxFromPosition, beforeFrom.length + 1);
-            }
-        }
+
+    interface LineInfo {
+        fromIndex: number;
+        isMultiline: boolean;
+        idealFromPosition: number;
     }
-    
-    return importLines.map(line => {
-        const fromIndex = fromIndices.get(line);
-        
-        if (fromIndex === undefined) {
-            return line;
-        }
-        
-        if (!line.includes('\n')) {
-            return alignFromKeyword(line, fromIndex, globalMaxFromPosition);
+
+    const lineInfos: LineInfo[] = new Array(importLines.length);
+    let globalMaxFromPosition = 0;
+
+    // Analyser tous les imports en une seule passe
+    for (let i = 0; i < importLines.length; i++) {
+        const line = importLines[i];
+        const info: LineInfo = {
+            fromIndex: -1,
+            isMultiline: false,
+            idealFromPosition: 0
+        };
+
+        if (line.includes('\n')) {
+            info.isMultiline = true;
+            const lines = line.split('\n');
+            // Optimisation : Utiliser reduce au lieu d'une boucle for
+            const { maxLength, maxIndex } = lines.slice(1, -1).reduce((acc, curr, idx) => {
+                const len = curr.trim().replace(/,$/, '').trim().length;
+                if (len > acc.maxLength) {
+                    return { maxLength: len, maxIndex: idx };
+                }
+                return acc;
+            }, { maxLength: 0, maxIndex: -1 });
+
+            info.idealFromPosition = 4 + maxLength + (maxIndex !== lines.length - 3 && maxIndex !== -1 ? 2 : 1);
+            const lastLine = lines[lines.length - 1];
+            const fromMatch = lastLine.match(fromKeywordRegex);
+            info.fromIndex = fromMatch && fromMatch.index !== undefined ? fromMatch.index : -1;
         } else {
-            return alignMultilineFromKeyword(line, fromIndex, globalMaxFromPosition);
+            const fromMatch = line.match(fromKeywordRegex);
+            if (fromMatch && fromMatch.index !== undefined) {
+                info.fromIndex = fromMatch.index;
+                info.idealFromPosition = line.substring(0, fromMatch.index).trim().length + 1;
+            }
         }
+
+        globalMaxFromPosition = Math.max(globalMaxFromPosition, info.idealFromPosition);
+        lineInfos[i] = info;
+    }
+
+    // Appliquer l'alignement en une seule passe
+    return importLines.map((line, i) => {
+        const info = lineInfos[i];
+        if (info.fromIndex === -1) return line;
+        
+        return info.isMultiline ? 
+            alignMultilineFromKeyword(line, info.fromIndex, globalMaxFromPosition) :
+            alignFromKeyword(line, info.fromIndex, globalMaxFromPosition);
     });
 }
 
 function cleanUpLines(lines: string[]): string[] {
-    const cleanedLines: string[] = [];
+    const result: string[] = [];
     let consecutiveEmptyLines = 0;
     const seenGroupComments = new Set<string>();
     let inMultilineComment = false;
-
+    
     for (const currentLine of lines) {
         const normalizedLine = currentLine.trim();
         
-        if (normalizedLine.includes('/*')) {
+        if (multilineCommentStartRegex.test(normalizedLine)) {
             inMultilineComment = true;
         }
         
         if (inMultilineComment) {
-            if (normalizedLine.includes('*/')) {
+            if (multilineCommentEndRegex.test(normalizedLine)) {
                 inMultilineComment = false;
             }
             continue;
@@ -133,36 +131,38 @@ function cleanUpLines(lines: string[]): string[] {
         if (normalizedLine.startsWith('// ')) {
             const groupName = normalizedLine.substring(3).trim();
             
-            if (seenGroupComments.has(groupName)) {
-                continue;
+            if (!seenGroupComments.has(groupName)) {
+                seenGroupComments.add(groupName);
+                result.push(currentLine);
             }
-            
-            seenGroupComments.add(groupName);
+            continue;
         }
-        else if (normalizedLine.startsWith('//')) {
+        
+        if (normalizedLine.startsWith('//')) {
             continue;
         }
 
         if (isEmptyLine(currentLine)) {
-            consecutiveEmptyLines++;
-            if (consecutiveEmptyLines > 1) {
-                continue;
+            if (consecutiveEmptyLines < 1) {
+                result.push(currentLine);
+                consecutiveEmptyLines++;
             }
         } else {
+            result.push(currentLine);
             consecutiveEmptyLines = 0;
         }
-
-        cleanedLines.push(currentLine);
     }
 
-    if (cleanedLines.length > 0 && isEmptyLine(cleanedLines[cleanedLines.length - 1])) {
-        cleanedLines.pop();
+    // Supprimer la dernière ligne vide si elle existe
+    while (result.length > 0 && isEmptyLine(result[result.length - 1])) {
+        result.pop();
     }
 
-    cleanedLines.push('');
-    cleanedLines.push('');
+    // Ajouter deux lignes vides à la fin
+    result.push('');
+    result.push('');
 
-    return cleanedLines;
+    return result;
 }
 
 function formatImportLine(importItem: ParsedImport): string {
@@ -187,8 +187,16 @@ function formatImportLine(importItem: ParsedImport): string {
 
     if ((type === 'named' || type === 'typeNamed') && specifiers.length > 1) {
         const typePrefix = type === 'typeNamed' ? 'type ' : '';
-        const sortedSpecifiers = [...specifiers].sort((a, b) => a.length - b.length);
-        return `import ${typePrefix}{\n    ${sortedSpecifiers.join(',\n    ')}\n} from '${source}';`;
+        const specifiersSet = new Set(specifiers);
+        const sortedSpecifiers = Array.from(specifiersSet).sort((a, b) => a.length - b.length);
+        
+        // Optimiser la construction de la chaîne avec array join
+        const parts = [
+            `import ${typePrefix}{`,
+            `    ${sortedSpecifiers.join(',\n    ')}`,
+            `} from '${source}';`
+        ];
+        return parts.join('\n');
     }
 
     return raw;
@@ -207,8 +215,8 @@ export function formatImportsFromParser(
     try {
         const currentImportText = sourceText.substring(importRange.start, importRange.end);
         
-        if (currentImportText.includes('import(') ||
-            /await\s+import/.test(currentImportText)) {
+        const dynamicImportTest = /import\(|await\s+import/;
+        if (dynamicImportTest.test(currentImportText)) {
             throw new Error('Dynamic imports detected in the static imports section');
         }
         
@@ -219,12 +227,12 @@ export function formatImportsFromParser(
         for (const line of currentLines) {
             const trimmedLine = line.trim();
             
-            if (trimmedLine.includes('/*')) {
+            if (multilineCommentStartRegex.test(trimmedLine)) {
                 inMultilineComment = true;
             }
             
             if (inMultilineComment) {
-                if (trimmedLine.includes('*/')) {
+                if (multilineCommentEndRegex.test(trimmedLine)) {
                     inMultilineComment = false;
                 }
             }
@@ -236,140 +244,99 @@ export function formatImportsFromParser(
             importsOnly.push(line);
         }
         
-        const importsByGroupName = new Map<string, ParsedImport[]>();
-        
-        const sortedGroups = [...parserResult.groups].sort((a, b) => a.order - b.order);
-        
-        for (const group of sortedGroups) {
-            if (group.imports && group.imports.length) {
-                importsByGroupName.set(group.name, [...group.imports]);
-            }
+        // Optimisation : Utiliser un objet pour les groupes d'imports
+        interface GroupedImports {
+            [groupName: string]: {
+                order: number;
+                imports: ParsedImport[];
+            };
         }
+
+        const importsByGroup: GroupedImports = {};
+        const typeOrder = config.typeOrder || {
+            'default': 0,
+            'named': 1,
+            'typeDefault': 2,
+            'typeNamed': 3,
+            'sideEffect': 4
+        };
+
+        // Regrouper les imports en une seule passe
+        parserResult.groups.forEach(group => {
+            if (group.imports?.length) {
+                importsByGroup[group.name] = {
+                    order: group.order,
+                    imports: group.imports
+                };
+            }
+        });
+
+        // Optimisation: Utiliser des Set et Array.from pour le tri
+        const importGroupEntries = Array.from(Object.entries(importsByGroup));
+        importGroupEntries.sort(([,a], [,b]) => a.order - b.order);
         
         const formattedGroups: FormattedImportGroup[] = [];
         
-        for (const [groupName, imports] of importsByGroupName.entries()) {
-            if (!imports.length) continue;
-            
+        // Trier et traiter les groupes
+        for (const [groupName, { imports }] of importGroupEntries) {
             const groupResult: FormattedImportGroup = {
-                groupName: groupName,
+                groupName,
                 commentLine: `// ${groupName}`,
                 importLines: []
             };
-            
-            // Définir l'ordre des types d'imports
-            const typeOrder = config.typeOrder || {
-                'default': 0,
-                'named': 1,
-                'typeDefault': 2,
-                'typeNamed': 3,
-                'sideEffect': 4
+
+            // Optimisation : Utiliser un objet pour regrouper les imports
+            const importsByType: { [key: string]: ParsedImport[] } = {
+                priority: [],
+                default: [],
+                named: [],
+                typeDefault: [],
+                typeNamed: [],
+                sideEffect: []
             };
-            
-            // Regrouper les imports par type
-            const defaultImports: ParsedImport[] = [];
-            const namedImports: ParsedImport[] = [];
-            const typeDefaultImports: ParsedImport[] = [];
-            const typeNamedImports: ParsedImport[] = [];
-            const sideEffectImports: ParsedImport[] = [];
-            
-            // Traitement spécial pour les imports prioritaires
-            const priorityImports: ParsedImport[] = [];
-            
-            // Regrouper les imports par type et source pour éviter les doublons
+
+            // Optimisation : Set pour déduplication avec une fonction de hachage plus efficace
             const processedImportKeys = new Set<string>();
-            
-            for (const importItem of imports) {
-                const importKey = `${importItem.type}:${importItem.source}:${importItem.specifiers.sort().join(',')}`;
-                
-                if (processedImportKeys.has(importKey)) {
-                    continue;
+            const importKeyCache = new Map<ParsedImport, string>();
+
+            // Regrouper les imports en une seule passe avec mise en cache des clés
+            imports.forEach(importItem => {
+                let importKey = importKeyCache.get(importItem);
+                if (!importKey) {
+                    importKey = `${importItem.type}:${importItem.source}:${importItem.specifiers.sort().join(',')}`;
+                    importKeyCache.set(importItem, importKey);
                 }
                 
-                processedImportKeys.add(importKey);
-                
-                if (importItem.isPriority) {
-                    priorityImports.push(importItem);
-                } else {
-                    switch (importItem.type) {
-                        case 'default':
-                            defaultImports.push(importItem);
-                            break;
-                        case 'named':
-                            namedImports.push(importItem);
-                            break;
-                        case 'typeDefault':
-                            typeDefaultImports.push(importItem);
-                            break;
-                        case 'typeNamed':
-                            typeNamedImports.push(importItem);
-                            break;
-                        case 'sideEffect':
-                            sideEffectImports.push(importItem);
-                            break;
-                    }
+                if (!processedImportKeys.has(importKey)) {
+                    processedImportKeys.add(importKey);
+                    const targetArray = importItem.isPriority ? importsByType.priority : importsByType[importItem.type];
+                    targetArray.push(importItem);
+                }
+            });
+            
+            // Optimisation : Utiliser un Map pour le tri par source
+            const importTypeKeys = Object.keys(importsByType);
+            for (const typeKey of importTypeKeys) {
+                const imports = importsByType[typeKey];
+                if (imports.length > 1) {
+                    imports.sort((a, b) => a.source.localeCompare(b.source));
                 }
             }
-            
-            // Trier les imports par source au sein de chaque groupe
-            const sortBySource = (a: ParsedImport, b: ParsedImport) => a.source.localeCompare(b.source);
-            
-            defaultImports.sort(sortBySource);
-            namedImports.sort(sortBySource);
-            typeDefaultImports.sort(sortBySource);
-            typeNamedImports.sort(sortBySource);
-            sideEffectImports.sort(sortBySource);
-            
-            // Forcer l'ordre des imports prioritaires selon leur type
-            const priorityDefaultImports = priorityImports.filter(imp => imp.type === 'default');
-            const priorityNamedImports = priorityImports.filter(imp => imp.type === 'named');
-            const priorityTypeDefaultImports = priorityImports.filter(imp => imp.type === 'typeDefault');
-            const priorityTypeNamedImports = priorityImports.filter(imp => imp.type === 'typeNamed');
-            const prioritySideEffectImports = priorityImports.filter(imp => imp.type === 'sideEffect');
-            
-            const orderedPriorityImports = [
-                ...priorityDefaultImports,
-                ...priorityNamedImports,
-                ...priorityTypeDefaultImports,
-                ...priorityTypeNamedImports,
-                ...prioritySideEffectImports
-            ];
-            
-            // Combiner tous les imports dans l'ordre défini par config.typeOrder
-            const orderedOtherImports: ParsedImport[] = [];
-            
-            // Ajouter les imports dans l'ordre défini dans config.typeOrder
-            for (const type of Object.keys(typeOrder).sort((a, b) => typeOrder[a as keyof typeof typeOrder] - typeOrder[b as keyof typeof typeOrder])) {
-                switch (type) {
-                    case 'default':
-                        orderedOtherImports.push(...defaultImports);
-                        break;
-                    case 'named':
-                        orderedOtherImports.push(...namedImports);
-                        break;
-                    case 'typeDefault':
-                        orderedOtherImports.push(...typeDefaultImports);
-                        break;
-                    case 'typeNamed':
-                        orderedOtherImports.push(...typeNamedImports);
-                        break;
-                    case 'sideEffect':
-                        orderedOtherImports.push(...sideEffectImports);
-                        break;
-                }
-            }
-            
-            // Ajouter d'abord les imports prioritaires triés
-            for (const importItem of orderedPriorityImports) {
-                const formattedImport = formatImportLine(importItem);
-                groupResult.importLines.push(formattedImport);
-            }
-            
-            // Puis ajouter les autres imports
-            for (const importItem of orderedOtherImports) {
-                const formattedImport = formatImportLine(importItem);
-                groupResult.importLines.push(formattedImport);
-            }
+
+            // Traiter les imports prioritaires
+            const priorityImportsByType = ['default', 'named', 'typeDefault', 'typeNamed', 'sideEffect']
+                .reduce((acc: ParsedImport[], type) => {
+                    acc.push(...importsByType.priority.filter(imp => imp.type === type));
+                    return acc;
+                }, []);
+
+            // Ajouter les imports dans l'ordre défini
+            groupResult.importLines.push(
+                ...priorityImportsByType.map(formatImportLine),
+                ...Object.keys(typeOrder)
+                    .sort((a, b) => typeOrder[a as keyof typeof typeOrder] - typeOrder[b as keyof typeof typeOrder])
+                    .flatMap(type => importsByType[type].map(formatImportLine))
+            );
             
             if (groupResult.importLines.length > 0) {
                 formattedGroups.push(groupResult);
@@ -421,12 +388,12 @@ function findImportsRange(text: string): { start: number; end: number } | null {
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         
-        if (line.includes('/*')) {
+        if (multilineCommentStartRegex.test(line)) {
             inMultilineComment = true;
         }
         
         if (inMultilineComment) {
-            if (line.includes('*/')) {
+            if (multilineCommentEndRegex.test(line)) {
                 inMultilineComment = false;
             }
             continue;
@@ -438,7 +405,7 @@ function findImportsRange(text: string): { start: number; end: number } | null {
         
         const lineWithoutComment = line.split('//')[0].trim();
         
-        if (lineWithoutComment.startsWith('import ')) {
+        if (importStartRegex.test(lineWithoutComment)) {
             if (startLine === -1) {
                 startLine = i;
             }
@@ -548,7 +515,7 @@ export function formatImports(
         const formattedText = formatImportsFromParser(sourceText, importRange, parserResult, config);
         return { text: formattedText };
     } catch (error: unknown) {
-        const errorMessage = (error as Error).message;
+        const errorMessage = error instanceof Error ? error.message : String(error);
         showMessage.error(`An error occurred while formatting imports: ${errorMessage}`);
         logError(`An error occurred while formatting imports: ${errorMessage}`);
         return { text: sourceText, error: errorMessage };
