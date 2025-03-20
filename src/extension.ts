@@ -19,6 +19,18 @@ export function activate(context: ExtensionContext): void {
     }
   });
 
+  // Ajouter un écouteur pour le formatage automatique lors de la sauvegarde
+  const formatOnSaveDisposable = workspace.onDidSaveTextDocument((document) => {
+    if (configManager.getFormatOnSave()) {
+      const editor = window.activeTextEditor;
+      if (editor && editor.document === document) {
+        commands.executeCommand('extension.formatImports');
+      }
+    }
+  });
+
+  context.subscriptions.push(formatOnSaveDisposable);
+
   configManager.getFormatterConfig();
 
   const formatImportsCommand = commands.registerCommand(
