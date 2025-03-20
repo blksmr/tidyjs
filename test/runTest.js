@@ -31,11 +31,11 @@ function createMockParserResult(sourceText) {
       importGroups: mockConfig.importGroups,
       defaultGroupName: 'Misc',
       typeOrder: {
-        sideEffect: 0,
-        default: 1,
-        named: 2,
-        typeDefault: 3,
-        typeNamed: 4
+        default: 0,
+        named: 1,
+        typeDefault: 2,
+        typeNamed: 3,
+        sideEffect: 4
       },
       patterns: {
         appSubfolderPattern: mockConfig.regexPatterns.appSubfolderPattern

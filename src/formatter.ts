@@ -267,38 +267,20 @@ export function formatImportsFromParser(
                 'sideEffect': 4
             };
             
-            // Trier les imports en respectant l'ordre des types et la priorité
-            const sortedImports = [...imports].sort((a, b) => {
-                // Cas spécial pour React: on trie d'abord par type
-                if (a.source === 'react' && b.source === 'react') {
-                    const typeOrderA = typeOrder[a.type as keyof typeof typeOrder] || 999;
-                    const typeOrderB = typeOrder[b.type as keyof typeof typeOrder] || 999;
-                    return typeOrderA - typeOrderB;
-                }
-                
-                // Si l'un des imports est prioritaire mais pas l'autre
-                if (a.isPriority && !b.isPriority) return -1;
-                if (!a.isPriority && b.isPriority) return 1;
-                
-                // Si les sources sont différentes
-                if (a.source !== b.source) {
-                    return a.source.localeCompare(b.source);
-                }
-                
-                // Si même source (autre que react), on trie par type
-                const typeOrderA = typeOrder[a.type as keyof typeof typeOrder] || 999;
-                const typeOrderB = typeOrder[b.type as keyof typeof typeOrder] || 999;
-                return typeOrderA - typeOrderB;
-            });
+            // Regrouper les imports par type
+            const defaultImports: ParsedImport[] = [];
+            const namedImports: ParsedImport[] = [];
+            const typeDefaultImports: ParsedImport[] = [];
+            const typeNamedImports: ParsedImport[] = [];
+            const sideEffectImports: ParsedImport[] = [];
+            
+            // Traitement spécial pour React
+            const reactImports: ParsedImport[] = [];
             
             // Regrouper les imports par type et source pour éviter les doublons
             const processedImportKeys = new Set<string>();
             
-            // Traitement spécial pour React: on les trie manuellement selon typeOrder
-            const reactImports: ParsedImport[] = [];
-            const otherImports: ParsedImport[] = [];
-            
-            for (const importItem of sortedImports) {
+            for (const importItem of imports) {
                 const importKey = `${importItem.type}:${importItem.source}:${importItem.specifiers.sort().join(',')}`;
                 
                 if (processedImportKeys.has(importKey)) {
@@ -310,9 +292,34 @@ export function formatImportsFromParser(
                 if (importItem.source === 'react') {
                     reactImports.push(importItem);
                 } else {
-                    otherImports.push(importItem);
+                    switch (importItem.type) {
+                        case 'default':
+                            defaultImports.push(importItem);
+                            break;
+                        case 'named':
+                            namedImports.push(importItem);
+                            break;
+                        case 'typeDefault':
+                            typeDefaultImports.push(importItem);
+                            break;
+                        case 'typeNamed':
+                            typeNamedImports.push(importItem);
+                            break;
+                        case 'sideEffect':
+                            sideEffectImports.push(importItem);
+                            break;
+                    }
                 }
             }
+            
+            // Trier les imports par source au sein de chaque groupe
+            const sortBySource = (a: ParsedImport, b: ParsedImport) => a.source.localeCompare(b.source);
+            
+            defaultImports.sort(sortBySource);
+            namedImports.sort(sortBySource);
+            typeDefaultImports.sort(sortBySource);
+            typeNamedImports.sort(sortBySource);
+            sideEffectImports.sort(sortBySource);
             
             // Forcer l'ordre des imports React selon leur type
             const reactDefaultImports = reactImports.filter(imp => imp.type === 'default');
@@ -329,6 +336,30 @@ export function formatImportsFromParser(
                 ...reactSideEffectImports
             ];
             
+            // Combiner tous les imports dans l'ordre défini par config.typeOrder
+            const orderedOtherImports: ParsedImport[] = [];
+            
+            // Ajouter les imports dans l'ordre défini dans config.typeOrder
+            for (const type of Object.keys(typeOrder).sort((a, b) => typeOrder[a as keyof typeof typeOrder] - typeOrder[b as keyof typeof typeOrder])) {
+                switch (type) {
+                    case 'default':
+                        orderedOtherImports.push(...defaultImports);
+                        break;
+                    case 'named':
+                        orderedOtherImports.push(...namedImports);
+                        break;
+                    case 'typeDefault':
+                        orderedOtherImports.push(...typeDefaultImports);
+                        break;
+                    case 'typeNamed':
+                        orderedOtherImports.push(...typeNamedImports);
+                        break;
+                    case 'sideEffect':
+                        orderedOtherImports.push(...sideEffectImports);
+                        break;
+                }
+            }
+            
             // Ajouter d'abord les imports React triés
             for (const importItem of orderedReactImports) {
                 const formattedImport = formatImportLine(importItem);
@@ -336,7 +367,7 @@ export function formatImportsFromParser(
             }
             
             // Puis ajouter les autres imports
-            for (const importItem of otherImports) {
+            for (const importItem of orderedOtherImports) {
                 const formattedImport = formatImportLine(importItem);
                 groupResult.importLines.push(formattedImport);
             }
