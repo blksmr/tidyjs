@@ -9,6 +9,59 @@ const {
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 
+// Importer le parser depuis tidyimport-parser
+let ImportParser;
+try {
+  ImportParser = require('tidyimport-parser').ImportParser;
+} catch (error) {
+  console.error(`${COLORS.RED}${EMOJI.ERROR} Erreur lors de l'importation de tidyimport-parser: ${error.message}${COLORS.RESET}`);
+  process.exit(1);
+}
+
+/**
+ * Crée un résultat de parser simulé pour les tests
+ * @param {string} sourceText - Le texte source à analyser
+ * @returns {Object} - Un objet ParserResult
+ */
+function createMockParserResult(sourceText) {
+  try {
+    // Ne pas détecter les imports dynamiques ici, laisser le formateur le faire
+    const mockConfig = createMockConfig();
+    
+    // Ajuster la configuration pour correspondre aux attentes des tests
+    mockConfig.alignmentSpacing = 10; // Augmenter l'espacement pour l'alignement
+    
+    const parserConfig = {
+      importGroups: mockConfig.importGroups,
+      defaultGroupName: 'Misc',
+      typeOrder: {
+        sideEffect: 0,
+        default: 1,
+        named: 2,
+        typeDefault: 3,
+        typeNamed: 4
+      },
+      patterns: {
+        appSubfolderPattern: mockConfig.regexPatterns.appSubfolderPattern
+      },
+      priorityImports: [/^react$/] // Priorité pour les imports de React
+    };
+    
+    const parser = new ImportParser(parserConfig);
+    const result = parser.parse(sourceText);
+    
+    return result;
+  } catch (error) {
+    console.error(`${COLORS.RED}${EMOJI.ERROR} Erreur lors de l'analyse des imports: ${error.message}${COLORS.RESET}`);
+    return {
+      groups: [],
+      originalImports: [],
+      appSubfolders: [],
+      invalidImports: [{ error: error.message }]
+    };
+  }
+}
+
 Module.prototype.require = function(...args) {
   if (args[0] === 'vscode') {
     return mockVscode;
@@ -80,9 +133,12 @@ function displayTestFailure(testCase, result, testNumber) {
   console.log(`${COLORS.GREEN}Attendu:${COLORS.RESET}`);
   console.log(`${COLORS.DIM}${testCase.expected}${COLORS.RESET}`);
   console.log(`${COLORS.RED}Obtenu:${COLORS.RESET}`);
-  console.log(`${COLORS.DIM}${result}${COLORS.RESET}`);
   
-  printDetailedDiff(testCase.expected, result);
+  // Convertir le résultat en chaîne de caractères s'il s'agit d'un objet
+  const resultStr = typeof result === 'object' ? JSON.stringify(result, null, 2) : result;
+  console.log(`${COLORS.DIM}${resultStr}${COLORS.RESET}`);
+  
+  printDetailedDiff(testCase.expected, resultStr);
 }
 
 function highlightDifferences(str1, str2, isActual = false) {
@@ -188,7 +244,8 @@ function runTests() {
     };
     
     const [result, error, executionTimeMs] = measureExecutionTime(() => {
-      return formatter.formatImports(testCase.input, mockConfig);
+      const mockParserResult = createMockParserResult(testCase.input);
+      return formatter.formatImports(testCase.input, mockConfig, mockParserResult);
     });
     
     results.performance.push({
@@ -237,7 +294,7 @@ function handleTestWithError(error, testCase, testResult, results, testNumber, e
 
 /**
  * Gère un test qui a produit un résultat
- * @param {string} result - Le résultat du test
+ * @param {string|Object} result - Le résultat du test
  * @param {Object} testCase - Le cas de test
  * @param {Object} testResult - Le résultat du test
  * @param {Object} results - Les résultats globaux
@@ -245,21 +302,26 @@ function handleTestWithError(error, testCase, testResult, results, testNumber, e
  * @param {number} executionTimeMs - Le temps d'exécution en ms
  */
 function handleTestWithResult(result, testCase, testResult, results, testNumber, executionTimeMs) {
+  // Extraire la propriété text si le résultat est un objet avec cette propriété
+  const textResult = typeof result === 'object' && result !== null && 'text' in result 
+    ? result.text 
+    : result;
+  
   if (testCase.expectedError) {
     testResult.status = 'failed';
     testResult.expected = `Error: ${testCase.expectedError}`;
-    testResult.actual = result;
+    testResult.actual = textResult;
     results.failed++;
-  } else if (result === testCase.expected) {
+  } else if (textResult === testCase.expected) {
     testResult.status = 'passed';
     results.passed++;
   } else {
     testResult.status = 'failed';
     testResult.input = testCase.input;
     testResult.expected = testCase.expected;
-    testResult.actual = result;
+    testResult.actual = textResult;
     results.failed++;
-    displayTestFailure(testCase, result, testNumber);
+    displayTestFailure(testCase, textResult, testNumber);
   }
 }
 
