@@ -1,6 +1,6 @@
-<div align="center"><img src="./media/icon2.png" width="120" alt="TidyImport Logo" />
-  <h1 align="center">TidyImport</h1>
-  <p align="center">TidyImport is a VSCode extension that automatically organizes and formats import declarations in TypeScript and JavaScript files. It groups imports by customizable categories, perfectly aligns 'from' keywords, and intelligently sorts imports by type and length.</p>
+<div align="center"><img src="./media/icon2.png" width="120" alt="Tidyimport Logo" />
+  <h1 align="center">Tidyimport</h1>
+  <p align="center">Tidyimport is a VSCode extension that automatically organizes and formats import declarations in TypeScript and JavaScript files. It groups imports by customizable categories, perfectly aligns 'from' keywords, and intelligently sorts imports by type and length.</p>
 </div>
 
 ## Features
@@ -85,7 +85,7 @@ import { formatDate } from '@library/helpers';
 
 ## Import Sorting Rules
 
-TidyImport sorts imports according to the following hierarchy:
+Tidyimport sorts imports according to the following hierarchy:
 1. React imports always come first within their group
 2. Side-effect imports (e.g., `import 'module'`)
 3. Default non-type imports
