@@ -16,5 +16,5 @@
   "include": [
     "src/**/*"
   ],
-  "exclude": ["labs/**/*", "test/**/*", "node_modules", ".vscode", ".vscode-test"]
+  "exclude": ["test/**/*", "node_modules", ".vscode", ".vscode-test"]
 }

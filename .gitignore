@@ -8,6 +8,4 @@ dist
 out
 */prompts/**/*
 *.vsix
-labs/dist
-labs/results
 **/.DS_Store
