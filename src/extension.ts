@@ -19,7 +19,6 @@ export function activate(context: ExtensionContext): void {
     }
   });
 
-  // Ajouter un écouteur pour le formatage automatique lors de la sauvegarde
   const formatOnSaveDisposable = workspace.onDidSaveTextDocument((document) => {
     if (configManager.getFormatOnSave()) {
       const editor = window.activeTextEditor;
@@ -105,7 +104,7 @@ export function activate(context: ExtensionContext): void {
 
 function formatImportError(invalidImport: InvalidImport): string {
   if (!invalidImport || !invalidImport.error) {
-    return 'Erreur d\'import inconnue';
+    return 'Unknown import error';
   }
   
   const errorMessage = invalidImport.error;
@@ -123,10 +122,10 @@ function formatImportError(invalidImport: InvalidImport): string {
       const problematicLine = lines[line - 1];
       
       const indicator = ' '.repeat(Math.max(0, column - 1)) + '^';
-      formattedError = `${errorMessage}\nDans: ${problematicLine.trim()}\n${indicator}`;
+      formattedError = `${errorMessage}\nIn: ${problematicLine.trim()}\n${indicator}`;
     }
 
-    formattedError = `${errorMessage}\nDans: ${importStatement.trim()}`;
+    formattedError = `${errorMessage}\nIn: ${importStatement.trim()}`;
   }
   
   return formattedError;
