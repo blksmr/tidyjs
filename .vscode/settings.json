@@ -6,7 +6,7 @@
     "**/.hg": true,
     "**/.DS_Store": true,
     "**/Thumbs.db": true,
-    "**/out/**": true,
+    // "**/out/**": true,
     "**/dist/**": false,
     "**/node_modules": true
   },
