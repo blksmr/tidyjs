@@ -81,7 +81,8 @@ import { formatDate } from '@library/helpers';
 
 - Use VSCode's "Format Document" command (Alt+Shift+F)
 - Use the keyboard shortcut Ctrl+Shift+I (Cmd+Shift+I on macOS)
-- Or use the "Format Imports" command from the command palette
+- Use the "Format Imports" command from the command palette
+- Enable automatic formatting on save by setting `"tidyimport.formatOnSave": true` in your VSCode settings
 
 ## Import Sorting Rules
 
@@ -94,21 +95,3 @@ TidyImport sorts imports according to the following hierarchy:
 6. Named type imports
 
 Within each category, imports are sorted alphabetically.
-
-## Known Issues
-
-If a file begins with a named import containing inline comments, the import may be improperly formatted. This issue is currently being addressed.
-
-```typescript
-// Before
-import {
-  getUserByAge, // Get user by age and ID
-  useDataFromStorage // Hook to get data from storage
-} from '@app/dossier/help';
-
-// After (problematic)
-
-    getUserByAge, // Get user by age and ID
-    useDataFromStorage // Hook to get data from storage
-} from '@app/dossier/help';
-```

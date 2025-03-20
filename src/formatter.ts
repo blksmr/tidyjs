@@ -117,16 +117,13 @@ function cleanUpLines(lines: string[]): string[] {
     const seenGroupComments = new Set<string>();
 
     for (const currentLine of lines) {
-        // Vérifier si c'est un commentaire de groupe
         if (/^\s*\/\/\s+\w+\s*$/.test(currentLine)) {
             const normalizedComment = currentLine.trim();
-            // Si nous avons déjà vu ce commentaire de groupe, l'ignorer
             if (seenGroupComments.has(normalizedComment)) {
                 continue;
             }
             seenGroupComments.add(normalizedComment);
         }
-        // Autres commentaires doublons consécutifs
         else if (isCommentLine(currentLine) && previousLine === currentLine) {
             continue;
         }
@@ -222,22 +219,19 @@ export function formatImportsFromParser(
         if (currentImportText.includes('import(') || 
             currentImportText.includes('React.lazy') ||
             /await\s+import/.test(currentImportText)) {
-            throw new Error("Des imports dynamiques ont été détectés dans la section d'imports statiques");
+            throw new Error('Dynamic imports detected in the static imports section');
         }
         
-        // Créer un mapping des imports par groupe
         const importsByGroupName = new Map<string, ParsedImport[]>();
         
         const sortedGroups = [...parserResult.groups].sort((a, b) => a.order - b.order);
         
-        // Regrouper d'abord tous les imports par groupe
         for (const group of sortedGroups) {
             if (group.imports && group.imports.length) {
                 importsByGroupName.set(group.name, [...group.imports]);
             }
         }
         
-        // Puis formater chaque groupe d'imports
         for (const [groupName, imports] of importsByGroupName.entries()) {
             if (!imports.length) continue;
             
@@ -294,12 +288,10 @@ export function formatImportsFromParser(
             formattedGroups.push(groupResult);
         }
         
-        // Reconstruire le texte formaté, en veillant à ne pas dupliquer les commentaires de groupe
         const formattedLines: string[] = [];
         const processedGroupNames = new Set<string>();
         
         for (const group of formattedGroups) {
-            // N'ajouter le commentaire de groupe que s'il n'a pas déjà été ajouté
             if (!processedGroupNames.has(group.groupName)) {
                 formattedLines.push(group.commentLine);
                 processedGroupNames.add(group.groupName);
@@ -311,8 +303,6 @@ export function formatImportsFromParser(
             formattedLines.push('');
         }
         
-        // Plus besoin de s'inquiéter des doublons de commentaires de groupe ici
-        // car nous les avons déjà filtrés ci-dessus
         const cleanedLines = cleanUpLines(formattedLines);
         const formattedText = cleanedLines.join('\n');
         
@@ -323,7 +313,7 @@ export function formatImportsFromParser(
         );
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        logDebug(`Erreur lors du formatage des imports: ${errorMessage}`);
+        logDebug(`Error while formatting imports: ${errorMessage}`);
         return sourceText;
     }
 }
@@ -338,21 +328,19 @@ function findImportsRange(text: string): { start: number; end: number } | null {
     let dynamicImportLine = -1;
     
     const dynamicImportRegex = /(?:await\s+)?import\s*\(|React\.lazy\s*\(\s*\(\s*\)\s*=>\s*import/;
-    const groupCommentRegex = /^\s*\/\/\s+\w+\s*$/;  // Reconnaître les commentaires de groupe
+    const groupCommentRegex = /^\s*\/\/\s+\w+\s*$/; 
     
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         const lineWithoutComment = line.split('//')[0].trim();
         
-        // Ignorer les lignes vides et les commentaires ordinaires
         if (line === '') {
             continue;
         }
         
-        // Reconnaître les commentaires de groupe comme faisant partie de la section d'imports
         if (groupCommentRegex.test(line)) {
             if (startLine === -1) {
-                startLine = i;  // Le premier commentaire de groupe marque le début de la section d'imports
+                startLine = i;
             }
             continue;
         }
@@ -363,7 +351,7 @@ function findImportsRange(text: string): { start: number; end: number } | null {
             }
             
             if (foundNonImportCode) {
-                logDebug(`Code non-import trouvé avant un import à la ligne ${i+1}`);
+                logDebug(`Non-import code found before an import at line ${i+1}`);
                 return null;
             }
             
@@ -385,14 +373,13 @@ function findImportsRange(text: string): { start: number; end: number } | null {
             dynamicImportLine = i + 1;
             
             if (startLine !== -1) {
-                logDebug(`Import dynamique trouvé à la ligne ${i+1} au milieu des imports statiques`);
+                logDebug(`Dynamic import found at line ${i+1} in the middle of static imports`);
                 return null;
             }
             
             foundNonImportCode = true;
         }
         else if (line.startsWith('//')) {
-            // Ignorer les autres commentaires
             continue;
         }
         else if (lineWithoutComment && !lineWithoutComment.startsWith('export')) {
@@ -406,7 +393,7 @@ function findImportsRange(text: string): { start: number; end: number } | null {
     }
     
     if (foundDynamicImport && startLine !== -1) {
-        logDebug(`Mélange d'imports dynamiques (ligne ${dynamicImportLine}) et statiques (commençant ligne ${startLine+1})`);
+        logDebug(`Mix of dynamic imports (line ${dynamicImportLine}) and static imports (starting line ${startLine+1})`);
         return null;
     }
     
@@ -454,7 +441,7 @@ export function formatImports(
     }
     
     if (!parserResult) {
-        logDebug('Aucun résultat de parser fourni, impossible de formater les imports');
+        logDebug('No parser result provided, unable to format imports');
         return { text: sourceText };
     }
     
@@ -463,8 +450,8 @@ export function formatImports(
         return { text: formattedText };
     } catch (error: unknown) {
         const errorMessage = (error as Error).message;
-        showMessage.error(`Une erreur est survenue lors du formatage des imports: ${errorMessage}`);
-        logError(`Une erreur est survenue lors du formatage des imports: ${errorMessage}`);
+        showMessage.error(`An error occurred while formatting imports: ${errorMessage}`);
+        logError(`An error occurred while formatting imports: ${errorMessage}`);
         return { text: sourceText, error: errorMessage };
     }
 }
