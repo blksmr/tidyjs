@@ -23,39 +23,26 @@ try {
  * @returns {Object} - Un objet ParserResult
  */
 function createMockParserResult(sourceText) {
-  try {
-    // Ne pas détecter les imports dynamiques ici, laisser le formateur le faire
-    const mockConfig = createMockConfig();
-      
-    const parserConfig = {
-      importGroups: mockConfig.importGroups,
-      defaultGroupName: 'Misc',
-      typeOrder: {
-        default: 0,
-        named: 1,
-        typeDefault: 2,
-        typeNamed: 3,
-        sideEffect: 4
-      },
-      patterns: {
-        appSubfolderPattern: mockConfig.regexPatterns.appSubfolderPattern
-      },
-      priorityImports: [/^react$/] // Priorité pour les imports de React
-    };
+  const mockConfig = createMockConfig();
     
-    const parser = new ImportParser(parserConfig);
-    const result = parser.parse(sourceText);
-    
-    return result;
-  } catch (error) {
-    console.error(`${COLORS.RED}${EMOJI.ERROR} Erreur lors de l'analyse des imports: ${error.message}${COLORS.RESET}`);
-    return {
-      groups: [],
-      originalImports: [],
-      appSubfolders: [],
-      invalidImports: [{ error: error.message }]
-    };
-  }
+  const parserConfig = {
+    importGroups: mockConfig.importGroups,
+    defaultGroupName: 'Misc',
+    typeOrder: {
+      default: 0,
+      named: 1,
+      typeDefault: 2,
+      typeNamed: 3,
+      sideEffect: 4
+    },
+    patterns: {
+      appSubfolderPattern: mockConfig.regexPatterns.appSubfolderPattern
+    },
+    priorityImports: [/^react$/] // Priorité pour les imports de React
+  };
+  
+  const parser = new ImportParser(parserConfig);
+  return parser.parse(sourceText);
 }
 
 Module.prototype.require = function(...args) {
@@ -202,6 +189,7 @@ function displayTestResult(testResult, executionTimeMs) {
   } else if (status === 'failed') {
     if (testResult.expectedError) {
       console.log(`${COLORS.RED}${EMOJI.FAILURE} Test ${number}: ${name} - Expected error but got result ${timeInfo}`);
+      console.log(`   ${COLORS.DIM}RESULT: ${testResult.expectedError}${COLORS.RESET}`);
     } else {
       console.log(`${COLORS.RED}${EMOJI.FAILURE} Test ${number}: ${name} ${timeInfo}`);
     }
@@ -248,6 +236,14 @@ function runTests() {
       name: testCase.name,
       executionTimeMs: executionTimeMs.toFixed(2)
     });
+    
+    // Debug des valeurs pour les cas d'erreur
+    if (testCase.expectedError) {
+      console.log('Debug - Test case:', testCase.name);
+      console.log('Expected error:', testCase.expectedError);
+      console.log('Got result:', result);
+      console.log('Got error:', error);
+    }
     
     if (error) {
       handleTestWithError(error, testCase, testResult, results, testNumber, executionTimeMs);
@@ -298,17 +294,27 @@ function handleTestWithError(error, testCase, testResult, results, testNumber, e
  * @param {number} executionTimeMs - Le temps d'exécution en ms
  */
 function handleTestWithResult(result, testCase, testResult, results, testNumber, executionTimeMs) {
+  if (testCase.expectedError) {
+    if (result && typeof result === 'object' && result.error === testCase.expectedError) {
+      testResult.status = 'passed';
+      testResult.isErrorCase = true;
+      testResult.errorMessage = result.error;
+      results.passed++;
+      return;
+    }
+    testResult.status = 'failed';
+    testResult.expected = testCase.expectedError;
+    testResult.actual = result && typeof result === 'object' && result.error ? result.error : JSON.stringify(result);
+    results.failed++;
+    return;
+  }
+
   // Extraire la propriété text si le résultat est un objet avec cette propriété
-  const textResult = typeof result === 'object' && result !== null && 'text' in result 
+  const textResult = result && typeof result === 'object' && 'text' in result 
     ? result.text 
     : result;
-  
-  if (testCase.expectedError) {
-    testResult.status = 'failed';
-    testResult.expected = `Error: ${testCase.expectedError}`;
-    testResult.actual = textResult;
-    results.failed++;
-  } else if (textResult === testCase.expected) {
+
+  if (textResult === testCase.expected) {
     testResult.status = 'passed';
     results.passed++;
   } else {

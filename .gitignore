@@ -10,3 +10,4 @@ out
 *.vsix
 **/.DS_Store
 .clinerules
+memory-bank
