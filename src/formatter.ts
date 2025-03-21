@@ -369,7 +369,7 @@ export function formatImportsFromParser(
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logDebug(`Error while formatting imports: ${errorMessage}`);
-        return sourceText;
+        throw error;
     }
 }
 
@@ -511,6 +511,13 @@ export function formatImports(
         return { text: sourceText };
     }
     
+    if (parserResult.invalidImports && parserResult.invalidImports.length > 0) {
+        return {
+            text: sourceText,
+            error: parserResult.invalidImports[0].error
+        };
+    }
+
     try {
         const formattedText = formatImportsFromParser(sourceText, importRange, parserResult, config);
         return { text: formattedText };
@@ -518,6 +525,6 @@ export function formatImports(
         const errorMessage = error instanceof Error ? error.message : String(error);
         showMessage.error(`An error occurred while formatting imports: ${errorMessage}`);
         logError(`An error occurred while formatting imports: ${errorMessage}`);
-        return { text: sourceText, error: errorMessage };
+        throw new Error(errorMessage);
     }
 }
