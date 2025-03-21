@@ -1,1 +1,0 @@
-// Invalid import statement: Unexpected token '{' in import statement
