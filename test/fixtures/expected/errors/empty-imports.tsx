@@ -1,1 +1,1 @@
-Invalid import statement: Missing module specifier or malformed import declaration
+// Unexpected token, expected "from" (1:16)
