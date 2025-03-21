@@ -116,7 +116,7 @@ const createMockConfig = () => ({
 function loadTestCases() {
   const inputDir = path.join(__dirname, 'fixtures/input')
   const expectedDir = path.join(__dirname, 'fixtures/expected')
-  const errorDir = path.join(__dirname, 'fixtures/errors')
+  const errorDir = path.join(__dirname, 'fixtures/expected/errors')
   const testCases = []
 
   if (!fs.existsSync(errorDir)) {
