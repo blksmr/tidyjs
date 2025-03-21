@@ -70,8 +70,16 @@ fi
 
 echo "Version successfully updated: $NEW_VERSION"
 
-# Create a Git commit with the new version
-git add package.json
+# Delete any existing .vsix files
+echo "Removing existing .vsix files..."
+rm -f *.vsix
+
+# Run npm package command to create a new .vsix file
+echo "Building package..."
+npm run package
+
+# Create a Git commit with the new version and .vsix file
+git add package.json *.vsix
 git commit -m "Bump version to $NEW_VERSION"
 
 # Create a Git tag for the new version
