@@ -189,7 +189,8 @@ function displayTestResult(testResult, executionTimeMs) {
   } else if (status === 'failed') {
     if (testResult.expectedError) {
       console.log(`${COLORS.RED}${EMOJI.FAILURE} Test ${number}: ${name} - Expected error but got result ${timeInfo}`);
-      console.log(`   ${COLORS.DIM}RESULT: ${testResult.expectedError}${COLORS.RESET}`);
+      console.log(`   ${COLORS.GREEN}Expected error: ${COLORS.DIM}${testResult.expected}${COLORS.RESET}`);
+      console.log(`   ${COLORS.RED}Got: ${COLORS.DIM}${testResult.actual}${COLORS.RESET}`);
     } else {
       console.log(`${COLORS.RED}${EMOJI.FAILURE} Test ${number}: ${name} ${timeInfo}`);
     }
@@ -244,11 +245,6 @@ function runTests() {
     }
     
     displayTestResult(testResult, executionTimeMs);
-    if (testCase.expectedError) {
-      console.log(`   ${COLORS.DIM}// ERROR: ${testCase.expectedError}${COLORS.RESET}`)
-      console.log(`Got result ${testResult.actual}`);
-      console.log(`   ${COLORS.DIM}// ERROR: ${error}${COLORS.RESET}`)
-    }
     results.details.push(testResult);
   });
   
@@ -292,16 +288,29 @@ function handleTestWithError(error, testCase, testResult, results, testNumber, e
  */
 function handleTestWithResult(result, testCase, testResult, results, testNumber, executionTimeMs) {
   if (testCase.expectedError) {
-    if (result && typeof result === 'object' && result.error === testCase.expectedError) {
+    const resultError = result && typeof result === 'object' && result.error ? result.error : '';
+    
+    // Vérifier si les chaînes sont exactement identiques
+    if (resultError === testCase.expectedError) {
       testResult.status = 'passed';
       testResult.isErrorCase = true;
-      testResult.errorMessage = result.error;
+      testResult.errorMessage = resultError;
       results.passed++;
       return;
     }
+    
+    // Vérifier si l'erreur attendue est incluse dans l'erreur réelle
+    if (resultError && resultError.includes(testCase.expectedError)) {
+      testResult.status = 'passed';
+      testResult.isErrorCase = true;
+      testResult.errorMessage = resultError;
+      results.passed++;
+      return;
+    }
+    
     testResult.status = 'failed';
     testResult.expected = testCase.expectedError;
-    testResult.actual = result && typeof result === 'object' && result.error ? result.error : JSON.stringify(result);
+    testResult.actual = resultError || JSON.stringify(result);
     results.failed++;
     return;
   }

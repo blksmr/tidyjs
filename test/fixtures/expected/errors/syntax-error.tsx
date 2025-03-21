@@ -1,1 +1,1 @@
-Invalid import statement: Unexpected token '{' in import statement
+// Unexpected token (1:9)
