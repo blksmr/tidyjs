@@ -22,7 +22,7 @@ export function activate(context: ExtensionContext): void {
     });
 
     const formatImportsCommand = commands.registerCommand(
-      'extension.formatImports',
+      'extension.format',
       async () => {
         const editor = window.activeTextEditor;
         if (!editor) {
@@ -91,7 +91,7 @@ export function activate(context: ExtensionContext): void {
       if (configManager.getFormatOnSave()) {
         const editor = window.activeTextEditor;
         if (editor && editor.document === document) {
-          commands.executeCommand('extension.formatImports');
+          commands.executeCommand('extension.format');
         }
       }
     });
