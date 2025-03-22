@@ -3,6 +3,7 @@ export interface ImportGroup {
   regex: RegExp;
   order: number;
   isDefault?: boolean;
+  priority?: number; // Plus le nombre est élevé, plus la priorité est grande
 }
 
 export type ImportType = 'default' | 'named' | 'typeDefault' | 'typeNamed' | 'sideEffect';
