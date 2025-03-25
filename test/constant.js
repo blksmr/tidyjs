@@ -32,62 +32,80 @@ const TEST_CONFIG = {
   showDetailedDiff: true // Option pour afficher ou masquer les différences détaillées
 };
 
+// Définition des configurations par défaut
+const DEFAULT_IMPORT_GROUPS = [
+  { name: 'Misc', regex: '^(react|react-.*|lodash)$', order: 0 },
+  { name: 'DS', regex: '^ds$', order: 1 },
+  { name: '@app', regex: '^@app$', order: 2 }
+];
+
+// Fonctions factory pour les mocks
+const createOutputChannel = (name) => ({
+  name,
+  appendLine: () => {},
+  show: () => {},
+  dispose: () => {},
+  clear: () => {},
+  replace: () => {},
+  append: () => {},
+  hide: () => {}
+});
+
+const createWindowMock = () => ({
+  createOutputChannel: createOutputChannel,
+  showErrorMessage: (msg) => console.error(`${COLORS.RED}${EMOJI.ERROR} [VSCode Error]: ${msg}${COLORS.RESET}`),
+  showInformationMessage: (msg) => console.log(`${COLORS.BLUE}${EMOJI.INFO} [VSCode Info]: ${msg}${COLORS.RESET}`)
+});
+
+const createWorkspaceMock = () => ({
+  getConfiguration: (section) => ({
+    get: (key) => {
+      const config = {
+        importFormatter: {
+          groups: DEFAULT_IMPORT_GROUPS,
+        }
+      };
+      
+      return config[section]?.[key] || null;
+    }
+  })
+});
+
+// Classes de base pour les mocks
+class EventEmitter {
+  constructor() {
+    this.listeners = [];
+  }
+  event = (listener) => {
+    this.listeners.push(listener);
+    return { dispose: () => {} };
+  };
+  fire = (data) => {
+    this.listeners.forEach(listener => listener(data));
+  };
+}
+
+class Position {
+  constructor(line, character) {
+    this.line = line;
+    this.character = character;
+  }
+}
+
+class Range {
+  constructor(startLine, startCharacter, endLine, endCharacter) {
+    this.start = { line: startLine, character: startCharacter };
+    this.end = { line: endLine, character: endCharacter };
+  }
+}
+
+// Création du mockVscode complet
 const mockVscode = {
-  window: {
-    createOutputChannel: (name) => ({
-      name,
-      appendLine: () => {},
-      show: () => {},
-      dispose: () => {},
-      clear: () => {},
-      replace: () => {},
-      append: () => {},
-      hide: () => {}
-    }),
-    showErrorMessage: (msg) => console.error(`${COLORS.RED}${EMOJI.ERROR} [VSCode Error]: ${msg}${COLORS.RESET}`),
-    showInformationMessage: (msg) => console.log(`${COLORS.BLUE}${EMOJI.INFO} [VSCode Info]: ${msg}${COLORS.RESET}`)
-  },
-  workspace: {
-    getConfiguration: (section) => ({
-      get: (key) => {
-        const config = {
-          importFormatter: {
-            groups: [
-              { name: 'Misc', regex: '^(react|react-.*|lodash)$', order: 0 },
-              { name: 'DS', regex: '^ds$', order: 1 },
-              { name: '@app', regex: '^@app$', order: 2 }
-            ],
-          }
-        };
-        
-        return config[section]?.[key] || null;
-      }
-    })
-  },
-  EventEmitter: class EventEmitter {
-    constructor() {
-      this.listeners = [];
-    }
-    event = (listener) => {
-      this.listeners.push(listener);
-      return { dispose: () => {} };
-    };
-    fire = (data) => {
-      this.listeners.forEach(listener => listener(data));
-    };
-  },
-  Position: class Position {
-    constructor(line, character) {
-      this.line = line;
-      this.character = character;
-    }
-  },
-  Range: class Range {
-    constructor(startLine, startCharacter, endLine, endCharacter) {
-      this.start = { line: startLine, character: startCharacter };
-      this.end = { line: endLine, character: endCharacter };
-    }
-  },
+  window: createWindowMock(),
+  workspace: createWorkspaceMock(),
+  EventEmitter,
+  Position,
+  Range,
   commands: {
     registerCommand: (id, handler) => ({ 
       dispose: () => {},
@@ -99,17 +117,25 @@ const mockVscode = {
 
 const createMockConfig = () => ({
   importGroups: [
-    { name: 'Misc', regex: /^(react|react-.*|lodash|date-fns|classnames|@fortawesome|@reach|uuid|@tanstack|ag-grid-community|framer-motion)$/, order: 0 },
-    { name: 'DS', regex: /^ds$/, order: 1 },
-    { name: '@app/dossier', regex: /^@app\/dossier/, order: 2 },
-    { name: '@app', regex: /^@app/, order: 2 },
-    { name: '@core', regex: /^@core/, order: 3 },
-    { name: '@library', regex: /^@library/, order: 4 },
-    { name: 'Utils', regex: /^yutils/, order: 5 },
+    { name: 'Misc', order: 0, priority: 999, isDefault: true, regex: /^(react|react-.*|lodash|date-fns|classnames|@fortawesome|@reach|uuid|@tanstack|ag-grid-community|framer-motion)$/ },
+    { name: 'DS', order: 1, regex: /^ds$/ },
+    { name: '@app/dossier', order: 2, regex: /^@app\/dossier/ },
+    { name: '@app', order: 3, regex: /^@app/ },
+    { name: '@core', order: 4, regex: /^@core/ },
+    { name: '@library', order: 5, regex: /^@library/ },
+    { name: 'Utils', order: 6, regex: /\/utils\// }
   ],
-  regexPatterns: {
-    sectionComment: /^\s*\/\/\s*(?:Misc|DS|@app(?:\/[a-zA-Z0-9_-]+)?|@core|@library|Utils|.*\b(?:misc|ds|dossier|client|notification|core|library|utils)\b.*)\s*$/gim,
-    appSubfolderPattern: /^@app\/([a-zA-Z0-9_-]+)/
+  formatOnSave: false,
+  typeOrder: {
+    default: 0,
+    named: 1,
+    typeDefault: 2,
+    typeNamed: 3,
+    sideEffect: 4
+  },
+  sectionComment: /^\s*\/\/\s*(?:Misc|DS|@app(?:\/[a-zA-Z0-9_-]+)?|@core|@library|Utils|.*\b(?:misc|ds|dossier|client|notification|core|library|utils)\b.*)\s*$/gim,
+  patterns: {
+    subfolderPattern: /^@app\/([a-zA-Z0-9_-]+)/
   }
 });
 
