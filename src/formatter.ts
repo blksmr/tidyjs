@@ -223,6 +223,17 @@ function formatImportLine(importItem: ParsedImport): string {
     return raw;
 }
 
+function extractGroupName(source: string, groupName: string): string {
+    // Si le nom du groupe est déjà un nom spécial, le retourner tel quel
+    if (groupName === 'Misc' || groupName === 'DS' || groupName === 'Utils') {
+        return groupName;
+    }
+    
+    // Sinon chercher le préfixe @app/, @core/, etc.
+    const match = source.match(/@[a-zA-Z]+(?:\/[a-zA-Z]+)?/);
+    return match ? match[0] : groupName;
+}
+
 function formatImportsFromParser(
     sourceText: string,
     importRange: { start: number; end: number },
@@ -240,6 +251,8 @@ function formatImportsFromParser(
         if (dynamicImportTest.test(currentImportText)) {
             throw new Error('Dynamic imports detected in the static imports section');
         }
+
+        const sectionCommentRegex = /^\s*\/\/\s*[A-Za-z@]+.*$/;
         
         const currentLines = currentImportText.split('\n');
         const importsOnly: string[] = [];
@@ -248,23 +261,41 @@ function formatImportsFromParser(
         for (const line of currentLines) {
             const trimmedLine = line.trim();
             
-            if (multilineCommentStartRegex.test(trimmedLine)) {
+            const startCommentIndex = trimmedLine.indexOf('/*');
+            const endCommentIndex = trimmedLine.indexOf('*/');
+            const importIndex = trimmedLine.indexOf('import');
+            
+            // Si le commentaire est sur la même ligne qu'un import
+            if (startCommentIndex !== -1 && endCommentIndex !== -1 && importIndex !== -1) {
+                // Si l'import vient après le commentaire
+                if (importIndex > endCommentIndex) {
+                    // On garde uniquement la partie après le commentaire
+                    importsOnly.push(line.substring(line.indexOf('import')));
+                    continue;
+                }
+            }
+            
+            // Gestion normale des commentaires multilignes
+            if (startCommentIndex !== -1) {
                 inMultilineComment = true;
-                
-                if (multilineCommentEndRegex.test(trimmedLine)) {
+                if (endCommentIndex !== -1) {
                     inMultilineComment = false;
                     continue;
                 }
             }
             
             if (inMultilineComment) {
-                if (multilineCommentEndRegex.test(trimmedLine)) {
+                if (endCommentIndex !== -1) {
                     inMultilineComment = false;
                 }
                 continue;
             }
             
             if (trimmedLine.startsWith('//')) {
+                if (!sectionCommentRegex.test(line)) {
+                    continue;
+                }
+                importsOnly.push(line);
                 continue;
             }
             
@@ -302,9 +333,10 @@ function formatImportsFromParser(
         const formattedGroups: FormattedImportGroup[] = [];
         
         for (const [groupName, { imports }] of importGroupEntries) {
+            const formattedGroupName = groupName.startsWith('@') ? groupName : extractGroupName(imports[0]?.source || '', groupName);
             const groupResult: FormattedImportGroup = {
                 groupName,
-                commentLine: `// ${groupName}`,
+                commentLine: `// ${formattedGroupName}`,
                 importLines: []
             };
 
@@ -320,26 +352,48 @@ function formatImportsFromParser(
             const processedImportKeys = new Set<string>();
             const importKeyCache = new Map<ParsedImport, string>();
 
+            // Trier d'abord les imports par source
+            imports.sort((a, b) => a.source.localeCompare(b.source));
+
+            // Grouper les imports par module source
+            const importsBySource = new Map<string, ParsedImport[]>();
             imports.forEach(importItem => {
-                let importKey = importKeyCache.get(importItem);
-                if (!importKey) {
-                    importKey = `${importItem.type}:${importItem.source}:${importItem.specifiers.sort().join(',')}`;
-                    importKeyCache.set(importItem, importKey);
-                }
-                
-                if (!processedImportKeys.has(importKey)) {
-                    processedImportKeys.add(importKey);
-                    const targetArray = importItem.isPriority ? importsByType.priority : importsByType[importItem.type];
-                    targetArray.push(importItem);
-                }
+                const sourceImports = importsBySource.get(importItem.source) || [];
+                sourceImports.push(importItem);
+                importsBySource.set(importItem.source, sourceImports);
             });
-            
-            const importTypeKeys = Object.keys(importsByType);
-            for (const typeKey of importTypeKeys) {
-                const imports = importsByType[typeKey];
-                if (imports.length > 1) {
-                    imports.sort((a, b) => a.source.localeCompare(b.source));
-                }
+
+            // Pour chaque module source, organiser les imports selon leur type
+            for (const [source, sourceImports] of importsBySource) {
+                sourceImports.sort((a, b) => {
+                    const typeOrderA = typeOrder[a.type as keyof typeof typeOrder];
+                    const typeOrderB = typeOrder[b.type as keyof typeof typeOrder];
+                    return typeOrderA - typeOrderB;
+                });
+
+                // Regrouper les imports par type
+                const defaultImports: ParsedImport[] = [];
+                const namedImports: ParsedImport[] = [];
+                const typeImports: ParsedImport[] = [];
+                const sideEffects: ParsedImport[] = [];
+
+                sourceImports.forEach(imp => {
+                    if (imp.type === 'default') defaultImports.push(imp);
+                    else if (imp.type === 'named') namedImports.push(imp);
+                    else if (imp.type.startsWith('type')) typeImports.push(imp);
+                    else if (imp.type === 'sideEffect') sideEffects.push(imp);
+                });
+
+                // Ajouter les imports dans l'ordre correct
+                [...defaultImports, ...namedImports, ...typeImports, ...sideEffects]
+                    .forEach(imp => {
+                        const importKey = `${imp.type}:${source}:${imp.specifiers.sort().join(',')}`;
+                        if (!processedImportKeys.has(importKey)) {
+                            processedImportKeys.add(importKey);
+                            const targetArray = imp.isPriority ? importsByType.priority : importsByType[imp.type];
+                            targetArray.push(imp);
+                        }
+                    });
             }
 
             const priorityImportsByType = ['default', 'named', 'typeDefault', 'typeNamed', 'sideEffect']

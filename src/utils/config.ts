@@ -1,11 +1,12 @@
 // Misc
 import {
-    TypeOrder,
     ImportGroup,
-    ParserConfig,
     FormatterConfig
 }                   from '../types';
-
+import {
+  TypeOrder,
+  ParserConfig
+}              from 'tidyjs-parser';
 // VSCode
 import vscode from 'vscode';
 
@@ -16,14 +17,13 @@ export interface ConfigChangeEvent {
 
 const DEFAULT_FORMATTER_CONFIG: FormatterConfig = {
   importGroups: [
-    { name: 'Misc', regex: /^(react|react-.*|lodash|date-fns|classnames|@fortawesome|@reach|uuid|@tanstack|ag-grid-community|framer-motion)$/, order: 0, isDefault: true },
-    { name: 'DS', regex: /^ds$/, order: 1 },
-    { name: '@core', regex: /^@core/, order: 3 },
-    { name: '@library', regex: /^@library/, order: 4 },
-    { name: 'Utils', regex: /^yutils/, order: 5 },
+    { name: 'Misc', order: 0, isDefault: true, regex: /^(react|react-.*|lodash|date-fns|classnames|@fortawesome|@reach|uuid|@tanstack|ag-grid-community|framer-motion)$/ },
+    { name: 'DS', order: 1, regex: /^ds$/ },
+    { name: '@core', order: 3, regex: /^@core/ },
+    { name: '@library', order: 4, regex: /^@library/ },
+    { name: 'Utils', order: 5, regex: /^yutils/ },
   ],
   formatOnSave: false,
-  defaultGroupName: 'Misc',
   typeOrder: {
     default: 0,    
     named: 1,      
@@ -31,10 +31,9 @@ const DEFAULT_FORMATTER_CONFIG: FormatterConfig = {
     typeNamed: 3,  
     sideEffect: 4  
   },
-  // priorityImports: [/^react$/],
-  regexPatterns: {
-    sectionComment: /^\s*\/\/\s*(?:Misc|DS|@app(?:\/[a-zA-Z0-9_-]+)?|@core|@library|Utils|.*\b(?:misc|ds|dossier|client|notification|core|library|utils)\b.*)\s*$/gim,
-    appSubfolderPattern: /^@app\/([a-zA-Z0-9_-]+)/
+  sectionComment: /^\s*\/\/\s*(?:Misc|DS|@app(?:\/[a-zA-Z0-9_-]+)?|@core|@library|Utils|.*\b(?:misc|ds|dossier|client|notification|core|library|utils)\b.*)\s*$/gim,
+  patterns: {
+    subfolderPattern: /^@app\/([a-zA-Z0-9_-]+)/
   },
 };
 
@@ -82,8 +81,11 @@ class ConfigManager {
     return sortedGroups;
   }
 
-  public getRegexPatterns(): FormatterConfig['regexPatterns'] {
-    return this.config.regexPatterns;
+  public getRegexPatterns() {
+    return {
+      sectionComment: this.config.sectionComment,
+      subfolderPattern: this.config.patterns?.subfolderPattern
+    };
   }
 
   public registerAppSubfolder(subfolder: string): void {
@@ -106,12 +108,35 @@ class ConfigManager {
 
     const customGroups = vsConfig.get<Array<{ name: string; regex: string; order: number; isDefault?: boolean }>>('groups');
     if (customGroups && customGroups.length > 0) {
-      this.config.importGroups = customGroups.map((group) => ({
-        name: group.name,
-        regex: new RegExp(group.regex),
-        order: group.order,
-        isDefault: group.isDefault || group.name === this.config.defaultGroupName
-      }));
+      this.config.importGroups = customGroups.map((group) => {
+        const regexStr = group.regex || '';
+        let pattern: string;
+        let flags = '';
+
+        if (regexStr && regexStr.startsWith('/') && regexStr.length > 2) {
+          const lastSlashIndex = regexStr.lastIndexOf('/');
+          if (lastSlashIndex > 0) {
+            pattern = regexStr.slice(1, lastSlashIndex);
+            flags = regexStr.slice(lastSlashIndex + 1);
+
+            const validFlags = flags.split('').every(flag => 'gimsuy'.includes(flag));
+            if (!validFlags) {
+              throw new Error(`Invalid regex flags in pattern: ${regexStr}. Valid flags are: g, i, m, s, u, y`);
+            }
+          } else {
+            pattern = regexStr;
+          }
+        } else {
+          pattern = regexStr;
+        }
+
+        return {
+          name: group.name,
+          regex: new RegExp(pattern, flags),
+          order: group.order,
+          isDefault: group.isDefault || false,
+        };
+      });
       this.eventEmitter.fire({ configKey: 'importGroups', newValue: this.config.importGroups });
     }
     const formatOnSave = vsConfig.get<boolean>('formatOnSave');
@@ -120,22 +145,10 @@ class ConfigManager {
       this.eventEmitter.fire({ configKey: 'formatOnSave', newValue: formatOnSave });
     }
 
-    const defaultGroupName = vsConfig.get<string>('defaultGroupName');
-    if (defaultGroupName) {
-      this.config.defaultGroupName = defaultGroupName;
-      this.eventEmitter.fire({ configKey: 'defaultGroupName', newValue: defaultGroupName });
-    }
-
     const typeOrder = vsConfig.get<TypeOrder>('typeOrder');
     if (typeOrder) {
       this.config.typeOrder = typeOrder;
       this.eventEmitter.fire({ configKey: 'typeOrder', newValue: typeOrder });
-    }
-
-    const priorityImportsPatterns = vsConfig.get<string[]>('priorityImports');
-    if (priorityImportsPatterns && priorityImportsPatterns.length > 0) {
-      this.config.priorityImports = priorityImportsPatterns.map(pattern => new RegExp(pattern));
-      this.eventEmitter.fire({ configKey: 'priorityImports', newValue: this.config.priorityImports });
     }
   }
 
@@ -146,11 +159,10 @@ class ConfigManager {
   public getFormatterConfig(): FormatterConfig {
     return {
       importGroups: this.getImportGroups(),
-      regexPatterns: this.getRegexPatterns(),
       formatOnSave: this.config.formatOnSave,
-      defaultGroupName: this.config.defaultGroupName || 'Misc',
       typeOrder: this.config.typeOrder,
-      priorityImports: this.config.priorityImports
+      sectionComment: this.config.sectionComment,
+      patterns: this.config.patterns
     };
   }
 
@@ -161,17 +173,11 @@ class ConfigManager {
     const validGroups = this.getImportGroups().filter(group => group.regex);
     
     return {
-      defaultGroupName: this.config.defaultGroupName || 'Misc',
       typeOrder: this.config.typeOrder,
       patterns: {
-        appSubfolderPattern: this.config.regexPatterns.appSubfolderPattern
+        subfolderPattern: this.config.patterns?.subfolderPattern
       },
-      importGroups: validGroups.map(group => ({
-        name: group.name,
-        regex: group.regex,
-        order: group.order,
-        isDefault: group.isDefault || group.name === (this.config.defaultGroupName || 'Misc')
-      }))
+      importGroups: validGroups
     };
   }
 }

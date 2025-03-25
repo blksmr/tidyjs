@@ -27,17 +27,8 @@ function createMockParserResult(sourceText) {
     
   const parserConfig = {
     importGroups: mockConfig.importGroups,
-    defaultGroupName: 'Misc',
-    typeOrder: {
-      default: 0,
-      named: 1,
-      typeDefault: 2,
-      typeNamed: 3,
-      sideEffect: 4
-    },
-    patterns: {
-      appSubfolderPattern: mockConfig.regexPatterns.appSubfolderPattern
-    }
+    typeOrder: mockConfig.typeOrder,
+    patterns: mockConfig.patterns
   };
   
   const parser = new ImportParser(parserConfig);
