@@ -72,7 +72,7 @@ if (customGroups && customGroups.length > 0) {
     name: group.name,
     regex: new RegExp(group.regex),
     order: group.order,
-    isDefault: group.isDefault || group.name === this.config.defaultGroupName
+    isDefault: group.isDefault
   }));
   // ...
 }

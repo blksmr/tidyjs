@@ -1,6 +1,6 @@
 // Misc
 import { formatImports } from './formatter';
-import { InvalidImport } from './types';
+import { InvalidImport } from 'tidyjs-parser';
 
 // Core
 import {
@@ -118,7 +118,6 @@ export function activate(context: ExtensionContext): void {
     context.subscriptions.push(formatOnSaveDisposable);
   } catch (error) {
     logDebug('Error activating extension:', error);
-    console.error('Error activating extension:', error);
     showMessage.error(`Extension activation error: ${error}`);
   }
 }

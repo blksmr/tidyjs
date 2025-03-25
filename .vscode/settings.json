@@ -6,7 +6,7 @@
     "**/.DS_Store": true,
     "**/Thumbs.db": true,
     "**/dist/**": false,
-    "**/node_modules": false
+    "**/node_modules": true
   },
   "search.exclude": {
     "**/dist/**": true
