@@ -340,74 +340,51 @@ function formatImportsFromParser(
                 importLines: []
             };
 
-            const importsByType: { [key: string]: ParsedImport[] } = {
-                priority: [],
-                default: [],
-                named: [],
-                typeDefault: [],
-                typeNamed: [],
-                sideEffect: []
-            };
+            // Créer une Map pour stocker les imports par type
+            const importsByType = new Map<string, ParsedImport[]>();
 
-            const processedImportKeys = new Set<string>();
-            const importKeyCache = new Map<ParsedImport, string>();
-
-            // Trier d'abord les imports par source
-            imports.sort((a, b) => a.source.localeCompare(b.source));
-
-            // Grouper les imports par module source
-            const importsBySource = new Map<string, ParsedImport[]>();
-            imports.forEach(importItem => {
-                const sourceImports = importsBySource.get(importItem.source) || [];
-                sourceImports.push(importItem);
-                importsBySource.set(importItem.source, sourceImports);
+            // Initialiser la Map avec tous les types possibles
+            Object.keys(typeOrder).forEach(type => {
+                importsByType.set(type, []);
             });
 
-            // Pour chaque module source, organiser les imports selon leur type
-            for (const [source, sourceImports] of importsBySource) {
-                sourceImports.sort((a, b) => {
-                    const typeOrderA = typeOrder[a.type as keyof typeof typeOrder];
-                    const typeOrderB = typeOrder[b.type as keyof typeof typeOrder];
-                    return typeOrderA - typeOrderB;
-                });
-
-                // Regrouper les imports par type
-                const defaultImports: ParsedImport[] = [];
-                const namedImports: ParsedImport[] = [];
-                const typeImports: ParsedImport[] = [];
-                const sideEffects: ParsedImport[] = [];
-
-                sourceImports.forEach(imp => {
-                    if (imp.type === 'default') defaultImports.push(imp);
-                    else if (imp.type === 'named') namedImports.push(imp);
-                    else if (imp.type.startsWith('type')) typeImports.push(imp);
-                    else if (imp.type === 'sideEffect') sideEffects.push(imp);
-                });
-
-                // Ajouter les imports dans l'ordre correct
-                [...defaultImports, ...namedImports, ...typeImports, ...sideEffects]
-                    .forEach(imp => {
-                        const importKey = `${imp.type}:${source}:${imp.specifiers.sort().join(',')}`;
-                        if (!processedImportKeys.has(importKey)) {
-                            processedImportKeys.add(importKey);
-                            const targetArray = imp.isPriority ? importsByType.priority : importsByType[imp.type];
-                            targetArray.push(imp);
-                        }
-                    });
+            // Grouper les imports par type
+            for (const importItem of imports) {
+                const typeArray = importsByType.get(importItem.type) || [];
+                typeArray.push(importItem);
+                importsByType.set(importItem.type, typeArray);
             }
 
-            const priorityImportsByType = ['default', 'named', 'typeDefault', 'typeNamed', 'sideEffect']
-                .reduce((acc: ParsedImport[], type) => {
-                    acc.push(...importsByType.priority.filter(imp => imp.type === type));
-                    return acc;
-                }, []);
+            // Fonction de tri principale qui respecte toutes les règles
+            const compareImports = (a: ParsedImport, b: ParsedImport): number => {
+                // Priorité 1: Type d'import selon typeOrder
+                const typeCompare = typeOrder[a.type as keyof typeof typeOrder] - typeOrder[b.type as keyof typeof typeOrder];
+                if (typeCompare !== 0) return typeCompare;
+                
+                // Priorité 2: Source spéciale (React)
+                const isReactA = a.source.toLowerCase() === 'react';
+                const isReactB = b.source.toLowerCase() === 'react';
+                if (isReactA && !isReactB) return -1;
+                if (!isReactA && isReactB) return 1;
+                
+                // Priorité 3: Ordre alphabétique des sources
+                const sourceCompare = a.source.localeCompare(b.source);
+                if (sourceCompare !== 0) return sourceCompare;
+                
+                // Priorité 4: Longueur des spécificateurs (pour les imports nommés multiples)
+                if ((a.type === 'named' || a.type === 'typeNamed') &&
+                    (b.type === 'named' || b.type === 'typeNamed') &&
+                    a.specifiers.length > 1 && b.specifiers.length > 1) {
+                    return a.specifiers[0].length - b.specifiers[0].length;
+                }
+                
+                return 0;
+            };
+            
+            // Trier tous les imports avec notre fonction de comparaison
+            const orderedImports = [...imports].sort(compareImports);
 
-            groupResult.importLines.push(
-                ...priorityImportsByType.map(formatImportLine),
-                ...Object.keys(typeOrder)
-                    .sort((a, b) => typeOrder[a as keyof typeof typeOrder] - typeOrder[b as keyof typeof typeOrder])
-                    .flatMap(type => importsByType[type].map(formatImportLine))
-            );
+            groupResult.importLines.push(...orderedImports.map(formatImportLine));
             
             if (groupResult.importLines.length > 0) {
                 formattedGroups.push(groupResult);

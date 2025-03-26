@@ -58,10 +58,9 @@ class ConfigManager {
     const appSubfolderGroups = Array.from(this.appSubfolders.values());
 
     const sortedGroups = [...baseGroups, ...appSubfolderGroups].sort((a, b) => {
-      if (a.name === 'Misc') return -1;
-      if (b.name === 'Misc') return 1;
-      if (a.name === 'DS') return -1;
-      if (b.name === 'DS') return 1;
+      // Groupe par défaut (Misc) toujours en premier
+      if (a.isDefault) return -1;
+      if (b.isDefault) return 1;
 
       const aIsApp = a.name.startsWith('@app');
       const bIsApp = b.name.startsWith('@app');
@@ -69,12 +68,14 @@ class ConfigManager {
       if (aIsApp && !bIsApp) return -1;
       if (!aIsApp && bIsApp) return 1;
 
+      // Tri des sous-dossiers @app
       if (aIsApp && bIsApp) {
         if (a.name === '@app') return 1;
         if (b.name === '@app') return -1;
         return a.name.localeCompare(b.name);
       }
 
+      // Tri par ordre pour tous les autres groupes
       return a.order - b.order;
     });
 
