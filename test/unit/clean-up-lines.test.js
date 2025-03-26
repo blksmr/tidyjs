@@ -1,4 +1,4 @@
-const { cleanUpLines } = require('../../src/formatter');
+const { cleanUpLines } = require('../../out/formatter');
 
 // Test pour valider la gestion des commentaires multilignes
 describe('cleanUpLines', () => {
