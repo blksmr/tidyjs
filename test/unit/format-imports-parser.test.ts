@@ -15,12 +15,16 @@ describe('formatImportsFromParser', () => {
     const parserConfig = {
       importGroups: config.importGroups,
       typeOrder: config.typeOrder,
-      patterns: {
-        subfolderPattern: config.patterns?.subfolderPattern
-      }
+      patterns: config.patterns
     };
+    console.log('Import groups:', parserConfig.importGroups.map(g => ({
+      name: g.name,
+      regex: g.regex.toString()
+    })));
     const parser = new ImportParser(parserConfig);
-    return parser.parse(sourceText);
+    const result = parser.parse(sourceText);
+    console.log('Parser result:', result);
+    return result;
   }
 
   test('correctly processes multiline comments that start and end on the same line', () => {
