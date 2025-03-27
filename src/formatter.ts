@@ -421,7 +421,7 @@ function formatImportsFromParser(
     }
 }
 
-function findImportsRange(text: string): { start: number; end: number } | null {
+function findImportsRange(text: string) {
     const lines = text.split('\n');
     let startLine = -1;
     let endLine = -1;
@@ -508,8 +508,6 @@ function findImportsRange(text: string): { start: number; end: number } | null {
     }
     
     if (startLine === -1) {
-        // Si on a trouvé des imports dynamiques mais pas d'imports statiques,
-        // on retourne null comme attendu par les tests
         if (foundDynamicImport) {
             return null;
         }

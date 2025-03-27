@@ -123,7 +123,7 @@ const createMockConfig = () => ({
     { name: '@app', order: 3, regex: /^@app/ },
     { name: '@core', order: 4, regex: /^@core/ },
     { name: '@library', order: 5, regex: /^@library/ },
-    { name: 'Utils', order: 6, regex: /\butils\b/ }
+    { name: 'Utils', order: 6, regex: /^(?:\.\/)?([^\/]*utils[^\/]*)(?:\/|$)/ }
   ],
   formatOnSave: false,
   typeOrder: {
