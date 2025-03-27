@@ -1,4 +1,4 @@
-const { findImportsRange } = require('../../src/formatter');
+import { findImportsRange } from '../../src/formatter';
 
 describe('findImportsRange', () => {
   test('identifie correctement la plage d\'imports, même avec des commentaires multilignes compacts', () => {
@@ -21,17 +21,18 @@ function someFunction() {
     
     // Vérifier que la plage couvre tous les imports
     expect(result).not.toBeNull();
-    expect(result.start).toBeLessThan(result.end);
+    if (result !== null) {
+      expect(result.start).toBeLessThan(result.end);
+      const importText = source.substring(result.start, result.end);
     
-    const importText = source.substring(result.start, result.end);
+      // Vérifier que tous les imports sont inclus
+      expect(importText).toContain("import { FormatterConfig } from './types';");
+      expect(importText).toContain("import { ParsedImport } from 'tidyjs-parser';");
+      expect(importText).toContain("import { logDebug } from './utils/log';");
     
-    // Vérifier que tous les imports sont inclus
-    expect(importText).toContain("import { FormatterConfig } from './types';");
-    expect(importText).toContain("import { ParsedImport } from 'tidyjs-parser';");
-    expect(importText).toContain("import { logDebug } from './utils/log';");
-    
-    // Vérifier que le code après les imports n'est pas inclus
-    expect(importText).not.toContain("function someFunction()");
+      // Vérifier que le code après les imports n'est pas inclus
+      expect(importText).not.toContain("function someFunction()");
+    }
   });
 
 describe('Dynamic imports detection', () => {
@@ -95,14 +96,15 @@ function someFunction() {
     
     // Vérifier que la plage couvre tous les imports
     expect(result).not.toBeNull();
-    expect(result.start).toBeLessThan(result.end);
+    if (result !== null) {
+      expect(result.start).toBeLessThan(result.end);
+      const importText = source.substring(result.start, result.end);
     
-    const importText = source.substring(result.start, result.end);
-    
-    // Vérifier que tous les imports sont inclus
-    expect(importText).toContain("import { FormatterConfig } from './types';");
-    expect(importText).toContain("import { ParsedImport } from 'tidyjs-parser';");
-    expect(importText).toContain("import { logDebug } from './utils/log';");
+      // Vérifier que tous les imports sont inclus
+      expect(importText).toContain("import { FormatterConfig } from './types';");
+      expect(importText).toContain("import { ParsedImport } from 'tidyjs-parser';");
+      expect(importText).toContain("import { logDebug } from './utils/log';");
+    }
   });
   
   test('gère correctement les imports à côté des commentaires multilignes', () => {
@@ -124,12 +126,13 @@ function someFunction() {
     
     // Vérifier que la plage couvre tous les imports
     expect(result).not.toBeNull();
-    expect(result.start).toBeLessThan(result.end);
+    if (result !== null) {
+      expect(result.start).toBeLessThan(result.end);
+      const importText = source.substring(result.start, result.end);
     
-    const importText = source.substring(result.start, result.end);
-    
-    // Vérifier que le commentaire multiligne est inclus
-    expect(importText).toContain("/* Commentaire */ import { ParsedImport }");
+      // Vérifier que le commentaire multiligne est inclus
+      expect(importText).toContain("/* Commentaire */ import { ParsedImport }");
+    }
   });
   
   test('ignore les imports à l\'intérieur des commentaires multilignes', () => {
@@ -153,14 +156,15 @@ function someFunction() {
     
     // Vérifier que la plage couvre tous les imports réels
     expect(result).not.toBeNull();
-    expect(result.start).toBeLessThan(result.end);
+    if (result !== null) {
+      expect(result.start).toBeLessThan(result.end);
+      const importText = source.substring(result.start, result.end);
     
-    const importText = source.substring(result.start, result.end);
-    
-    // L'import dans le commentaire doit être ignoré pour le traitement
-    // mais sera inclus dans la plage de texte
-    expect(importText).toContain("import { FormatterConfig } from './types';");
-    expect(importText).toContain("import { logDebug } from './utils/log';");
+      // L'import dans le commentaire doit être ignoré pour le traitement
+      // mais sera inclus dans la plage de texte
+      expect(importText).toContain("import { FormatterConfig } from './types';");
+      expect(importText).toContain("import { logDebug } from './utils/log';");
+    }
   });
   
   test('ne s\'interrompt pas par des commentaires multilignes qui commencent et finissent sur la même ligne', () => {
@@ -183,13 +187,14 @@ function someFunction() {
     
     // Vérifier que la plage couvre tous les imports
     expect(result).not.toBeNull();
+    if (result !== null) {
+      const importText = source.substring(result.start, result.end);
     
-    const importText = source.substring(result.start, result.end);
-    
-    // Vérifier que tous les imports sont inclus
-    expect(importText).toContain("import { FormatterConfig } from './types';");
-    expect(importText).toContain("import { ParsedImport } from 'tidyjs-parser';");
-    expect(importText).toContain("import { logDebug } from './utils/log';");
+      // Vérifier que tous les imports sont inclus
+      expect(importText).toContain("import { FormatterConfig } from './types';");
+      expect(importText).toContain("import { ParsedImport } from 'tidyjs-parser';");
+      expect(importText).toContain("import { logDebug } from './utils/log';");
+    }
   });
   
   test('gère correctement les commentaires imbriqués dans les imports', () => {
@@ -211,13 +216,14 @@ function someFunction() {
     
     // Vérifier que la plage couvre tous les imports
     expect(result).not.toBeNull();
+    if (result !== null) {
+      const importText = source.substring(result.start, result.end);
     
-    const importText = source.substring(result.start, result.end);
-    
-    // Vérifier que tous les imports sont inclus
-    expect(importText).toContain("import {");
-    expect(importText).toContain("FormatterConfig");
-    expect(importText).toContain("} from './types';");
-    expect(importText).toContain("import { logDebug } from './utils/log';");
+      // Vérifier que tous les imports sont inclus
+      expect(importText).toContain("import {");
+      expect(importText).toContain("FormatterConfig");
+      expect(importText).toContain("} from './types';");
+      expect(importText).toContain("import { logDebug } from './utils/log';");
+    }
   });
 });
