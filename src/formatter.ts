@@ -21,7 +21,6 @@ import {
 const fromKeywordRegex = /\bfrom\b/;
 const multilineCommentStartRegex = /\/\*/;
 const multilineCommentEndRegex = /\*\//;
-const importStartRegex = /^import\s/;
 
 function alignFromKeyword(line: string, fromIndex: number, maxFromIndex: number): string {
     if (fromIndex <= 0 || !fromKeywordRegex.test(line)) {
@@ -408,7 +407,6 @@ function formatImportsFromParser(
 }
 
 function findImportsRange(text: string) {
-    const lines = text.split('\n');
     let startLine = -1;
     let endLine = -1;
     let inMultilineImport = false;
@@ -417,118 +415,191 @@ function findImportsRange(text: string) {
     let foundDynamicImport = false;
     let dynamicImportLine = -1;
     
-    const dynamicImportRegex = /(?:await\s+)?import\s*\(/;
+    const lineStartPositions = [0];
+    let currentLine = 0;
     
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+    let i = 0;
+    let lineStart = 0;
+    let inLineComment = false;
+    
+    const maxLinesToCheck = 100;
+    
+    while (i < text.length && currentLine < maxLinesToCheck) {
+      const char = text[i];
+      const nextChar = text[i + 1] || '';
+      
+      if (char === '\n') {
+        inLineComment = false;
         
-        if (multilineCommentStartRegex.test(line)) {
-            inMultilineComment = true;
-            
-            if (multilineCommentEndRegex.test(line)) {
-                inMultilineComment = false;
-                continue;
-            }
+        lineStart = i + 1;
+        currentLine++;
+        lineStartPositions.push(lineStart);
+        i++;
+        continue;
+      }
+      
+      if (i === lineStart && /\s/.test(char)) {
+        i++;
+        continue;
+      }
+      
+      if (char === '/' && nextChar === '/' && !inMultilineComment && !inLineComment) {
+        inLineComment = true;
+        i += 2;
+        continue;
+      }
+      
+      if (inLineComment) {
+        i++;
+        continue;
+      }
+      
+      if (char === '/' && nextChar === '*' && !inMultilineComment) {
+        inMultilineComment = true;
+        i += 2;
+        continue;
+      }
+      
+      if (inMultilineComment) {
+        if (char === '*' && nextChar === '/') {
+          inMultilineComment = false;
+          i += 2;
+        } else {
+          i++;
         }
-        
-        if (inMultilineComment) {
-            if (multilineCommentEndRegex.test(line)) {
-                inMultilineComment = false;
-            }
-            continue;
-        }
-        
-        if (line === '' || line.startsWith('//')) {
-            continue;
-        }
-        
-        const lineWithoutComment = line.split('//')[0].trim();
-        
-        if (importStartRegex.test(lineWithoutComment)) {
-            if (startLine === -1) {
-                startLine = i;
-            }
-            
-            if (foundNonImportCode) {
-                logDebug(`Non-import code found before an import at line ${i+1}`);
-                return null;
-            }
-            
-            if (lineWithoutComment.includes('{') && !lineWithoutComment.includes('}') && !lineWithoutComment.endsWith(';')) {
-                inMultilineImport = true;
-            } else if (lineWithoutComment.endsWith(';')) {
-                endLine = i;
-                inMultilineImport = false;
-            }
-        }
-        else if (inMultilineImport) {
-            if (lineWithoutComment.includes('}') && lineWithoutComment.endsWith(';')) {
-                endLine = i;
-                inMultilineImport = false;
-            }
-        }
-        else if (dynamicImportRegex.test(lineWithoutComment)) {
+        continue;
+      }
+      
+      if (i === lineStart || (i > lineStart && /\s/.test(text.substring(lineStart, i).trim()))) {
+        if (text.substring(i, i + 6) === 'import' && 
+            (text[i + 6] === ' ' || text[i + 6] === '\t' || text[i + 6] === '(')) {
+          
+          if (text[i + 6] === '(') {
             foundDynamicImport = true;
-            dynamicImportLine = i + 1;
+            dynamicImportLine = currentLine + 1;
             
             if (startLine !== -1) {
-                logDebug(`Dynamic import found at line ${i+1} in the middle of static imports`);
-                return null;
+              logDebug(`Dynamic import found at line ${dynamicImportLine} in the middle of static imports`);
+              return null;
             }
             
             foundNonImportCode = true;
-        }
-        else if (lineWithoutComment && !lineWithoutComment.startsWith('export')) {
-            if (startLine !== -1 && !foundNonImportCode) {
-                foundNonImportCode = true;
+            i += 7;
+            continue;
+          }
+          
+          if (startLine === -1) {
+            startLine = currentLine;
+          }
+          
+          if (foundNonImportCode) {
+            logDebug(`Non-import code found before an import at line ${currentLine+1}`);
+            return null;
+          }
+          
+          let j = i;
+          let bracesCount = 0;
+          let foundOpenBrace = false;
+          
+          while (j < text.length) {
+            const c = text[j];
+            
+            if (c === '{') {
+              foundOpenBrace = true;
+              bracesCount++;
+            } else if (c === '}') {
+              bracesCount--;
+            } else if (c === ';') {
+              if (!foundOpenBrace || bracesCount === 0) {
+                endLine = currentLine;
+                inMultilineImport = false;
                 break;
+              }
+            } else if (c === '\n') {
+              if (foundOpenBrace && bracesCount > 0) {
+                inMultilineImport = true;
+              }
+              break;
             }
             
-            foundNonImportCode = true;
+            j++;
+          }
+          
+          i = j + 1;
+          continue;
         }
+      }
+      
+      const restOfLine = text.substring(i).split('\n')[0].trim();
+      if (restOfLine && !restOfLine.startsWith('export') && !inMultilineImport) {
+        if (startLine !== -1 && !foundNonImportCode) {
+          foundNonImportCode = true;
+          break;
+        }
+        
+        foundNonImportCode = true;
+      }
+      
+      i++;
     }
     
     if (foundDynamicImport && startLine !== -1) {
-        logDebug(`Mix of dynamic imports (line ${dynamicImportLine}) and static imports (starting line ${startLine+1})`);
-        return null;
+      logDebug(`Mix of dynamic imports (line ${dynamicImportLine}) and static imports (starting line ${startLine+1})`);
+      return null;
     }
     
     if (startLine === -1) {
-        if (foundDynamicImport) {
-            return null;
-        }
-        return { start: 0, end: 0 };
+      if (foundDynamicImport) {
+        return null;
+      }
+      return { start: 0, end: 0 };
     }
     
     while (startLine > 0) {
-        const prevLine = lines[startLine - 1].trim();
-        if (prevLine === '' || prevLine.startsWith('//') || prevLine.includes('/*')) {
-            startLine--;
-        } else {
-            break;
-        }
+      const prevLineStart = lineStartPositions[startLine - 1];
+      const prevLineEnd = lineStartPositions[startLine] - 1;
+      const prevLine = text.substring(prevLineStart, prevLineEnd).trim();
+      
+      if (prevLine === '' || prevLine.startsWith('//') || prevLine.includes('/*')) {
+        startLine--;
+      } else {
+        break;
+      }
     }
     
-    const startPos = lines.slice(0, startLine).join('\n').length + (startLine > 0 ? 1 : 0);
-    const endPos = lines.slice(0, endLine + 1).join('\n').length;
+    const finalStartPos = lineStartPositions[startLine];
+    const finalEndPos = endLine >= 0 ? 
+      (lineStartPositions[endLine + 1] || text.length) : 
+      (lineStartPositions[startLine + 1] || text.length);
     
-    const remainingText = text.substring(endPos);
-    const remainingLines = remainingText.split('\n');
-    let additionalLines = 0;
+    let additionalEndPos = finalEndPos;
+    let pos = finalEndPos;
     
-    for (const line of remainingLines) {
+    while (pos < text.length) {
+      if (text[pos] === '\n') {
+        const lineStart = pos + 1;
+        const nextLineBreak = text.indexOf('\n', lineStart);
+        const lineEnd = nextLineBreak !== -1 ? nextLineBreak : text.length;
+        const line = text.substring(lineStart, lineEnd);
+        
         if (line.trim() === '') {
-            additionalLines += line.length + 1;
+          additionalEndPos = lineEnd + 1;
+          pos = lineEnd + 1;
         } else {
-            break;
+          break;
         }
+      } else if (/\s/.test(text[pos])) {
+        pos++;
+      } else {
+        break;
+      }
     }
     
-    return { 
-        start: startPos, 
-        end: endPos + additionalLines 
+    return {
+      start: finalStartPos,
+      end: additionalEndPos
     };
-}
+  }
 
 function formatImports(
     sourceText: string, 
@@ -552,11 +623,6 @@ function formatImports(
         logDebug('No parser result provided, unable to format imports');
         return { text: sourceText };
     }
-
-    const hasMultilineImports = parserResult.originalImports.some(imp => imp.includes('\n'));
-    if (hasMultilineImports) {
-        logDebug('Multiline imports detected, forcing reformat');
-    }
     
     if (parserResult.invalidImports && parserResult.invalidImports.length > 0) {
         return {
@@ -567,29 +633,6 @@ function formatImports(
 
     try {
         let formattedText = formatImportsFromParser(sourceText, importRange, parserResult, config);
-        
-        if (hasMultilineImports) {
-            for (let i = 0; i < parserResult.originalImports.length; i++) {
-                const originalImport = parserResult.originalImports[i];
-                
-                if (originalImport.includes('\n')) {
-                    const importMatch = originalImport.match(/import\s+(\{[^}]+\})\s+from\s+['"](.*?)['"];/s);
-                    
-                    if (importMatch) {
-                        const specifiers = importMatch[1].replace(/\s+/g, ' ').trim();
-                        const source = importMatch[2].replace(/\s+/g, '').trim();
-                        
-                        const formattedImport = `import ${specifiers} from '${source}';`;
-                        
-                        logDebug(`Reformatting multiline import: "${originalImport}" -> "${formattedImport}"`);
-                        
-                        if (formattedText.includes(originalImport)) {
-                            formattedText = formattedText.replace(originalImport, formattedImport);
-                        }
-                    }
-                }
-            }
-        }
         
         if (formattedText !== sourceText) {
             return { text: formattedText };

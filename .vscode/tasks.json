@@ -18,10 +18,19 @@
             }
         },
         {
+            "label": "build",
+            "type": "npm",
+            "script": "compile", // ou le script approprié dans votre package.json
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
             "type": "npm",
             "script": "watch:esbuild",
             "group": "build",
-            "problemMatcher": "$esbuild-watch",
+            "problemMatcher": "$tsc-watch",
             "isBackground": true,
             "label": "npm: watch:esbuild",
             "presentation": {
