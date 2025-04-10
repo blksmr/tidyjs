@@ -183,5 +183,12 @@
     "tidyjs-parser": "github:asmirbe/tidyjs-parser#main",
     "ts-jest": "^29.2.6",
     "typescript": "^5.8.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@vscode/vsce-sign",
+      "esbuild",
+      "keytar"
+    ]
   }
 }
