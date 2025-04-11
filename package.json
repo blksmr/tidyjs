@@ -76,7 +76,7 @@
                 },
                 "then": {
                   "required": [
-                    "regex"
+                    "match"
                   ]
                 }
               },
@@ -90,7 +90,7 @@
                 },
                 "then": {
                   "required": [
-                    "regex"
+                    "match"
                   ]
                 }
               }
@@ -100,7 +100,7 @@
                 "type": "string",
                 "description": "Name of the import group"
               },
-              "regex": {
+              "match": {
                 "type": "string",
                 "description": "Regular expression to match import sources"
               },
@@ -114,11 +114,11 @@
               },
               "priority": {
                 "type": "number",
-                "description": "Group priority when regex patterns overlap (higher value means higher priority)"
+                "description": "Group priority when match patterns overlap (higher value means higher priority)"
               }
             }
           },
-          "description": "Import groups (imports matching a regex are placed in the corresponding group)"
+          "description": "Import groups (imports matching a match are placed in the corresponding group)"
         },
         "tidyjs.formatOnSave": {
           "type": "boolean",
