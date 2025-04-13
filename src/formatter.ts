@@ -242,6 +242,7 @@ function formatImportsFromParser(
     parserResult: ParserResult,
     config: Config,
 ): string {
+    
     if (importRange.start === importRange.end || !parserResult.groups.length) {
         return sourceText;
     }
@@ -351,6 +352,7 @@ function formatImportsFromParser(
 
             const compareImports = (a: ParsedImport, b: ParsedImport): number => {
                 const typeCompare = importOrder[a.type as keyof typeof importOrder] - importOrder[b.type as keyof typeof importOrder];
+                
                 if (typeCompare !== 0) return typeCompare;
                 
                 const isReactA = a.source.toLowerCase() === 'react';

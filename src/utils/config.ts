@@ -65,24 +65,26 @@ class ConfigManager {
   public getGroups(): Config['groups'] {
     const baseGroups = [...this.config.groups];
     const subfolderGroups = Array.from(this.subfolders.values());
+    const appModulePattern = this.config.patterns?.appModules;
 
     const sortedGroups = [...baseGroups, ...subfolderGroups].sort((a, b) => {
       // Groupe par défaut toujours en premier
       if (a.isDefault) return -1;
       if (b.isDefault) return 1;
 
-      const aIsApp = a.name.startsWith('@app');
-      const bIsApp = b.name.startsWith('@app');
+      const aIsApp = appModulePattern?.test(a.name) ?? false;
+      const bIsApp = appModulePattern?.test(b.name) ?? false;
+
 
       if (aIsApp && !bIsApp) return -1;
       if (!aIsApp && bIsApp) return 1;
 
-      // Tri des sous-dossiers @app
+      // Tri des sous-dossiers
       if (aIsApp && bIsApp) {
-        if (a.name === '@app') return 1;
-        if (b.name === '@app') return -1;
+        if (a.name === appModulePattern?.source) return 1;
+        if (b.name === appModulePattern?.source) return -1;
         return a.name.localeCompare(b.name);
-      }
+    }
 
       // Tri par ordre pour tous les autres groupes
       return a.order - b.order;

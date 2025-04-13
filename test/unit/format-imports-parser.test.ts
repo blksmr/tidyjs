@@ -31,16 +31,16 @@ import { logDebug as debug } from './utils/log';`;
     const parserResult = createParserResult(source);
 
     const result = formatImportsFromParser(source, importRange, parserResult, config);
+    console.log('🚀 ~ format-imports-parser.test.ts:34 ~ test ~ result:', result);
 
     expect(result).toBe(
       `// Misc
-import React                         from 'react';
-import { FormatterConfig as Config } from 'react';
-import { ParsedImport as Parser }    from 'tidyjs-parser';
-
-// Utils
-import { logDebug as debug } from './utils/log';
-
+    import React                         from 'react';
+    import { FormatterConfig as Config } from 'react';
+    import { ParsedImport as Parser }    from 'tidyjs-parser';
+    
+    // Utils
+    import { logDebug as debug } from './utils/log';
 `
     );
   });
