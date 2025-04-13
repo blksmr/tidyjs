@@ -18,7 +18,6 @@ describe('cleanUpLines', () => {
       'import React from "react";',
       '// Misc',
       'import lodash from "lodash";',
-      '',
       ''
     ]);
   });
@@ -52,8 +51,7 @@ describe('cleanUpLines', () => {
       'import lodash from "lodash";'
     ];
     
-    const result = cleanUpLines(lines);
-    
+    const result = cleanUpLines(lines);    
     // Vérifier que tout le bloc de commentaire est ignoré
     expect(result).toEqual([
       '// Core',
@@ -61,7 +59,6 @@ describe('cleanUpLines', () => {
       'import { useState } from "react";',
       '// Misc',
       'import lodash from "lodash";',
-      '',
       ''
     ]);
   });
@@ -130,7 +127,6 @@ describe('cleanUpLines', () => {
       'import React from "react";',
       '',
       'import { useState } from "react";',
-      '',
       ''
     ]);
   });
