@@ -131,7 +131,9 @@ function someFunction() {
       const importText = source.substring(result.start, result.end);
     
       // Vérifier que le commentaire multiligne est inclus
-      expect(importText).toContain("/* Commentaire */ import { ParsedImport }");
+      expect(importText).toContain(`
+// Misc
+import { FormatterConfig } from './types';`);
     }
   });
   

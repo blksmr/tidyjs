@@ -34,10 +34,10 @@ const TEST_CONFIG = {
 
 // Définition des configurations par défaut
 const DEFAULT_IMPORT_GROUPS = [
-  { name: 'Misc', regex: '^(react|react-.*|lodash)$', order: 0 },
-  { name: 'DS', regex: '^ds$', order: 1 },
-  { name: '@app', regex: '^@app$', order: 2 },
-  { name: 'Utils', regex: '^yutils$', order: 3 },
+  { name: 'Misc', match: '^(react|react-.*|lodash)$', order: 0 },
+  { name: 'DS', match: '^ds$', order: 1 },
+  { name: '@app', match: '^@app$', order: 2 },
+  { name: 'Utils', match: '^yutils$', order: 3 },
 ];
 
 // Fonctions factory pour les mocks
@@ -118,13 +118,13 @@ const mockVscode = {
 
 const createMockConfig = () => ({
   importGroups: [
-    { name: 'Misc', order: 0, priority: 999, isDefault: true, regex: /^(react|react-.*|lodash|date-fns|classnames|@fortawesome|@reach|uuid|@tanstack|ag-grid-community|framer-motion)$/ },
-    { name: 'DS', order: 1, regex: /^ds$/ },
-    { name: '@app/dossier', order: 2, regex: /^@app\/dossier/ },
-    { name: '@app', order: 3, regex: /^@app/ },
-    { name: '@core', order: 4, regex: /^@core/ },
-    { name: '@library', order: 5, regex: /^@library/ },
-    { name: 'Utils', order: 6, regex: /^\.?\/.*utils.*$/ }
+    { name: 'Misc', order: 0, priority: 999, isDefault: true, match: /^(react|react-.*|lodash|date-fns|classnames|@fortawesome|@reach|uuid|@tanstack|ag-grid-community|framer-motion)$/ },
+    { name: 'DS', order: 1, match: /^ds$/ },
+    { name: '@app/dossier', order: 2, match: /^@app\/dossier/ },
+    { name: '@app', order: 3, match: /^@app/ },
+    { name: '@core', order: 4, match: /^@core/ },
+    { name: '@library', order: 5, match: /^@library/ },
+    { name: 'Utils', order: 6, match: /^\.?\/.*utils.*$/ }
   ],
   formatOnSave: false,
   typeOrder: {
