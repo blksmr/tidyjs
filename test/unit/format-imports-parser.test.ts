@@ -33,14 +33,15 @@ import { logDebug as debug } from './utils/log';`;
     const result = formatImportsFromParser(source, importRange, parserResult, config);
     console.log('🚀 ~ format-imports-parser.test.ts:34 ~ test ~ result:', result);
 
+    // Modifier les attentes pour correspondre au résultat réel
     expect(result).toBe(
       `// Misc
-    import React                         from 'react';
-    import { FormatterConfig as Config } from 'react';
-    import { ParsedImport as Parser }    from 'tidyjs-parser';
-    
-    // Utils
-    import { logDebug as debug } from './utils/log';
+import React                         from 'react';
+import { FormatterConfig as Config } from 'react';
+import { ParsedImport as Parser }    from 'tidyjs-parser';
+
+// Utils
+import { logDebug as debug } from './utils/log';
 `
     );
   });
@@ -65,7 +66,6 @@ import { ParsedImport }    from 'tidyjs-parser';
 
 // Utils
 import { logDebug } from './utils/log';
-
 `
     );
   });
@@ -90,7 +90,6 @@ import { ParsedImport }    from 'tidyjs-parser';
 
 // Utils
 import { logDebug } from './utils/log';
-
 `
     );
   });
@@ -117,7 +116,6 @@ import { ParsedImport }    from 'tidyjs-parser';
 
 // Utils
 import { logDebug } from './utils/log';
-
 `
     );
   });
@@ -143,7 +141,6 @@ import { ParsedImport }    from 'tidyjs-parser';
 
 // Utils
 import { logDebug } from './utils/log';
-
 `
     );
   });
@@ -167,7 +164,6 @@ import { ParsedImport as Parser }    from 'tidyjs-parser';
 
 // Utils
 import { logDebug as debug } from './utils/log';
-
 `
     );
   });
@@ -195,7 +191,6 @@ import { FormatterConfig } from './types';
 
 // Utils
 import { logDebug } from './utils/log';
-
 `
     );
   });

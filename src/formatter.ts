@@ -390,9 +390,11 @@ function formatImportsFromParser(
                 processedGroupNames.add(group.groupName);
             }
             
+            // Aligner les imports sans ajouter d'indentation
             const alignedImports = alignImportsInGroup(group.importLines);
             formattedLines.push(...alignedImports);
             
+            // Ajouter une ligne vide après chaque groupe
             formattedLines.push('');
         }
         
@@ -419,6 +421,12 @@ function findImportsRange(text: string) {
     let foundNonImportCode = false;
     let foundDynamicImport = false;
     let dynamicImportLine = -1;
+    
+    // Vérifier d'abord si le texte contient des imports dynamiques
+    const dynamicImportRegex = /\bimport\s*\(|\bawait\s+import/;
+    if (dynamicImportRegex.test(text)) {
+        return null;
+    }
     
     const lineStartPositions = [0];
     let currentLine = 0;
@@ -476,7 +484,7 @@ function findImportsRange(text: string) {
       }
       
       if (i === lineStart || (i > lineStart && /\s/.test(text.substring(lineStart, i).trim()))) {
-        if (text.substring(i, i + 6) === 'import' && 
+        if (text.substring(i, i + 6) === 'import' &&
             (text[i + 6] === ' ' || text[i + 6] === '\t' || text[i + 6] === '(')) {
           
           if (text[i + 6] === '(') {
@@ -488,9 +496,8 @@ function findImportsRange(text: string) {
               return null;
             }
             
-            foundNonImportCode = true;
-            i += 7;
-            continue;
+            // Pour tout import dynamique, on doit retourner null
+            return null;
           }
           
           if (startLine === -1) {
@@ -557,6 +564,8 @@ function findImportsRange(text: string) {
       if (foundDynamicImport) {
         return null;
       }
+      // Si aucun import n'est trouvé et qu'il n'y a pas d'import dynamique,
+      // retourner une plage vide
       return { start: 0, end: 0 };
     }
     

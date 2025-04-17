@@ -121,6 +121,7 @@ export function activate(context: ExtensionContext): void {
         }
       }
     });
+    logDebug('🚀 ~ extension.ts:121 ~ activate ~ formatImportsCommand:', configManager.getConfig());
 
     context.subscriptions.push(formatImportsCommand);
     context.subscriptions.push(formatOnSaveDisposable);

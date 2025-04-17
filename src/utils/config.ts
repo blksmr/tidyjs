@@ -64,27 +64,33 @@ class ConfigManager {
 
   public getGroups(): Config['groups'] {
     const baseGroups = [...this.config.groups];
-    const subfolderGroups = Array.from(this.subfolders.values());
     const appModulePattern = this.config.patterns?.appModules;
+    
+    // N'ajouter les sous-dossiers que si appModulePattern est défini
+    const subfolderGroups = appModulePattern
+      ? Array.from(this.subfolders.values())
+      : [];
 
     const sortedGroups = [...baseGroups, ...subfolderGroups].sort((a, b) => {
       // Groupe par défaut toujours en premier
       if (a.isDefault) return -1;
       if (b.isDefault) return 1;
 
-      const aIsApp = appModulePattern?.test(a.name) ?? false;
-      const bIsApp = appModulePattern?.test(b.name) ?? false;
+      // Si le pattern appModulePattern est défini, on applique la logique de tri spécifique
+      if (appModulePattern) {
+        const aIsApp = appModulePattern.test(a.name);
+        const bIsApp = appModulePattern.test(b.name);
 
+        if (aIsApp && !bIsApp) return -1;
+        if (!aIsApp && bIsApp) return 1;
 
-      if (aIsApp && !bIsApp) return -1;
-      if (!aIsApp && bIsApp) return 1;
-
-      // Tri des sous-dossiers
-      if (aIsApp && bIsApp) {
-        if (a.name === appModulePattern?.source) return 1;
-        if (b.name === appModulePattern?.source) return -1;
-        return a.name.localeCompare(b.name);
-    }
+        // Tri des sous-dossiers
+        if (aIsApp && bIsApp) {
+          if (a.name === appModulePattern.source) return 1;
+          if (b.name === appModulePattern.source) return -1;
+          return a.name.localeCompare(b.name);
+        }
+      }
 
       // Tri par ordre pour tous les autres groupes
       return a.order - b.order;
@@ -145,10 +151,13 @@ class ConfigManager {
       this.eventEmitter.fire({ configKey: 'groups', newValue: this.config.groups });
     }
 
-    const format = vsConfig.get<Config['format']>('format');
-    if (format) {
-      this.config.format = { ...this.config.format, ...format };
-      this.eventEmitter.fire({ configKey: 'format', newValue: format });
+    // Récupérer la valeur booléenne de formatOnSave
+    const formatOnSave = vsConfig.get<boolean>('formatOnSave');
+    // Vérifier si la valeur est définie (peut être true ou false)
+    if (formatOnSave !== undefined) {
+      // Mettre à jour uniquement la propriété onSave
+      this.config.format.onSave = formatOnSave;
+      this.eventEmitter.fire({ configKey: 'format.onSave', newValue: formatOnSave });
     }
 
     const importOrder = vsConfig.get<Config['importOrder']>('importOrder');

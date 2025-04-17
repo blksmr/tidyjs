@@ -2,6 +2,7 @@
 import picto                          from '@core/resources/assets/images/yeap/picto-yeap.png';
 import cn                             from 'classnames';
 import {
+    type FC,
     useMemo,
     Fragment,
     useState,
