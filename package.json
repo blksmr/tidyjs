@@ -129,6 +129,11 @@
           "type": "boolean",
           "default": false,
           "description": "Enable debug mode to show detailed logging information in the Output panel"
+        },
+        "tidyjs.removeUnused": {
+          "type": "boolean",
+          "default": true,
+          "description": "Remove unused imports during formatting"
         }
       }
     }

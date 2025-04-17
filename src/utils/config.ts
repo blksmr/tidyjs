@@ -152,6 +152,12 @@ class ConfigManager {
       this.eventEmitter.fire({ configKey: 'format.onSave', newValue: formatOnSave });
     }
 
+    const removeUnused = vsConfig.get<boolean>('removeUnused');
+    if (removeUnused !== undefined) {
+      this.config.format.removeUnused = removeUnused;
+      this.eventEmitter.fire({ configKey: 'format.removeUnused', newValue: removeUnused });
+    }
+
     const importOrder = vsConfig.get<Config['importOrder']>('importOrder');
     if (importOrder) {
       this.config.importOrder = importOrder;

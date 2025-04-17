@@ -1,6 +1,6 @@
 import vscode from 'vscode';
 
-const OUTPUT_CHANNEL = vscode.window.createOutputChannel('Import Formatter');
+const OUTPUT_CHANNEL = vscode.window.createOutputChannel('TidyJS');
 const DEBUG_MODE = () => {
   const config = vscode.workspace.getConfiguration('tidyjs');
   return config.get('debug', false);

@@ -16,6 +16,7 @@ export interface Config {
   format: {
     onSave: boolean;
     indent?: number;
+    removeUnused?: boolean;
     singleQuote?: boolean;
     bracketSpacing?: boolean;
   };
