@@ -5,7 +5,7 @@ import { formatImports, findImportsRange, needsFormatting } from './formatter';
 import { ImportParser, ParserResult, InvalidImport } from 'tidyjs-parser';
 
 // VSCode
-import { Range, window, commands, workspace } from 'vscode';
+import { Range, window, commands, workspace, languages, DiagnosticSeverity, Uri } from 'vscode';
 import type { ExtensionContext } from 'vscode';
 
 // Utils
@@ -14,6 +14,82 @@ import { logDebug, logError } from './utils/log';
 import { showMessage } from './utils/misc';
 
 let parser = new ImportParser(configManager.getParserConfig());
+
+const UNUSED_IMPORT_CODES = ['unused-import', 'import-not-used', '6192', '6133'];
+
+/**
+ * Récupère les imports non utilisés à partir des diagnostics
+ * @param document Document actuel
+ * @returns Un tableau des noms d'imports non utilisés
+ */
+function getUnusedImports(uri: Uri): string[] {
+  const unusedImports: string[] = [];
+  
+  const diagnostics = languages.getDiagnostics(uri);
+  
+  const unusedImportDiagnostics = diagnostics.filter(diagnostic => {
+    return (
+      diagnostic.severity === DiagnosticSeverity.Warning || 
+      diagnostic.severity === DiagnosticSeverity.Hint
+    ) && (
+      UNUSED_IMPORT_CODES.some(code => diagnostic.code === code) ||
+      diagnostic.message.toLowerCase().includes('unused import') ||
+      diagnostic.message.toLowerCase().includes('is declared but')
+    );
+  });
+  
+  for (const diagnostic of unusedImportDiagnostics) {
+    const message = diagnostic.message;
+    
+    const importMatch = message.match(/'([^']+)'/) || message.match(/"([^"]+)"/);
+    if (importMatch && importMatch[1]) {
+      unusedImports.push(importMatch[1]);
+    }
+  }
+  
+  logDebug('Unused imports found:', unusedImports);
+  return unusedImports;
+}
+
+/**
+ * Supprime les imports non utilisés du résultat du parser
+ * @param parserResult Résultat du parser d'imports
+ * @param unusedImports Liste des imports non utilisés
+ * @returns Résultat du parser mis à jour
+ */
+function removeUnusedImports(parserResult: ParserResult, unusedImports: string[]): ParserResult {
+  if (!unusedImports.length) {
+    return parserResult;
+  }
+  
+  const updatedResult = { ...parserResult };
+  
+  updatedResult.groups = parserResult.groups.map(group => {
+    const updatedGroup = { ...group };
+    
+    updatedGroup.imports = group.imports.filter(importItem => {
+      const importName = importItem.source;
+      
+      if (unusedImports.includes(importName)) {
+        return false;
+      }
+      
+      if (importItem.specifiers && importItem.specifiers.length) {
+        importItem.specifiers = importItem.specifiers.filter(
+          specifier => !unusedImports.includes(specifier)
+        );
+        
+        return importItem.specifiers.length > 0;
+      }
+      
+      return true;
+    });
+    
+    return updatedGroup;
+  });
+  
+  return updatedResult;
+}
 
 export function activate(context: ExtensionContext): void {
   try {
@@ -39,7 +115,7 @@ export function activate(context: ExtensionContext): void {
       if (importRange && importRange.start !== importRange.end) {
         const importsText = documentText.substring(importRange.start, importRange.end);
         try {
-          const parserResult = parser.parse(importsText) as ParserResult;
+          let parserResult = parser.parse(importsText) as ParserResult;
           logDebug('Parser:', JSON.stringify(parserResult, null, 2));
 
           if (parserResult.invalidImports && parserResult.invalidImports.length > 0) {
@@ -51,6 +127,15 @@ export function activate(context: ExtensionContext): void {
 
             logError('Invalid imports found:', errorMessages.join('\n'));
             return;
+          }
+
+          if (configManager.getConfig().format.removeUnused) {
+            const unusedImports = getUnusedImports(document.uri);
+            logDebug('Unused imports found:', unusedImports);
+            if (unusedImports.length > 0) {
+              const updatedParserResult = removeUnusedImports(parserResult, unusedImports);
+              parserResult = updatedParserResult;
+            }
           }
 
           if (!needsFormatting(documentText, configManager.getConfig(), parserResult)) {
