@@ -1,5 +1,6 @@
 // Misc
 import { Config } from '../types';
+
 // VSCode
 import vscode from 'vscode';
 
@@ -151,6 +152,12 @@ class ConfigManager {
       this.config.format.onSave = formatOnSave;
       this.eventEmitter.fire({ configKey: 'format.onSave', newValue: formatOnSave });
     }
+    
+    // const debug = vsConfig.get<boolean>('debug');
+    // if (formatOnSave !== undefined) {
+    //   this.config.debug = debug;
+    //   this.eventEmitter.fire({ configKey: 'debug', newValue: formatOnSave });
+    // }
 
     const removeUnused = vsConfig.get<boolean>('removeUnused');
     if (removeUnused !== undefined) {

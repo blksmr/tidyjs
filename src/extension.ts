@@ -64,63 +64,6 @@ async function applyDocumentUpdate(document: import('vscode').TextDocument, pars
 }
 
 /**
- * Commande pour supprimer les imports non utilisés sans formatage
- */
-async function removeUnusedImportsCommand(): Promise<void> {
-  const editor = window.activeTextEditor;
-  if (!editor) {
-    showMessage.warning('No active editor found');
-    return;
-  }
-
-  const document = editor.document;
-  const documentText = document.getText();
-  const importRange = findImportsRange(documentText);
-
-  if (!importRange || importRange.start === importRange.end) {
-    showMessage.info('No imports found in document');
-    return;
-  }
-
-  const importsText = documentText.substring(importRange.start, importRange.end);
-
-  try {
-    let parserResult = parser.parse(importsText) as ParserResult;
-    logDebug('Parser result:', JSON.stringify(parserResult, null, 2));
-
-    if (parserResult.invalidImports && parserResult.invalidImports.length > 0) {
-      const errorMessages = parserResult.invalidImports.map((invalidImport) => {
-        return formatImportError(invalidImport);
-      });
-
-      showMessage.error(`Invalid import syntax: ${errorMessages[0]}`);
-      logError('Invalid imports found:', errorMessages.join('\n'));
-      return;
-    }
-
-    const unusedImports = getUnusedImports(document.uri);
-    logDebug('Unused imports found:', unusedImports);
-
-    if (unusedImports.length === 0) {
-      showMessage.info('No unused imports found');
-      return;
-    }
-
-    const updatedParserResult = removeUnusedImports(parserResult, unusedImports);
-
-    const success = await applyDocumentUpdate(document, updatedParserResult, configManager.getConfig());
-
-    if (success) {
-      showMessage.info(`Removed ${unusedImports.length} unused imports`);
-    }
-  } catch (error) {
-    logError('Error removing unused imports:', error);
-    const errorMessage = String(error);
-    showMessage.error(`Error removing unused imports: ${errorMessage}`);
-  }
-}
-
-/**
  * Commande de formatage pour séparer clairement l'étape de suppression des imports
  */
 async function formatImportsCommand(): Promise<void> {
@@ -156,17 +99,16 @@ async function formatImportsCommand(): Promise<void> {
     }
 
     if (configManager.getConfig().format.removeUnused) {
-      const unusedImports = getUnusedImports(document.uri);
-      logDebug('Unused imports found:', unusedImports);
-
+      const unusedImports = getUnusedImports(document.uri, parserResult);
+      logDebug('Unused imports:', unusedImports);
       if (unusedImports.length > 0) {
         parserResult = removeUnusedImports(parserResult, unusedImports);
       }
     }
 
     if (!needsFormatting(documentText, configManager.getConfig(), parserResult)) {
-      logDebug('No formatting needed – skipping edit');
       showMessage.info('No formatting needed');
+      logDebug('No formatting needed – skipping edit');
       return;
     }
 
@@ -195,8 +137,6 @@ export function activate(context: ExtensionContext): void {
 
     const formatCommand = commands.registerCommand('extension.format', formatImportsCommand);
 
-    const removeUnusedCommand = commands.registerCommand('extension.removeUnusedImports', removeUnusedImportsCommand);
-
     const formatOnSaveDisposable = workspace.onDidSaveTextDocument((document) => {
       if (configManager.getConfig().format.onSave) {
         const editor = window.activeTextEditor;
@@ -209,7 +149,6 @@ export function activate(context: ExtensionContext): void {
     logDebug('Extension activated with config:', JSON.stringify(configManager.getConfig(), null, 2));
 
     context.subscriptions.push(formatCommand);
-    context.subscriptions.push(removeUnusedCommand);
     context.subscriptions.push(formatOnSaveDisposable);
   } catch (error) {
     logError('Error activating extension:', error);

@@ -1,4 +1,6 @@
 export interface Config {
+  debug?: boolean;
+
   groups: Array<{
     name: string;
     order: number;
