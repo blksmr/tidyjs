@@ -1,12 +1,22 @@
 // Misc
-import { Config, FormattedImportGroup } from './types';
+import {
+    Config,
+    FormattedImportGroup
+}                        from './types';
 
 // Parser
-import { ParsedImport, ParserResult } from 'tidyjs-parser';
+import {
+    ParsedImport,
+    ParserResult
+}                 from 'tidyjs-parser';
 
 // Utils
 import { logDebug } from './utils/log';
-import { logError, isEmptyLine, showMessage } from './utils/misc';
+import {
+    logError,
+    isEmptyLine,
+    showMessage
+}                   from './utils/misc';
 
 const fromKeywordRegex = /\bfrom\b/;
 const multilineCommentStartRegex = /\/\*/;
@@ -381,8 +391,13 @@ function formatImportsFromParser(sourceText: string, importRange: { start: numbe
     const cleanedLines = cleanUpLines(formattedLines);
     const formattedText = cleanedLines.join('\n');
 
-    return sourceText.substring(0, importRange.start) + formattedText + sourceText.substring(importRange.end);
-  } catch (error: unknown) {
+    const nextChar = sourceText[importRange.end];
+    const needsExtraNewline = nextChar && nextChar !== '\n';
+    
+    const suffix = sourceText.substring(importRange.end);
+    const paddedSuffix = needsExtraNewline ? '\n' + suffix : suffix;
+    
+    return sourceText.substring(0, importRange.start) + formattedText + paddedSuffix;  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logDebug(`Error while formatting imports: ${errorMessage}`);
     throw error;

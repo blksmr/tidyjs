@@ -82,16 +82,6 @@ export function sortImportNamesByLength(namedImports: (string | NamedImportWithC
 }
 
 /**
- * Fonction de log de debug
- * @param args Les arguments à logger
- */
-export function logDebug(...args: unknown[]): void {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[DEBUG]', ...args);
-  }
-}
-
-/**
  * Fonction de log d'erreur
  * @param args Les arguments à logger
  */
@@ -138,35 +128,39 @@ export const showMessage = {
  * @param uri URI du document actuel
  * @returns Un tableau des noms d'imports non utilisés
  */
-export function getUnusedImports(uri: Uri): string[] {
-  const unusedImports: string[] = [];
-  
+export function getUnusedImports(uri: Uri, parserResult: ParserResult): string[] {
   const diagnostics = languages.getDiagnostics(uri);
-  
-  const unusedImportDiagnostics = diagnostics.filter(diagnostic => {
+  const unusedImports: string[] = [];
+
+  const allImportedSpecifiers = parserResult.groups.flatMap(group =>
+    group.imports.flatMap(imp => imp.specifiers)
+  );
+
+  const editor = window.visibleTextEditors.find(e => e.document.uri.toString() === uri.toString());
+  if (!editor) {
+    return [];
+  }
+
+  const document = editor.document;
+
+  const unusedDiagnostics = diagnostics.filter(diagnostic => {
     return (
-      diagnostic.severity === DiagnosticSeverity.Warning || 
-      diagnostic.severity === DiagnosticSeverity.Hint
-    ) && (
-      UNUSED_IMPORT_CODES.some(code => diagnostic.code === code) ||
-      diagnostic.message.toLowerCase().includes('unused import') ||
-      diagnostic.message.toLowerCase().includes('is declared but')
+      (diagnostic.severity === DiagnosticSeverity.Warning ||
+       diagnostic.severity === DiagnosticSeverity.Hint) &&
+      UNUSED_IMPORT_CODES.includes(String(diagnostic.code))
     );
   });
-  
-  for (const diagnostic of unusedImportDiagnostics) {
-    const message = diagnostic.message;
-    
-    const importMatch = message.match(/'([^']+)'/) || message.match(/"([^"]+)"/);
-    if (importMatch && importMatch[1]) {
-      unusedImports.push(importMatch[1]);
+
+  for (const diagnostic of unusedDiagnostics) {
+    const text = document.getText(diagnostic.range).trim();
+
+    if (text && allImportedSpecifiers.includes(text)) {
+      unusedImports.push(text);
     }
   }
-  
-  logDebug('Unused imports found:', unusedImports);
+
   return unusedImports;
 }
-
 
 /**
  * Supprime les imports non utilisés du résultat du parser
