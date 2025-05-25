@@ -96,6 +96,7 @@ export class ImportParser {
           order: g.order,
           isDefault: true,
           match: g.match,
+          priority: g.priority,
         };
       } else if (g.match) {
         return {
@@ -103,12 +104,14 @@ export class ImportParser {
           order: g.order,
           isDefault: false,
           match: g.match,
+          priority: g.priority,
         };
       } else {
         return {
           name: g.name,
           order: g.order,
           isDefault: true,
+          priority: g.priority,
         };
       }
     });
@@ -164,7 +167,7 @@ export class ImportParser {
     } catch (error) {
       this.invalidImports.push({
         raw: sourceCode,
-        error: error instanceof Error ? error.message : "Erreur inconnue lors du parsing",
+        error: error instanceof Error ? `Syntax error during parsing: ${error.message}` : "Unknown parsing error",
       });
 
       return {
