@@ -63,6 +63,7 @@ export type ParsedImport = {
   raw: string;
   groupName: string | null;
   isPriority: boolean;
+  sourceIndex: number;
 };
 
 export type ImportGroup = {
@@ -200,7 +201,13 @@ export class ImportParser {
           let hasNamespace = false;
 
           if (importNode.specifiers.length === 0) {
-            type = "sideEffect";
+            // Check if this is an empty named import like import {} from "module"
+            const raw = this.sourceCode.substring(importNode.range?.[0] || 0, importNode.range?.[1] || 0);
+            if (raw.includes('{}')) {
+              type = "named";
+            } else {
+              type = "sideEffect";
+            }
           } else {
             for (const specifierNode of importNode.specifiers) {
               if (specifierNode.type === "ImportDefaultSpecifier") {
@@ -241,6 +248,7 @@ export class ImportParser {
             raw,
             groupName,
             isPriority,
+            sourceIndex: imports.length,
           });
         } catch (error) {
           const raw = this.sourceCode.substring(node.range?.[0] || 0, node.range?.[1] || 0);
@@ -347,7 +355,8 @@ export class ImportParser {
           if (typeOrderA !== typeOrderB) {
             return typeOrderA - typeOrderB;
           }
-          return a.source.localeCompare(b.source);
+          // Use source order as tie-breaker instead of alphabetical
+          return a.sourceIndex - b.sourceIndex;
         });
       }
     }

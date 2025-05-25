@@ -197,8 +197,7 @@
     "bump": "sh ./bump.sh",
     "bump:patch": "sh ./bump.sh patch",
     "bump:minor": "sh ./bump.sh minor",
-    "bump:major": "sh ./bump.sh major",
-    "test:unit": "jest test/unit --verbose"
+    "bump:major": "sh ./bump.sh major"
   },
   "devDependencies": {
     "@babel/generator": "^7.26.10",

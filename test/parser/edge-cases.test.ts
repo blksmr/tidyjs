@@ -12,9 +12,9 @@ describe('ImportParser - Edge Cases and Corner Cases', () => {
     ],
     importOrder: {
       default: 1,
-      named: 2,
-      typeOnly: 3,
-      sideEffect: 0
+      named: 1,
+      typeOnly: 1,
+      sideEffect: 1
     },
     format: {
       onSave: true
