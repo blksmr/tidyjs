@@ -83,14 +83,14 @@ describe('ImportParser - Import Types Detection', () => {
   });
 
   test('should handle complex mixed imports', () => {
-    const sourceCode = 'import React, { Component, Fragment }, * as Utils from "react";';
+    const sourceCode = 'import React, { Component, Fragment, PureComponent } from "react";';
     const result = parser.parse(sourceCode);
     
     expect(result.groups[0].imports[0].type).toBe('mixed');
     expect(result.groups[0].imports[0].defaultImport).toBe('React');
     expect(result.groups[0].imports[0].specifiers).toContain('Component');
     expect(result.groups[0].imports[0].specifiers).toContain('Fragment');
-    expect(result.groups[0].imports[0].specifiers).toContain('* as Utils');
+    expect(result.groups[0].imports[0].specifiers).toContain('PureComponent');
   });
 
   test('should handle imports with aliases', () => {
