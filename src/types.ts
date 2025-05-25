@@ -6,6 +6,7 @@ export interface Config {
     order: number;
     isDefault?: boolean;
     match?: RegExp;
+    priority?: number;
   }>;
 
   importOrder: {
