@@ -33,7 +33,7 @@ export function formatSimpleImport(moduleName: string): string {
 /**
  * Aligne le mot-clé 'from' dans une ligne d'import
  */
-export function alignFromKeyword(line: string, fromIndex: number, maxFromIndex: number, spacingConfig: number = 1): string {
+export function alignFromKeyword(line: string, fromIndex: number, maxFromIndex: number, spacingConfig = 1): string {
   if (fromIndex <= 0 || line.indexOf('from') === -1) {
     return line;
   }

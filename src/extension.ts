@@ -7,7 +7,8 @@ import { logDebug, logError } from "./utils/log";
 import { getUnusedImports, removeUnusedImports, showMessage } from "./utils/misc";
 import { debounce } from "lodash";
 
-let parser = new ImportParser(configManager.getParserConfig());
+let parser: ImportParser | null = null;
+let isExtensionEnabled = false;
 
 let isFormatting = false;
 const formattingQueue: (() => void)[] = [];
@@ -288,7 +289,7 @@ function isDocumentInExcludedFolder(document: import("vscode").TextDocument): bo
     return false;
   }
 
-  const documentPath = document.uri.fsPath;
+  // const documentPath = document.uri.fsPath; // Non utilisé
   const workspaceFolder = workspace.getWorkspaceFolder(document.uri);
   
   if (!workspaceFolder) {
@@ -317,9 +318,9 @@ async function formatImportsCommand(source = "manual"): Promise<void> {
     return;
   }
 
-  if (!configManager.isConfigurationValid()) {
+  if (!isExtensionEnabled) {
     const errors = configManager.getValidationErrors();
-    showMessage.error(`Cannot format imports: Invalid configuration.\n${errors.join("\n")}`);
+    showMessage.error(`TidyJS extension is disabled due to configuration errors:\n${errors.join("\n")}\n\nPlease fix your configuration to use the extension.`);
     return;
   }
 
@@ -385,6 +386,12 @@ async function formatImportsCommand(source = "manual"): Promise<void> {
       return;
     }
 
+    if (!parser) {
+      logError('Parser not initialized');
+      showMessage.error('TidyJS extension is not properly initialized');
+      return;
+    }
+
     let parserResult = parser.parse(importsText) as ParserResult;
     logDebug("Parser result:", JSON.stringify(parserResult, null, 2));
 
@@ -446,32 +453,37 @@ const debouncedFormatOnSaveCommand = debounce(() => {
 /**
  * Gère la mise à jour de la configuration
  */
-function handleConfigurationChange(config: ReturnType<typeof configManager.getConfig>, isValid: boolean, errors?: string[]): void {
+function handleConfigurationChange(_config: ReturnType<typeof configManager.getConfig>, isValid: boolean, errors?: string[]): void {
   logDebug("Configuration change detected. Valid:", isValid);
 
   if (isValid) {
     try {
       parser = new ImportParser(configManager.getParserConfig());
-      showMessage.info("TidyJS configuration updated successfully");
-      logDebug("Parser reinitialized with new configuration");
+      isExtensionEnabled = true;
+      showMessage.info("TidyJS extension activated - configuration is now valid");
+      logDebug("Parser reinitialized with new configuration - extension enabled");
     } catch (error) {
       logError("Error reinitializing parser:", error);
       showMessage.error(`Error updating parser: ${error}`);
+      isExtensionEnabled = false;
+      parser = null;
     }
   } else {
     const errorMessage = errors ? errors.join("\n") : "Unknown configuration error";
-    showMessage.error(`TidyJS configuration is invalid:\n${errorMessage}`);
-    logError("Invalid configuration:", errors);
+    showMessage.error(`TidyJS extension disabled due to configuration errors:\n${errorMessage}\n\nPlease fix your configuration to use the extension.`);
+    logError("Invalid configuration - extension disabled:", errors);
+    isExtensionEnabled = false;
+    parser = null;
   }
 }
 
 /**
- * Vérifie que la configuration est valide avant d'exécuter une commande
+ * Vérifie que l'extension est activée avant d'exécuter une commande
  */
-function ensureValidConfiguration(): boolean {
-  if (!configManager.isConfigurationValid()) {
+function ensureExtensionEnabled(): boolean {
+  if (!isExtensionEnabled || !parser) {
     const errors = configManager.getValidationErrors();
-    showMessage.error(`Cannot proceed: Invalid TidyJS configuration.\n${errors.join("\n")}\nPlease fix your settings.`);
+    showMessage.error(`TidyJS extension is disabled due to configuration errors:\n${errors.join("\n")}\n\nPlease fix your configuration to use the extension.`);
     return false;
   }
   return true;
@@ -481,9 +493,17 @@ export function activate(context: ExtensionContext): void {
   try {
     configManager.loadConfiguration();
 
-    if (!configManager.isConfigurationValid()) {
+    // Initialiser l'état de l'extension selon la configuration
+    if (configManager.isConfigurationValid()) {
+      parser = new ImportParser(configManager.getParserConfig());
+      isExtensionEnabled = true;
+      logDebug('Extension activated with valid configuration');
+    } else {
       const errors = configManager.getValidationErrors();
-      showMessage.warning(`TidyJS configuration issues detected:\n${errors.join("\n")}`);
+      showMessage.error(`TidyJS extension disabled due to configuration errors:\n${errors.join("\n")}\n\nPlease fix your configuration to use the extension.`);
+      logError('Extension started with invalid configuration - commands disabled:', errors);
+      parser = null;
+      isExtensionEnabled = false;
     }
 
     const vscodeConfigChangeDisposable = workspace.onDidChangeConfiguration((event) => {
@@ -496,7 +516,7 @@ export function activate(context: ExtensionContext): void {
     const configChangeDisposable = configManager.onConfigChange(handleConfigurationChange);
 
     const formatCommand = commands.registerCommand("extension.format", async () => {
-      if (!ensureValidConfiguration()) {
+      if (!ensureExtensionEnabled()) {
         return;
       }
       debouncedFormatImportsCommand();
@@ -511,14 +531,14 @@ export function activate(context: ExtensionContext): void {
         
         const editor = window.activeTextEditor;
         if (editor && editor.document === document) {
-          if (ensureValidConfiguration()) {
+          if (ensureExtensionEnabled()) {
             setTimeout(() => {
               if (!isFormatting) {
                 debouncedFormatOnSaveCommand();
               }
             }, 200);
           } else {
-            showMessage.warning("Format on save skipped due to invalid configuration.");
+            logDebug("Format on save skipped due to disabled extension.");
           }
         }
       }
