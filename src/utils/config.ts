@@ -61,19 +61,7 @@ class ConfigManager {
     this.validationErrors = validation.errors;
     
     if (!validation.isValid) {
-      logDebug('Initial configuration validation failed:', validation.errors);
-      const repairedConfig = this.repairConfiguration(this.config);
-      const repairedValidation = this.validateConfiguration(repairedConfig);
-      
-      if (repairedValidation.isValid) {
-        logDebug('Configuration successfully repaired during initial load');
-        this.config = repairedConfig;
-        this.isValid = true;
-        this.validationErrors = [];
-        this.clearSubfolders();
-      } else {
-        logError('Failed to repair configuration during initial load:', repairedValidation.errors);
-      }
+      logError('Configuration validation failed:', validation.errors);
     }
   }
 
@@ -131,48 +119,6 @@ class ConfigManager {
     };
   }
 
-  /**
-   * Répare automatiquement une configuration invalide si possible
-   */
-  private repairConfiguration(config: Config): Config {
-    const repairedConfig = this.deepCloneConfig(config);
-    const defaultGroups = repairedConfig.groups.filter(group => group.isDefault === true);
-    
-    if (defaultGroups.length === 0) {
-      if (repairedConfig.groups.length > 0) {
-        repairedConfig.groups[0].isDefault = true;
-        logDebug(`No default group found. Setting "${repairedConfig.groups[0].name}" as default.`);
-      }
-    } else if (defaultGroups.length > 1) {
-      let firstDefaultFound = false;
-      repairedConfig.groups = repairedConfig.groups.map(group => {
-        if (group.isDefault === true) {
-          if (!firstDefaultFound) {
-            firstDefaultFound = true;
-            return group; // Garder le premier comme défaut
-          } else {
-            return { ...group, isDefault: false }; // Enlever isDefault des autres
-          }
-        }
-        return group;
-      });
-      
-      const keptDefault = repairedConfig.groups.find(g => g.isDefault === true);
-      logDebug(`Multiple default groups found. Kept "${keptDefault?.name}" as the only default group.`);
-    }
-    const orders = repairedConfig.groups.map(g => g.order);
-    const hasDuplicates = orders.some((order, index) => orders.indexOf(order) !== index);
-    
-    if (hasDuplicates) {
-      repairedConfig.groups.sort((a, b) => a.order - b.order);
-      repairedConfig.groups.forEach((group, index) => {
-        group.order = index;
-      });
-      logDebug('Fixed duplicate group orders by reassigning sequential orders.');
-    }
-
-    return repairedConfig;
-  }
 
   public getConfig(): Config {
     return this.config;
@@ -268,14 +214,14 @@ class ConfigManager {
       }[]>('groups');
 
       if (customGroupsSetting !== undefined) {
-        const newGroups = customGroupsSetting.map(group => ({
-          name: group.name,
-          match: group.match ? this.parseRegexString(group.match) : undefined,
-          order: group.order,
-          isDefault: !!group.isDefault, // Force boolean conversion
-        }));
-        logDebug('Loading groups from VS Code settings:', customGroupsSetting);
-        logDebug('Parsed groups:', newGroups);
+        const newGroups = customGroupsSetting.map(group => {
+          return {
+            name: group.name,
+            match: group.match ? this.parseRegexString(group.match) : undefined,
+            order: group.order,
+            isDefault: !!group.isDefault,
+          };
+        });
         logDebug('Current groups:', newConfig.groups);
         const compareWith = this.config.groups.length === 1 && this.config.groups[0].name === 'Misc' 
           ? DEFAULT_CONFIG.groups 
@@ -298,7 +244,7 @@ class ConfigManager {
 
       for (const [key, value] of Object.entries(formatSettings)) {
         if (value !== undefined && newConfig.format[key as keyof typeof newConfig.format] !== value) {
-          (newConfig.format as any)[key] = value;
+          (newConfig.format as Record<string, unknown>)[key] = value;
           hasChanges = true;
         }
       }
@@ -335,8 +281,10 @@ class ConfigManager {
       } else {
         const validation = this.validateConfiguration(newConfig);
         if (!validation.isValid) {
-          logDebug('Current configuration is invalid, attempting repair:', validation.errors);
-          this.applyConfigurationChanges(newConfig);
+          logError('Current configuration is invalid:', validation.errors);
+          this.validationErrors = validation.errors;
+          this.isValid = false;
+          this.fireConfigChangeEvent('config', this.config, false, validation.errors);
         } else if (!this.isValid) {
           this.isValid = true;
           this.validationErrors = [];
@@ -366,7 +314,7 @@ class ConfigManager {
   }
 
   /**
-   * Applique les changements de configuration avec validation et réparation
+   * Applique les changements de configuration sans auto-réparation
    */
   private applyConfigurationChanges(newConfig: Config): void {
     const validation = this.validateConfiguration(newConfig);
@@ -379,25 +327,10 @@ class ConfigManager {
       this.fireConfigChangeEvent('config', this.config, true);
       logDebug('Configuration updated successfully');
     } else {
-      logDebug('Invalid configuration detected, attempting repair:', validation.errors);
-      
-      const repairedConfig = this.repairConfiguration(newConfig);
-      const repairedValidation = this.validateConfiguration(repairedConfig);
-      
-      if (repairedValidation.isValid) {
-        this.config = repairedConfig;
-        this.validationErrors = [];
-        this.isValid = true;
-        this.clearSubfolders();
-        this.fireConfigChangeEvent('config', this.config, true, 
-          [`Configuration was automatically repaired from: ${validation.errors.join(', ')}`]);
-        logDebug('Configuration repaired and applied successfully');
-      } else {
-        this.validationErrors = validation.errors;
-        this.isValid = false;
-        this.fireConfigChangeEvent('config', this.config, false, validation.errors);
-        logError('Configuration repair failed:', repairedValidation.errors);
-      }
+      logError('Invalid configuration detected:', validation.errors);
+      this.validationErrors = validation.errors;
+      this.isValid = false;
+      this.fireConfigChangeEvent('config', this.config, false, validation.errors);
     }
   }
 
