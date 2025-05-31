@@ -429,7 +429,14 @@ function formatImportsFromParser(sourceText: string, importRange: { start: numbe
     const formattedLines: string[] = [];
     const processedGroupNames = new Set<string>();
 
-    for (const group of formattedGroups) {
+    for (let groupIndex = 0; groupIndex < formattedGroups.length; groupIndex++) {
+      const group = formattedGroups[groupIndex];
+      
+      // Add blank line before group (except for the first group)
+      if (groupIndex > 0) {
+        formattedLines.push('');
+      }
+      
       if (!processedGroupNames.has(group.groupName)) {
         formattedLines.push(group.commentLine);
         processedGroupNames.add(group.groupName);
