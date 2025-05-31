@@ -268,13 +268,12 @@ import { useState } from "react";`;
     const emptyImport = result.groups[0].imports.find(i => i.source === 'empty-imports');
     const whitespaceImport = result.groups[0].imports.find(i => i.source === 'whitespace-empty');
     
-    // The parser checks if raw includes '{}' to determine if it's a named import
-    // Import with '{}' (no space) is detected as named
-    expect(emptyImport!.type).toBe('named');
+    // Both empty imports are now treated as side-effect imports since they have no specifiers
+    expect(emptyImport!.type).toBe('sideEffect');
     expect(emptyImport!.specifiers).toHaveLength(0);
     expect(emptyImport!.defaultImport).toBeUndefined();
     
-    // Import with '{ }' (with space) is not detected by the '{}' check, so treated as sideEffect
+    // Import with '{ }' (with space) is also treated as sideEffect
     expect(whitespaceImport!.type).toBe('sideEffect');
     expect(whitespaceImport!.specifiers).toHaveLength(0);
     expect(whitespaceImport!.defaultImport).toBeUndefined();

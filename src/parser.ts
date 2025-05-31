@@ -209,19 +209,15 @@ export class ImportParser {
           let hasNamed = false;
           let hasNamespace = false;
           
-          // Extract raw text for specific edge cases like empty named imports
+          // Extract raw text once for this import
           const raw = this.sourceCode.substring(importNode.range?.[0] || 0, importNode.range?.[1] || 0);
           
           // Check if this is a type-only import declaration using AST
           const typeOnly = importNode.importKind === 'type';
 
           if (importNode.specifiers.length === 0) {
-            // Check if this is an empty named import like import {} from "module"
-            if (raw.includes('{}')) {
-              type = typeOnly ? ImportType.TYPE_NAMED : ImportType.NAMED;
-            } else {
-              type = ImportType.SIDE_EFFECT;
-            }
+            // Side-effect import (no specifiers)
+            type = ImportType.SIDE_EFFECT;
           } else {
             for (const specifierNode of importNode.specifiers) {
               if (specifierNode.type === "ImportDefaultSpecifier") {

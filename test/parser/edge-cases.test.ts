@@ -217,7 +217,7 @@ describe('ImportParser - Edge Cases and Corner Cases', () => {
     const result = parser.parse(sourceCode);
     
     expect(result.groups).toHaveLength(1);
-    expect(result.groups[0].imports[0].type).toBe('named');
+    expect(result.groups[0].imports[0].type).toBe('sideEffect');
     expect(result.groups[0].imports[0].specifiers).toHaveLength(0);
   });
 
