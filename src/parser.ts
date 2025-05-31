@@ -202,12 +202,16 @@ export class ImportParser {
           let hasDefault = false;
           let hasNamed = false;
           let hasNamespace = false;
+          let isTypeOnlyImport = false;
+
+          // Check if this is a type-only import declaration
+          const raw = this.sourceCode.substring(importNode.range?.[0] || 0, importNode.range?.[1] || 0);
+          isTypeOnlyImport = raw.trim().startsWith('import type');
 
           if (importNode.specifiers.length === 0) {
             // Check if this is an empty named import like import {} from "module"
-            const raw = this.sourceCode.substring(importNode.range?.[0] || 0, importNode.range?.[1] || 0);
             if (raw.includes('{}')) {
-              type = "named";
+              type = isTypeOnlyImport ? "typeNamed" : "named";
             } else {
               type = "sideEffect";
             }
@@ -229,11 +233,10 @@ export class ImportParser {
             if (hasDefault && (hasNamed || hasNamespace)) {
               // Split mixed imports into separate default and named imports
               const { groupName, isPriority } = this.determineGroup(source);
-              const raw = this.sourceCode.substring(importNode.range?.[0] || 0, importNode.range?.[1] || 0);
               
               // Create default import
               imports.push({
-                type: "default",
+                type: isTypeOnlyImport ? "typeDefault" : "default",
                 source,
                 specifiers: [defaultImport!],
                 defaultImport,
@@ -246,7 +249,7 @@ export class ImportParser {
               // Create named/namespace import
               if (hasNamed) {
                 imports.push({
-                  type: "named",
+                  type: isTypeOnlyImport ? "typeNamed" : "named",
                   source,
                   specifiers,
                   defaultImport: undefined,
@@ -259,7 +262,7 @@ export class ImportParser {
               
               if (hasNamespace) {
                 imports.push({
-                  type: "default", // namespace imports are treated as default
+                  type: isTypeOnlyImport ? "typeDefault" : "default", // namespace imports are treated as default
                   source,
                   specifiers,
                   defaultImport: undefined,
@@ -272,19 +275,18 @@ export class ImportParser {
               
               continue; // Skip the normal processing below
             } else if (hasDefault) {
-              type = "default";
+              type = isTypeOnlyImport ? "typeDefault" : "default";
               if (defaultImport) {
                 specifiers.push(defaultImport);
               }
             } else if (hasNamespace) {
-              type = "default";
+              type = isTypeOnlyImport ? "typeDefault" : "default";
             } else if (hasNamed) {
-              type = "named";
+              type = isTypeOnlyImport ? "typeNamed" : "named";
             }
           }
 
           const { groupName, isPriority } = this.determineGroup(source);
-          const raw = this.sourceCode.substring(importNode.range?.[0] || 0, importNode.range?.[1] || 0);
 
           imports.push({
             type,

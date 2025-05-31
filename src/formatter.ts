@@ -315,33 +315,60 @@ function formatImportsFromParser(sourceText: string, importRange: { start: numbe
       }
     });
 
-    // Consolidate imports from the same source before formatting
+    // Enhanced consolidation with better type/value separation
     const consolidateImportsBySource = (imports: ParsedImport[]): ParsedImport[] => {
-      const importsBySource = new Map<string, { default?: ParsedImport; named?: ParsedImport; namespace?: ParsedImport }>();
+      const importsBySource = new Map<string, { 
+        default?: ParsedImport; 
+        named?: ParsedImport; 
+        namespace?: ParsedImport;
+        typeDefault?: ParsedImport;
+        typeNamed?: ParsedImport;
+      }>();
       
-      // Group imports by source
+      // Group imports by source and type
       for (const imp of imports) {
         const sourceImports = importsBySource.get(imp.source) || {};
         
-        if (imp.type === 'default' && imp.defaultImport) {
-          sourceImports.default = imp;
-        } else if (imp.type === 'named') {
-          if (sourceImports.named) {
-            // Merge specifiers
-            const existingSpecifiers = new Set(sourceImports.named.specifiers);
-            imp.specifiers.forEach(spec => existingSpecifiers.add(spec));
-            sourceImports.named.specifiers = Array.from(existingSpecifiers);
-          } else {
-            sourceImports.named = imp;
-          }
-        } else if (imp.type === 'default' && imp.specifiers.some(s => s.startsWith('* as'))) {
-          sourceImports.namespace = imp;
+        switch (imp.type) {
+          case 'default':
+            if (imp.defaultImport) {
+              sourceImports.default = imp;
+            } else if (imp.specifiers.some(s => s.startsWith('* as'))) {
+              sourceImports.namespace = imp;
+            }
+            break;
+            
+          case 'named':
+            if (sourceImports.named) {
+              // Merge named specifiers
+              const existingSpecifiers = new Set(sourceImports.named.specifiers);
+              imp.specifiers.forEach(spec => existingSpecifiers.add(spec));
+              sourceImports.named.specifiers = Array.from(existingSpecifiers).sort();
+            } else {
+              sourceImports.named = imp;
+            }
+            break;
+            
+          case 'typeDefault':
+            sourceImports.typeDefault = imp;
+            break;
+            
+          case 'typeNamed':
+            if (sourceImports.typeNamed) {
+              // Merge type-only named specifiers
+              const existingSpecifiers = new Set(sourceImports.typeNamed.specifiers);
+              imp.specifiers.forEach(spec => existingSpecifiers.add(spec));
+              sourceImports.typeNamed.specifiers = Array.from(existingSpecifiers).sort();
+            } else {
+              sourceImports.typeNamed = imp;
+            }
+            break;
         }
         
         importsBySource.set(imp.source, sourceImports);
       }
       
-      // Convert back to array
+      // Convert back to array, preserving the order: sideEffect → default → named → typeDefault → typeNamed
       const consolidated: ParsedImport[] = [];
       for (const [source, sourceImports] of importsBySource) {
         if (sourceImports.default) {
@@ -352,6 +379,12 @@ function formatImportsFromParser(sourceText: string, importRange: { start: numbe
         }
         if (sourceImports.namespace && !sourceImports.default) {
           consolidated.push(sourceImports.namespace);
+        }
+        if (sourceImports.typeDefault) {
+          consolidated.push(sourceImports.typeDefault);
+        }
+        if (sourceImports.typeNamed) {
+          consolidated.push(sourceImports.typeNamed);
         }
       }
       
