@@ -172,11 +172,10 @@ describe('ImportParser - Integration Tests', () => {
     const parser = new ImportParser(realWorldConfig);
     const result = parser.parse(typescriptCode);
 
-    // Note: The current parser doesn't distinguish TypeScript type imports
-    // but we test that it handles them as regular imports
+    // Parser now correctly distinguishes TypeScript type imports
     expect(result.groups).toHaveLength(2); // React and Current Directory groups
     const totalImports = result.groups.reduce((sum, g) => sum + g.imports.length, 0);
-    expect(totalImports).toBe(3); // React type+default+named consolidated, types file
+    expect(totalImports).toBe(4); // React default+named+type + current directory type import
   });
 
   test('should handle complex project structure imports', () => {
