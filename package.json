@@ -206,7 +206,11 @@
     "bump": "sh ./bump.sh",
     "bump:patch": "sh ./bump.sh patch",
     "bump:minor": "sh ./bump.sh minor",
-    "bump:major": "sh ./bump.sh major"
+    "bump:major": "sh ./bump.sh major",
+    "test": "jest --config jest.config.js",
+    "test:unit": "jest --config jest.config.js",
+    "test:watch": "jest --watch --config jest.config.js",
+    "test:coverage": "jest --coverage --config jest.config.js"
   },
   "devDependencies": {
     "@babel/generator": "^7.26.10",
