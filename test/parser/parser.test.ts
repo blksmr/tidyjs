@@ -1,5 +1,6 @@
 import { ImportParser, parseImports, ParsedImport, ImportGroup, ParserResult } from '../../src/parser';
 import { Config } from '../../src/types';
+import { containsSpecifier } from '../test-utils';
 
 describe('ImportParser', () => {
   const mockConfig: Config = {
@@ -258,8 +259,8 @@ describe('ImportParser', () => {
       const importItem = result.groups[0].imports[0];
       
       expect(importItem.type).toBe('named');
-      expect(importItem.specifiers).toContain('useState');
-      expect(importItem.specifiers).toContain('useEffect');
+      expect(containsSpecifier(importItem.specifiers, 'useState')).toBe(true);
+      expect(containsSpecifier(importItem.specifiers, 'useEffect')).toBe(true);
     });
   });
 

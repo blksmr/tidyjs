@@ -1,5 +1,6 @@
 import { ImportParser } from '../../src/parser';
 import { Config } from '../../src/types';
+import { containsSpecifier } from '../test-utils';
 
 describe('ImportParser - AST Parsing Specifics', () => {
   const basicConfig: Config = {
@@ -163,10 +164,10 @@ describe('ImportParser - AST Parsing Specifics', () => {
     // All named imports are consolidated into one
     const namedImport = result.groups[0].imports[0];
     expect(namedImport.type).toBe('named');
-    expect(namedImport.specifiers).toContain('Component');
-    expect(namedImport.specifiers).toContain('default');
-    expect(namedImport.specifiers).toContain('useState');
-    expect(namedImport.specifiers).toContain('useEffect');
+    expect(containsSpecifier(namedImport.specifiers, 'Component')).toBe(true);
+    expect(containsSpecifier(namedImport.specifiers, 'default')).toBe(true);
+    expect(containsSpecifier(namedImport.specifiers, 'useState')).toBe(true);
+    expect(containsSpecifier(namedImport.specifiers, 'useEffect')).toBe(true);
   });
 
   test('should correctly identify side effect imports with no specifiers', () => {

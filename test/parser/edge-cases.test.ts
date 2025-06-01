@@ -1,5 +1,6 @@
 import { ImportParser } from '../../src/parser';
 import { Config } from '../../src/types';
+import { containsSpecifier } from '../test-utils';
 
 describe('ImportParser - Edge Cases and Corner Cases', () => {
   const basicConfig: Config = {
@@ -93,8 +94,8 @@ describe('ImportParser - Edge Cases and Corner Cases', () => {
     expect(result.groups).toHaveLength(1);
     expect(result.groups[0].imports).toHaveLength(2);
     expect(result.groups[0].imports[0].type).toBe('named');
-    expect(result.groups[0].imports[0].specifiers).toContain('default');
-    expect(result.groups[0].imports[1].specifiers).toContain('default');
+    expect(containsSpecifier(result.groups[0].imports[0].specifiers, 'default')).toBe(true);
+    expect(containsSpecifier(result.groups[0].imports[1].specifiers, 'default')).toBe(true);
   });
 
   test('should handle very long module paths', () => {
@@ -242,9 +243,9 @@ describe('ImportParser - Edge Cases and Corner Cases', () => {
     
     // Second import is the named import
     expect(result.groups[0].imports[1].type).toBe('named');
-    expect(result.groups[0].imports[1].specifiers).toContain('namedExport1');
-    expect(result.groups[0].imports[1].specifiers).toContain('namedExport2');
-    expect(result.groups[0].imports[1].specifiers).toContain('namedExport3');
+    expect(containsSpecifier(result.groups[0].imports[1].specifiers, 'namedExport1')).toBe(true);
+    expect(containsSpecifier(result.groups[0].imports[1].specifiers, 'namedExport2')).toBe(true);
+    expect(containsSpecifier(result.groups[0].imports[1].specifiers, 'namedExport3')).toBe(true);
   });
 
   test('should handle imports at different code positions', () => {
