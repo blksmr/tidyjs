@@ -15,7 +15,7 @@ describe('Type Import Handling', () => {
         { name: 'DS', order: 3, match: /^ds/, isDefault: false },
         { name: 'Default', order: 999, isDefault: true }
       ],
-      importOrder: { sideEffect: 0, default: 1, named: 2, typeDefault: 3, typeNamed: 4 },
+      importOrder: { sideEffect: 0, default: 1, named: 2, typeOnly: 3 },
       format: { onSave: false, singleQuote: true, indent: 2, removeUnusedImports: false },
       excludedFolders: []
     };
