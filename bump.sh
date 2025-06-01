@@ -74,9 +74,9 @@ echo "Version successfully updated: $NEW_VERSION"
 echo "Removing existing .vsix files..."
 rm -f *.vsix
 
-# Run npm package command to create a new .vsix file
+# Run npm build command to create a new .vsix file
 echo "Building package..."
-npm run package
+npm run build
 
 # Create a Git commit with the new version and .vsix file
 git add package.json *.vsix
