@@ -1,5 +1,5 @@
 import { DiagnosticSeverity, languages, Uri, window } from 'vscode';
-import { ParserResult, ImportType } from '../parser';
+import { ParserResult, ImportType, ImportSpecifier } from '../parser';
 import { logDebug } from './log';
 const UNUSED_IMPORT_CODES = ['unused-import', 'import-not-used', '6192', '6133'];
 const MODULE_NOT_FOUND_CODES = ['2307', '2318']; // Cannot find module
@@ -119,9 +119,10 @@ export function getMissingAndUnusedImports(uri: Uri, parserResult: ParserResult)
           logDebug(`Import from missing module ${imp.source}:`, imp.specifiers);
           // Check each specifier to see if it's also unused
           for (const specifier of imp.specifiers) {
-            if (unusedVariables.has(specifier)) {
-              unusedFromMissing.add(specifier);
-              logDebug(`  - ${specifier} is unused and from missing module`);
+            const specName = typeof specifier === 'string' ? specifier : specifier.local;
+            if (unusedVariables.has(specName)) {
+              unusedFromMissing.add(specName);
+              logDebug(`  - ${specName} is unused and from missing module`);
             }
           }
           // Check default import too
@@ -162,7 +163,9 @@ export function getUnusedImports(uri: Uri, parserResult: ParserResult, includeMi
     }
 
     const allImportedSpecifiers = parserResult.groups.flatMap(group =>
-      group.imports.flatMap(imp => imp.specifiers)
+      group.imports.flatMap(imp => imp.specifiers.map(spec => 
+        typeof spec === 'string' ? spec : spec.local
+      ))
     );
 
     const editor = window.visibleTextEditors.find(e => e.document.uri.toString() === uri.toString());
@@ -213,14 +216,18 @@ export function getUnusedImports(uri: Uri, parserResult: ParserResult, includeMi
           for (const imp of group.imports) {
             if (missingModules.has(imp.source)) {
               // Check if ALL specifiers from this import are unused
-              const allSpecifiersUnused = imp.specifiers.every(spec => unusedFromMissing.has(spec));
+              const allSpecifiersUnused = imp.specifiers.every(spec => {
+                const specName = typeof spec === 'string' ? spec : spec.local;
+                return unusedFromMissing.has(specName);
+              });
               const defaultUnusedOrMissing = !imp.defaultImport || unusedFromMissing.has(imp.defaultImport);
               
               if (allSpecifiersUnused && defaultUnusedOrMissing) {
                 // All imports from this module are unused, so we can remove them all
                 imp.specifiers.forEach(spec => {
-                  if (!unusedImports.includes(spec)) {
-                    unusedImports.push(spec);
+                  const specName = typeof spec === 'string' ? spec : spec.local;
+                  if (!unusedImports.includes(specName)) {
+                    unusedImports.push(specName);
                   }
                 });
                 if (imp.defaultImport && !unusedImports.includes(imp.defaultImport)) {
@@ -268,7 +275,10 @@ export function removeUnusedImports(parserResult: ParserResult, unusedImports: s
       // Filter out unused specifiers
       if (updatedImport.specifiers && updatedImport.specifiers.length) {
         updatedImport.specifiers = updatedImport.specifiers.filter(
-          specifier => !unusedImports.includes(specifier)
+          specifier => {
+            const specName = typeof specifier === 'string' ? specifier : specifier.local;
+            return !unusedImports.includes(specName);
+          }
         );
       }
       
@@ -277,7 +287,10 @@ export function removeUnusedImports(parserResult: ParserResult, unusedImports: s
         updatedImport.defaultImport = undefined;
         // For default imports, remove the specifier that contains the default import name
         updatedImport.specifiers = updatedImport.specifiers.filter(
-          specifier => !unusedImports.includes(specifier)
+          specifier => {
+            const specName = typeof specifier === 'string' ? specifier : specifier.local;
+            return !unusedImports.includes(specName);
+          }
         );
       }
       
