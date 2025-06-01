@@ -69,18 +69,6 @@ describe('ImportParser - Alias Import Parsing', () => {
     ]);
   });
 
-  it('should handle multiple aliases with special characters', () => {
-    const code = `import { $http as http, _lodash as lodash } from 'utils';`;
-    
-    const parser = new ImportParser(config);
-    const result = parser.parse(code);
-    
-    expect(result.groups[0].imports[0].specifiers).toEqual([
-      { imported: '$http', local: 'http' },
-      { imported: '_lodash', local: 'lodash' },
-    ]);
-  });
-
   it('should handle mixed default alias with other named imports', () => {
     const code = `import { default as lodash, debounce, throttle } from 'lodash';`;
     
@@ -113,6 +101,18 @@ describe('ImportParser - Alias Import Parsing', () => {
     expect(result2.groups[0].imports[0].defaultImport).toBeUndefined();
     expect(result2.groups[0].imports[0].specifiers).toEqual([
       { imported: 'default', local: 'React' },
+    ]);
+  });
+
+  it('should handle multiple aliases with special characters', () => {
+    const code = `import { $http as http, _lodash as lodash } from 'utils';`;
+    
+    const parser = new ImportParser(config);
+    const result = parser.parse(code);
+    
+    expect(result.groups[0].imports[0].specifiers).toEqual([
+      { imported: '$http', local: 'http' },
+      { imported: '_lodash', local: 'lodash' },
     ]);
   });
 });

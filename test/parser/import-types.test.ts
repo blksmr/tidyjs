@@ -1,5 +1,6 @@
 import { ImportParser } from '../../src/parser';
 import { Config } from '../../src/types';
+import { containsSpecifier } from '../test-utils';
 
 describe('ImportParser - Import Types Detection', () => {
   const basicConfig: Config = {
@@ -119,8 +120,8 @@ describe('ImportParser - Import Types Detection', () => {
     const result = parser.parse(sourceCode);
     
     expect(result.groups[0].imports[0].type).toBe('named');
-    expect(result.groups[0].imports[0].specifiers).toContain('useState');
-    expect(result.groups[0].imports[0].specifiers).toContain('useEffect');
+    expect(containsSpecifier(result.groups[0].imports[0].specifiers, 'useState')).toBe(true);
+    expect(containsSpecifier(result.groups[0].imports[0].specifiers, 'useEffect')).toBe(true);
   });
 
   test('should handle single named import', () => {
