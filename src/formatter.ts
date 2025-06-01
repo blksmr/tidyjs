@@ -210,21 +210,34 @@ function formatImportLine(importItem: ParsedImport): string {
   }
 
   if (type === ImportType.DEFAULT && specifiers.length === 1) {
-    return `import ${specifiers[0]} from '${source}';`;
+    const spec = specifiers[0];
+    const specStr = typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`;
+    return `import ${specStr} from '${source}';`;
   }
 
   if (type === ImportType.TYPE_DEFAULT && specifiers.length === 1) {
-    return `import type ${specifiers[0]} from '${source}';`;
+    const spec = specifiers[0];
+    const specStr = typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`;
+    return `import type ${specStr} from '${source}';`;
   }
 
   if ((type === ImportType.NAMED || type === ImportType.TYPE_NAMED) && specifiers.length === 1) {
     const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
-    return `import ${typePrefix}{ ${specifiers[0]} } from '${source}';`;
+    const spec = specifiers[0];
+    const specStr = typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`;
+    return `import ${typePrefix}{ ${specStr} } from '${source}';`;
   }
 
   if ((type === ImportType.NAMED || type === ImportType.TYPE_NAMED) && specifiers.length > 1) {
     const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
-    const specifiersSet = new Set(specifiers);
+    
+    // Convert specifiers to strings for formatting
+    const formattedSpecs = specifiers.map(spec => 
+      typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`
+    );
+    
+    // Remove duplicates and sort
+    const specifiersSet = new Set(formattedSpecs);
     const sortedSpecifiers = Array.from(specifiersSet).sort((a, b) => a.length - b.length);
 
     const parts = [`import ${typePrefix}{`, `    ${sortedSpecifiers.join(',\n    ')}`, `} from '${source}';`];
@@ -232,7 +245,10 @@ function formatImportLine(importItem: ParsedImport): string {
   }
 
   const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
-  const specifiersStr = specifiers.join(', ');
+  const formattedSpecs = specifiers.map(spec => 
+    typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`
+  );
+  const specifiersStr = formattedSpecs.join(', ');
   return `import ${typePrefix}{ ${specifiersStr} } from '${source}';`;
 }
 
@@ -344,7 +360,7 @@ function formatImportsFromParser(sourceText: string, importRange: { start: numbe
           case ImportType.DEFAULT:
             if (imp.defaultImport) {
               sourceImports.default = imp;
-            } else if (imp.specifiers.some(s => s.startsWith('* as'))) {
+            } else if (imp.specifiers.some(s => typeof s === 'string' && s.startsWith('* as'))) {
               sourceImports.namespace = imp;
             }
             break;
@@ -451,7 +467,9 @@ function formatImportsFromParser(sourceText: string, importRange: { start: numbe
         if (sourceCompare !== 0) {return sourceCompare;}
 
         if ((a.type === ImportType.NAMED || a.type === ImportType.TYPE_NAMED) && (b.type === ImportType.NAMED || b.type === ImportType.TYPE_NAMED) && a.specifiers.length > 1 && b.specifiers.length > 1) {
-          return a.specifiers[0].length - b.specifiers[0].length;
+          const aFirstSpec = typeof a.specifiers[0] === 'string' ? a.specifiers[0] : a.specifiers[0].local;
+          const bFirstSpec = typeof b.specifiers[0] === 'string' ? b.specifiers[0] : b.specifiers[0].local;
+          return aFirstSpec.length - bFirstSpec.length;
         }
 
         return 0;
@@ -492,13 +510,19 @@ function formatImportsFromParser(sourceText: string, importRange: { start: numbe
     const cleanedLines = cleanUpLines(formattedLines);
     const formattedText = cleanedLines.join('\n');
 
-    const nextChar = sourceText[importRange.end];
-    const needsExtraNewline = nextChar && nextChar !== '\n';
+    // Handle the content after imports
+    let suffix = sourceText.substring(importRange.end);
+    
+    // Remove any leading newlines from the suffix
+    suffix = suffix.replace(/^\n*/, '');
+    
+    // Ensure exactly one newline between imports and following content
+    // If there's content after imports, add a newline separator
+    if (suffix.length > 0) {
+      suffix = '\n' + suffix;
+    }
 
-    const suffix = sourceText.substring(importRange.end);
-    const paddedSuffix = needsExtraNewline ? '\n' + suffix : suffix;
-
-    return sourceText.substring(0, importRange.start) + formattedText + paddedSuffix;
+    return sourceText.substring(0, importRange.start) + formattedText + suffix;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logDebug(`Error while formatting imports: ${errorMessage}`);
