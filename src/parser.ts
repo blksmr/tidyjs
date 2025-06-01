@@ -26,7 +26,7 @@ export enum ImportType {
   SIDE_EFFECT = "sideEffect"
 }
 export type ImportSource = string;
-export type ImportSpecifier = string;
+export type ImportSpecifier = string | { imported: string; local: string };
 
 export type TypeOrder = Record<ImportType, number>;
 
@@ -202,7 +202,7 @@ export class ImportParser {
           const importNode = node as TSESTree.ImportDeclaration;
           const source = importNode.source.value as string;
 
-          const specifiers: string[] = [];
+          const specifiers: ImportSpecifier[] = [];
           let type: ImportType = ImportType.NAMED;
           let defaultImport: string | undefined;
           let hasDefault = false;
@@ -226,7 +226,15 @@ export class ImportParser {
               } else if (specifierNode.type === "ImportSpecifier") {
                 hasNamed = true;
                 const importedName = specifierNode.imported ? (specifierNode.imported as TSESTree.Identifier).name : specifierNode.local.name;
-                specifiers.push(importedName);
+                const localName = specifierNode.local.name;
+                
+                if (importedName !== localName) {
+                  // Import with alias
+                  specifiers.push({ imported: importedName, local: localName });
+                } else {
+                  // Regular import without alias
+                  specifiers.push(importedName);
+                }
               } else if (specifierNode.type === "ImportNamespaceSpecifier") {
                 hasNamespace = true;
                 specifiers.push(`* as ${specifierNode.local.name}`);
@@ -361,22 +369,66 @@ export class ImportParser {
       } else if (imp.type === ImportType.NAMED) {
         if (sourceImports.named) {
           // Merge specifiers for named imports from same source
-          const existingSpecifiers = new Set(sourceImports.named.specifiers);
-          imp.specifiers.forEach(spec => existingSpecifiers.add(spec));
-          sourceImports.named.specifiers = Array.from(existingSpecifiers).sort();
+          const specMap = new Map<string, ImportSpecifier>();
+          
+          // Add existing specifiers
+          sourceImports.named.specifiers.forEach(spec => {
+            if (typeof spec === 'string') {
+              specMap.set(spec, spec);
+            } else {
+              specMap.set(spec.local, spec);
+            }
+          });
+          
+          // Add new specifiers
+          imp.specifiers.forEach(spec => {
+            if (typeof spec === 'string') {
+              specMap.set(spec, spec);
+            } else {
+              specMap.set(spec.local, spec);
+            }
+          });
+          
+          sourceImports.named.specifiers = Array.from(specMap.values()).sort((a, b) => {
+            const aStr = typeof a === 'string' ? a : a.local;
+            const bStr = typeof b === 'string' ? b : b.local;
+            return aStr.localeCompare(bStr);
+          });
         } else {
           sourceImports.named = imp;
         }
       } else if (imp.type === ImportType.TYPE_NAMED) {
         if (sourceImports.typeNamed) {
           // Merge specifiers for type named imports from same source
-          const existingSpecifiers = new Set(sourceImports.typeNamed.specifiers);
-          imp.specifiers.forEach(spec => existingSpecifiers.add(spec));
-          sourceImports.typeNamed.specifiers = Array.from(existingSpecifiers).sort();
+          const specMap = new Map<string, ImportSpecifier>();
+          
+          // Add existing specifiers
+          sourceImports.typeNamed.specifiers.forEach(spec => {
+            if (typeof spec === 'string') {
+              specMap.set(spec, spec);
+            } else {
+              specMap.set(spec.local, spec);
+            }
+          });
+          
+          // Add new specifiers
+          imp.specifiers.forEach(spec => {
+            if (typeof spec === 'string') {
+              specMap.set(spec, spec);
+            } else {
+              specMap.set(spec.local, spec);
+            }
+          });
+          
+          sourceImports.typeNamed.specifiers = Array.from(specMap.values()).sort((a, b) => {
+            const aStr = typeof a === 'string' ? a : a.local;
+            const bStr = typeof b === 'string' ? b : b.local;
+            return aStr.localeCompare(bStr);
+          });
         } else {
           sourceImports.typeNamed = imp;
         }
-      } else if (imp.type === ImportType.DEFAULT && imp.specifiers.some(s => s.startsWith('* as'))) {
+      } else if (imp.type === ImportType.DEFAULT && imp.specifiers.some(s => typeof s === 'string' && s.startsWith('* as'))) {
         sourceImports.namespace = imp;
       } else if (imp.type === ImportType.SIDE_EFFECT) {
         sourceImports.sideEffect = imp;
