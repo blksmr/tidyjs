@@ -207,32 +207,6 @@ class ConfigManager {
   }
 
   /**
-   * Registers a new app subfolder as a dynamic group
-   * Creates a new import group for the specified app subfolder with pattern @app/{subfolder}
-   * The group inherits the order from the 'Internal' group or defaults to order 2
-   * @param subfolder The subfolder name to register (e.g., 'auth', 'utils')
-   * @example
-   * ```typescript
-   * configManager.registerAppSubfolder('auth');
-   * // Creates group: { name: '@app/auth', match: /^@app\/auth/, order: 2, isDefault: false }
-   * ```
-   */
-  public registerAppSubfolder(subfolder: string): void {
-    if (subfolder && !this.subfolders.has(subfolder)) {
-      const internalGroupOrder = this.config.groups.find(g => g.name === 'Internal')?.order ?? 2;
-      const name = `@app/${subfolder}`;
-      const match = new RegExp(`^@app\\/${subfolder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
-
-      this.subfolders.set(subfolder, {
-        name,
-        match,
-        order: internalGroupOrder,
-        isDefault: false,
-      });
-    }
-  }
-
-  /**
    * Parses a RegExp string in format "/pattern/flags" or "pattern"
    * Handles both slash-delimited regex strings with flags and plain patterns
    * @param regexStr The regex string to parse
@@ -275,7 +249,7 @@ class ConfigManager {
    * Loads configuration from VS Code workspace settings
    * Reads all TidyJS settings from VS Code configuration and updates internal state
    * Validates the loaded configuration and fires change events if updates occur
-   * Handles settings for groups, format options, import order, patterns, and excluded folders
+   * Handles settings for groups, format options, import order, and excluded folders
    * @example
    * ```typescript
    * // Called automatically on startup and when settings change
