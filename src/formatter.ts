@@ -53,13 +53,21 @@ function alignMultilineFromKeyword(line: string, fromIndex: number, maxFromIndex
   }
 
   const closeBraceIndex = lastLine.indexOf('}');
-  if (closeBraceIndex === -1) {return line;}
-
-  const beforeContent = lastLine.substring(0, closeBraceIndex + 1);
-  const exactSpaces = Math.max(1, maxFromIndex - (closeBraceIndex + 1)); // Ensure at least 1 space
-  const fromAndAfter = lastLine.substring(fromMatch.index);
-
-  const newLastLine = beforeContent + ' '.repeat(exactSpaces) + fromAndAfter;
+  let newLastLine: string;
+  
+  if (closeBraceIndex === -1) {
+    // No closing brace found - apply basic alignment from start of line
+    const beforeFrom = lastLine.substring(0, fromMatch.index);
+    const fromAndAfter = lastLine.substring(fromMatch.index);
+    const exactSpaces = Math.max(1, maxFromIndex - beforeFrom.length);
+    newLastLine = beforeFrom + ' '.repeat(exactSpaces) + fromAndAfter;
+  } else {
+    // Normal case with closing brace
+    const beforeContent = lastLine.substring(0, closeBraceIndex + 1);
+    const exactSpaces = Math.max(1, maxFromIndex - (closeBraceIndex + 1)); // Ensure at least 1 space
+    const fromAndAfter = lastLine.substring(fromMatch.index);
+    newLastLine = beforeContent + ' '.repeat(exactSpaces) + fromAndAfter;
+  }
   lines[lastLineIndex] = newLastLine;
 
   return lines.join('\n');
@@ -156,11 +164,13 @@ function cleanUpLines(lines: string[]): string[] {
     }
 
     if (multilineCommentStartRegex.test(normalizedLine)) {
-      inMultilineComment = true;
       if (isInlineMultilineComment(normalizedLine)) {
-        inMultilineComment = false;
+        // Don't skip the line, there might be code after the comment
+        result.push(line);
+        consecutiveEmptyLines = 0;
         continue;
       }
+      inMultilineComment = true;
     }
 
     if (inMultilineComment) {
