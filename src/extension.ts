@@ -6,6 +6,8 @@ import { configManager } from "./utils/config";
 import { logDebug, logError } from "./utils/log";
 import { getUnusedImports, removeUnusedImports, showMessage } from "./utils/misc";
 import { debounce } from "lodash";
+import { perfMonitor } from "./utils/performance";
+import { diagnosticsCache } from "./utils/diagnostics-cache";
 
 let parser: ImportParser | null = null;
 let isExtensionEnabled = false;
@@ -307,6 +309,9 @@ async function formatImportsCommand(source = "manual"): Promise<void> {
   }
 
   isFormatting = true;
+  perfMonitor.clear(); // Clear previous metrics
+  perfMonitor.start('total_format_operation');
+  
   logDebug(`Starting ${source} format operation on:`, {
     fileName: document.fileName,
     scheme: document.uri.scheme,
@@ -323,7 +328,11 @@ async function formatImportsCommand(source = "manual"): Promise<void> {
       return;
     }
 
-    let parserResult = parser.parse(documentText) as ParserResult;
+    let parserResult = perfMonitor.measureSync(
+      'parser_parse',
+      () => parser.parse(documentText) as ParserResult,
+      { documentLength: documentText.length }
+    );
     logDebug("Parser result:", JSON.stringify(parserResult, null, 2));
 
     // Check if imports were found
@@ -346,9 +355,14 @@ async function formatImportsCommand(source = "manual"): Promise<void> {
 
     if (configManager.getConfig().format.removeUnusedImports) {
       try {
-        const config = configManager.getConfig();
+        const config = perfMonitor.measureSync('config_getConfig', () => configManager.getConfig());
         const includeMissingModules = config.format.removeMissingModules ?? false;
-        const unusedImports = getUnusedImports(document.uri, parserResult, includeMissingModules);
+        
+        const unusedImports = perfMonitor.measureSync(
+          'get_unused_imports',
+          () => getUnusedImports(document.uri, parserResult, includeMissingModules),
+          { includeMissingModules }
+        );
         
         logDebug("Unused imports:", unusedImports);
         if (includeMissingModules) {
@@ -356,7 +370,11 @@ async function formatImportsCommand(source = "manual"): Promise<void> {
         }
         
         if (unusedImports.length > 0) {
-          parserResult = removeUnusedImports(parserResult, unusedImports);
+          parserResult = perfMonitor.measureSync(
+            'remove_unused_imports',
+            () => removeUnusedImports(parserResult, unusedImports),
+            { count: unusedImports.length }
+          );
         }
       } catch (error) {
         logError("Error removing unused imports:", error instanceof Error ? error.message : String(error));
@@ -364,7 +382,10 @@ async function formatImportsCommand(source = "manual"): Promise<void> {
       }
     }
 
-    const success = await applyDocumentUpdate(document, parserResult, configManager.getConfig(), source, targetEditor);
+    const success = await perfMonitor.measureAsync(
+      'apply_document_update',
+      () => applyDocumentUpdate(document, parserResult, configManager.getConfig(), source, targetEditor)
+    );
 
     if (success) {
       if (source === "manual") {
@@ -377,8 +398,13 @@ async function formatImportsCommand(source = "manual"): Promise<void> {
     showMessage.error(`Error formatting imports: ${errorMessage}`);
   } finally {
     isFormatting = false;
-    logDebug(`Finished ${source} format operation`);
-
+    diagnosticsCache.clear(); // Clear cache after formatting
+    const totalDuration = perfMonitor.end('total_format_operation');
+    logDebug(`Finished ${source} format operation in ${totalDuration.toFixed(2)}ms`);
+    
+    if (configManager.getConfig().debug) {
+      perfMonitor.logSummary();
+    }
   }
 }
 
