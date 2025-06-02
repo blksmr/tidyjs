@@ -1,6 +1,7 @@
 import { DiagnosticSeverity, languages, Uri, window } from 'vscode';
 import { ParserResult, ImportType, ImportSpecifier } from '../parser';
 import { logDebug } from './log';
+import { diagnosticsCache } from './diagnostics-cache';
 const UNUSED_IMPORT_CODES = ['unused-import', 'import-not-used', '6192', '6133'];
 const MODULE_NOT_FOUND_CODES = ['2307', '2318']; // Cannot find module
 
@@ -61,7 +62,7 @@ export function getMissingAndUnusedImports(uri: Uri, parserResult: ParserResult)
       return { missingModules: new Set(), unusedFromMissing: new Set() };
     }
     
-    const diagnostics = languages.getDiagnostics(uri);
+    const diagnostics = diagnosticsCache.getDiagnostics(uri);
     const missingModules = new Set<string>();
     const unusedVariables = new Set<string>();
 
@@ -155,7 +156,7 @@ export function getUnusedImports(uri: Uri, parserResult: ParserResult, includeMi
       return [];
     }
     
-    const diagnostics = languages.getDiagnostics(uri);
+    const diagnostics = diagnosticsCache.getDiagnostics(uri);
     const unusedImports: string[] = [];
 
     if (!diagnostics) {
