@@ -15,7 +15,7 @@ async function testFormatting() {
         { name: '@app/services', order: 10, isDefault: false, match: /^@app\/services/ }
       ],
       importOrder: { sideEffect: 0, default: 1, named: 2, typeOnly: 3 },
-      format: { onSave: false }
+      format: {  }
     });
     
     console.log('First format - Error:', result1.error);
@@ -28,7 +28,7 @@ async function testFormatting() {
         { name: '@app/services', order: 10, isDefault: false, match: /^@app\/services/ }
       ],
       importOrder: { sideEffect: 0, default: 1, named: 2, typeOnly: 3 },
-      format: { onSave: false }
+      format: {  }
     });
     
     console.log('Second format - Error:', result2.error);

@@ -1,7 +1,7 @@
 import { formatImports } from "./formatter";
 import { ImportParser, ParserResult, InvalidImport } from "./parser";
-import { Range, window, commands, workspace } from "vscode";
-import type { ExtensionContext } from "vscode";
+import { Range, window, commands, workspace, languages, TextEdit, CancellationTokenSource } from "vscode";
+import type { ExtensionContext, DocumentFormattingEditProvider, TextDocument, FormattingOptions, CancellationToken } from "vscode";
 import { configManager } from "./utils/config";
 import { logDebug, logError } from "./utils/log";
 import { getUnusedImports, removeUnusedImports, showMessage } from "./utils/misc";
@@ -10,9 +10,142 @@ import { perfMonitor } from "./utils/performance";
 import { diagnosticsCache } from "./utils/diagnostics-cache";
 
 let parser: ImportParser | null = null;
-let isExtensionEnabled = false;
-let isFormatting = false;
 let lastConfigString = '';
+
+/**
+ * TidyJS Document Formatting Provider
+ */
+class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
+  async provideDocumentFormattingEdits(
+    document: TextDocument,
+    options: FormattingOptions,
+    token: CancellationToken
+  ): Promise<TextEdit[] | undefined> {
+    try {
+      // Vérifier si le document est dans un dossier exclu
+      if (isDocumentInExcludedFolder(document)) {
+        logDebug("Formatting skipped: document is in excluded folder");
+        return undefined;
+      }
+
+      // Vérifier si l'extension est activée et configurée correctement
+      if (!ensureExtensionEnabled()) {
+        return undefined;
+      }
+
+      // Vérifier si nous pouvons formater ce document
+      if (!canFormatDocument(document)) {
+        logDebug("Formatting skipped: document cannot be formatted");
+        return undefined;
+      }
+
+      const documentText = document.getText();
+
+      // Vérification de sécurité pour éviter de formater des logs
+      if (documentText.includes('[DEBUG]') || documentText.includes('Parser result:')) {
+        logError('Document appears to contain debug logs instead of source code - skipping format');
+        return undefined;
+      }
+
+      if (!parser) {
+        logError('Parser not initialized');
+        return undefined;
+      }
+
+      perfMonitor.clear();
+      perfMonitor.start('total_format_operation');
+
+      // Parser le document
+      let parserResult = perfMonitor.measureSync(
+        'parser_parse',
+        () => parser!.parse(documentText) as ParserResult,
+        { documentLength: documentText.length }
+      );
+
+      // Vérifier si des imports ont été trouvés
+      if (!parserResult.importRange || parserResult.importRange.start === parserResult.importRange.end) {
+        logDebug("No imports found in document");
+        return undefined;
+      }
+
+      // Vérifier les imports invalides
+      if (parserResult.invalidImports && parserResult.invalidImports.length > 0) {
+        const errorMessages = parserResult.invalidImports.map((invalidImport) => {
+          return formatImportError(invalidImport);
+        });
+        logError("Invalid imports found:", errorMessages.join("\n"));
+        return undefined;
+      }
+
+      // Gérer la suppression des imports non utilisés
+      if (configManager.getConfig().format.removeUnusedImports) {
+        try {
+          const config = perfMonitor.measureSync('config_getConfig', () => configManager.getConfig());
+          const includeMissingModules = config.format.removeMissingModules ?? false;
+          
+          const diagnostics = perfMonitor.measureSync(
+            'get_diagnostics',
+            () => diagnosticsCache.getDiagnostics(document.uri),
+            { uri: document.uri.toString() }
+          );
+          
+          const unusedImports = perfMonitor.measureSync(
+            'get_unused_imports',
+            () => getUnusedImports(document.uri, parserResult, includeMissingModules, diagnostics),
+            { includeMissingModules }
+          );
+          
+          if (unusedImports.length > 0) {
+            parserResult = perfMonitor.measureSync(
+              'remove_unused_imports',
+              () => removeUnusedImports(parserResult, unusedImports),
+              { count: unusedImports.length }
+            );
+          }
+        } catch (error) {
+          logError("Error removing unused imports:", error instanceof Error ? error.message : String(error));
+        }
+      }
+
+      // Formater les imports
+      const formattedDocument = await perfMonitor.measureAsync(
+        'format_imports',
+        () => formatImports(documentText, configManager.getConfig(), parserResult)
+      );
+
+      if (formattedDocument.error) {
+        logError("Formatting error:", formattedDocument.error);
+        return undefined;
+      }
+
+      // Si aucun changement n'est nécessaire
+      if (formattedDocument.text === documentText) {
+        logDebug("No changes needed for document");
+        return undefined;
+      }
+
+      // Créer et retourner les éditions
+      const fullRange = new Range(
+        document.positionAt(0),
+        document.positionAt(documentText.length)
+      );
+
+      const totalDuration = perfMonitor.end('total_format_operation');
+      logDebug(`Document formatting completed in ${totalDuration.toFixed(2)}ms`);
+
+      if (configManager.getConfig().debug) {
+        perfMonitor.logSummary();
+      }
+
+      return [TextEdit.replace(fullRange, formattedDocument.text)];
+    } catch (error) {
+      logError("Error in provideDocumentFormattingEdits:", error);
+      return undefined;
+    } finally {
+      diagnosticsCache.clear();
+    }
+  }
+}
 
 /**
  * Simple check if document can be formatted
@@ -145,75 +278,6 @@ function validateConfigurationManual(config: ReturnType<typeof configManager.get
   };
 }
 
-/**
- * Enhanced document update with better error handling and state management
- */
-async function applyDocumentUpdate(
-  document: import("vscode").TextDocument,
-  parserResult: ParserResult,
-  formatterConfig: ReturnType<typeof configManager.getConfig>,
-  source = "unknown",
-  targetEditor?: import("vscode").TextEditor
-): Promise<boolean> {
-  // Use the provided targetEditor or fallback to activeTextEditor
-  const editor = targetEditor || window.activeTextEditor;
-  if (!editor || editor.document !== document) {
-    logDebug(`Document update skipped: editor mismatch (${source})`);
-    return false;
-  }
-
-  if (!canFormatDocument(document)) {
-    logDebug(`Document update skipped: document cannot be formatted (${source})`);
-    return false;
-  }
-
-  const documentText = document.getText();
-
-  try {
-    const formattedDocument = await formatImports(documentText, formatterConfig, parserResult);
-
-    logDebug(`Formatted document result (${source}):`, {
-      hasError: !!formattedDocument.error,
-      textChanged: formattedDocument.text !== documentText,
-      originalLength: documentText.length,
-      formattedLength: formattedDocument.text.length,
-    });
-
-    if (formattedDocument.error) {
-      showMessage.error(formattedDocument.error);
-      return false;
-    }
-
-    if (formattedDocument.text !== documentText) {
-      const fullDocumentRange = new Range(document.positionAt(0), document.positionAt(documentText.length));
-
-      return await editor
-        .edit((editBuilder) => {
-          editBuilder.replace(fullDocumentRange, formattedDocument.text);
-        })
-        .then((success) => {
-          if (success) {
-            logDebug(`Successfully updated document (${source})`);
-            // Restore focus to the target editor to prevent focus loss to Output panel
-            if (targetEditor && window.activeTextEditor !== targetEditor) {
-              window.showTextDocument(targetEditor.document, targetEditor.viewColumn, false);
-            }
-          } else {
-            showMessage.warning(`Failed to update document (${source})`);
-          }
-          return success;
-        });
-    }
-
-    logDebug(`No changes needed for document (${source})`);
-    return true;
-  } catch (error) {
-    logError(`Error applying document update (${source}):`, error);
-    const errorMessage = String(error);
-    showMessage.error(`Error updating document: ${errorMessage}`);
-    return false;
-  }
-}
 
 /**
  * Check if the current document is in an excluded folder
@@ -244,192 +308,6 @@ function isDocumentInExcludedFolder(document: import("vscode").TextDocument): bo
   });
 }
 
-/**
- * Enhanced import formatting command with better concurrency control
- */
-async function formatImportsCommand(source = "manual"): Promise<void> {
-  if (isFormatting) {
-    logDebug(`Skipping ${source} format operation - already formatting`);
-    return;
-  }
-
-  if (!ensureExtensionEnabled()) {
-    return;
-  }
-
-  const editor = window.activeTextEditor;
-  if (!editor) {
-    showMessage.warning("No active editor found");
-    return;
-  }
-
-  const document = editor.document;
-  
-  // Capture the editor reference to prevent losing focus during operation
-  const targetEditor = editor;
-
-  // Safety check: ensure we're working with a real file, not output/log panels
-  if (document.uri.scheme !== 'file' && document.uri.scheme !== 'untitled') {
-    logDebug(`Skipping format - document is not a real file (scheme: ${document.uri.scheme})`);
-    return;
-  }
-
-  // Additional safety check for file extensions that should be formatted
-  const supportedExtensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
-  const hasValidExtension = supportedExtensions.some(ext => 
-    document.fileName.endsWith(ext) || document.languageId.includes('typescript') || document.languageId.includes('javascript')
-  );
-  
-  if (!hasValidExtension && document.uri.scheme !== 'untitled') {
-    logDebug(`Skipping format - unsupported file type: ${document.fileName} (language: ${document.languageId})`);
-    return;
-  }
-
-  if (isDocumentInExcludedFolder(document)) {
-    logDebug(`Format operation skipped: document is in excluded folder (${source})`);
-    if (source === "manual") {
-      logDebug("Import formatting is disabled for this folder");
-    }
-    return;
-  }
-
-  if (!canFormatDocument(document)) {
-    logDebug(`Format operation skipped: document cannot be formatted (${source})`);
-    return;
-  }
-
-  const documentText = document.getText();
-
-  // Check if document contains debug logs (safety check)
-  if (documentText.includes('[DEBUG]') || documentText.includes('Parser result:')) {
-    logError('Document appears to contain debug logs instead of source code - skipping format');
-    if (source === "manual") {
-      showMessage.error('Cannot format: Document appears to contain logs instead of source code');
-    }
-    return;
-  }
-
-  isFormatting = true;
-  perfMonitor.clear(); // Clear previous metrics
-  perfMonitor.start('total_format_operation');
-  
-  logDebug(`Starting ${source} format operation on:`, {
-    fileName: document.fileName,
-    scheme: document.uri.scheme,
-    languageId: document.languageId,
-    isUntitled: document.isUntitled,
-    textLength: documentText.length,
-    textPreview: documentText.substring(0, 100).replace(/\n/g, '\\n')
-  });
-
-  try {
-    if (!parser) {
-      logError('Parser not initialized');
-      showMessage.error('TidyJS extension is not properly initialized');
-      return;
-    }
-
-    let parserResult = perfMonitor.measureSync(
-      'parser_parse',
-      () => parser!.parse(documentText) as ParserResult,
-      { documentLength: documentText.length }
-    );
-    logDebug("Parser result:", JSON.stringify(parserResult, null, 2));
-
-    // Check if imports were found
-    if (!parserResult.importRange || parserResult.importRange.start === parserResult.importRange.end) {
-      if (source === "manual") {
-        showMessage.info("No imports found in document");
-      }
-      return;
-    }
-
-    if (parserResult.invalidImports && parserResult.invalidImports.length > 0) {
-      const errorMessages = parserResult.invalidImports.map((invalidImport) => {
-        return formatImportError(invalidImport);
-      });
-
-      showMessage.error(`Invalid import syntax: ${errorMessages[0]}`);
-      logError("Invalid imports found:", errorMessages.join("\n"));
-      return;
-    }
-
-    if (configManager.getConfig().format.removeUnusedImports) {
-      try {
-        const config = perfMonitor.measureSync('config_getConfig', () => configManager.getConfig());
-        const includeMissingModules = config.format.removeMissingModules ?? false;
-        
-        // Récupérer les diagnostics une seule fois et les réutiliser
-        const diagnostics = perfMonitor.measureSync(
-          'get_diagnostics',
-          () => diagnosticsCache.getDiagnostics(document.uri),
-          { uri: document.uri.toString() }
-        );
-        
-        const unusedImports = perfMonitor.measureSync(
-          'get_unused_imports',
-          () => getUnusedImports(document.uri, parserResult, includeMissingModules, diagnostics),
-          { includeMissingModules }
-        );
-        
-        logDebug("Unused imports:", unusedImports);
-        if (includeMissingModules) {
-          logDebug("Including missing module imports in removal");
-        }
-        
-        if (unusedImports.length > 0) {
-          parserResult = perfMonitor.measureSync(
-            'remove_unused_imports',
-            () => removeUnusedImports(parserResult, unusedImports),
-            { count: unusedImports.length }
-          );
-        }
-      } catch (error) {
-        logError("Error removing unused imports:", error instanceof Error ? error.message : String(error));
-        // Continue with formatting even if unused import removal fails
-      }
-    }
-
-    const success = await perfMonitor.measureAsync(
-      'apply_document_update',
-      () => applyDocumentUpdate(document, parserResult, configManager.getConfig(), source, targetEditor)
-    );
-
-    if (success) {
-      if (source === "manual") {
-        logDebug("Imports formatted successfully!");
-      }
-    }
-  } catch (error) {
-    logError(`Error formatting imports (${source}):`, error);
-    const errorMessage = String(error);
-    showMessage.error(`Error formatting imports: ${errorMessage}`);
-  } finally {
-    isFormatting = false;
-    diagnosticsCache.clear(); // Clear cache after formatting
-    const totalDuration = perfMonitor.end('total_format_operation');
-    logDebug(`Finished ${source} format operation in ${totalDuration.toFixed(2)}ms`);
-    
-    if (configManager.getConfig().debug) {
-      perfMonitor.logSummary();
-    }
-  }
-}
-
-/**
- * Enhanced debounced versions with longer delays to prevent rapid execution
- */
-const debouncedFormatImportsCommand = debounce(() => {
-  if (!isFormatting) {
-    formatImportsCommand("manual");
-  }
-}, 600);
-
-const debouncedFormatOnSaveCommand = debounce(() => {
-  if (!isFormatting) {
-    formatImportsCommand("auto-save");
-  }
-}, 800);
 
 
 /**
@@ -454,7 +332,6 @@ function ensureExtensionEnabled(): boolean {
       logDebug(configChanged ? 'Configuration changed, recreating parser' : 'Creating new parser instance');
       parser = new ImportParser(config);
       lastConfigString = configString;
-      isExtensionEnabled = true;
     } catch (error) {
       logError("Error initializing parser:", error);
       showMessage.error(`Error initializing parser: ${error}`);
@@ -474,45 +351,60 @@ export function activate(context: ExtensionContext): void {
       const config = configManager.getParserConfig();
       parser = new ImportParser(config);
       lastConfigString = JSON.stringify(config);
-      isExtensionEnabled = true;
       logDebug('Extension activated with valid configuration');
     } else {
       showMessage.error(`TidyJS extension disabled due to configuration errors:\n${validation.errors.join("\n")}\n\nPlease fix your configuration to use the extension.`);
       logError('Extension started with invalid configuration - commands disabled:', validation.errors);
       parser = null;
-      isExtensionEnabled = false;
     }
+
+    // Enregistrer TidyJS comme formatting provider pour TypeScript et JavaScript
+    // Note: Nous pouvons utiliser des patterns glob négatifs dans le documentSelector
+    // mais ils ne sont pas encore bien supportés par VS Code pour les formatters.
+    // Pour l'instant, nous gardons la vérification manuelle dans provideDocumentFormattingEdits
+    const documentSelector = [
+      { language: 'typescript', scheme: 'file' },
+      { language: 'typescriptreact', scheme: 'file' },
+      { language: 'javascript', scheme: 'file' },
+      { language: 'javascriptreact', scheme: 'file' }
+    ];
+
+    const formattingProvider = languages.registerDocumentFormattingEditProvider(
+      documentSelector,
+      new TidyJSFormattingProvider()
+    );
 
     const formatCommand = commands.registerCommand("extension.format", async () => {
       if (!ensureExtensionEnabled()) {
         return;
       }
-      debouncedFormatImportsCommand();
-    });
-
-    const handleFormatOnSave = (document: import("vscode").TextDocument) => {
-      if (configManager.getConfig().format.onSave) {
-        if (isDocumentInExcludedFolder(document)) {
-          logDebug("Format on save skipped: document is in excluded folder");
-          return;
-        }
-        
-        const editor = window.activeTextEditor;
-        if (editor && editor.document === document) {
-          if (ensureExtensionEnabled()) {
-            setTimeout(() => {
-              if (!isFormatting) {
-                debouncedFormatOnSaveCommand();
-              }
-            }, 200);
-          } else {
-            logDebug("Format on save skipped due to disabled extension.");
-          }
-        }
+      
+      const editor = window.activeTextEditor;
+      if (!editor) {
+        showMessage.warning("No active editor found");
+        return;
       }
-    };
 
-    const formatOnSaveDisposable = workspace.onDidSaveTextDocument(handleFormatOnSave);
+      // Forcer l'utilisation de TidyJS comme formatter pour cette exécution
+      // en appelant directement notre provider
+      const provider = new TidyJSFormattingProvider();
+      const edits = await provider.provideDocumentFormattingEdits(
+        editor.document,
+        { tabSize: 2, insertSpaces: true }, // Options par défaut
+        new CancellationTokenSource().token
+      );
+
+      if (edits && edits.length > 0) {
+        await editor.edit(editBuilder => {
+          edits.forEach(edit => {
+            editBuilder.replace(edit.range, edit.newText);
+          });
+        });
+        logDebug("Imports formatted successfully via command!");
+      } else {
+        logDebug("No formatting changes needed");
+      }
+    });
 
     const testCommand = commands.registerCommand("tidyjs.testValidation", testConfigurationValidation);
     
@@ -525,12 +417,12 @@ export function activate(context: ExtensionContext): void {
       }
     });
 
-    context.subscriptions.push(testCommand, formatCommand, formatOnSaveDisposable, configChangeDisposable);
+    context.subscriptions.push(testCommand, formatCommand, formattingProvider, configChangeDisposable);
 
     logDebug("Extension activated successfully with config:", JSON.stringify(configManager.getConfig(), null, 2));
 
     if (validation.isValid) {
-      logDebug("TidyJS extension is ready to use!");
+      logDebug("TidyJS extension is ready to use as a Document Formatting Provider!");
     }
   } catch (error) {
     logError("Error activating extension:", error);
