@@ -20,7 +20,6 @@ const DEFAULT_CONFIG: Config = {
     sideEffect: 3,
   },
   format: {
-    onSave: false,
     indent: 4,
     removeUnusedImports: false,
     removeMissingModules: false,
@@ -234,7 +233,6 @@ class ConfigManager {
         });
       }
       const formatSettings = {
-        onSave: vsConfig.get<boolean>('format.onSave'),
         indent: vsConfig.get<number>('format.indent'),
         removeUnusedImports: vsConfig.get<boolean>('format.removeUnusedImports'),
         removeMissingModules: vsConfig.get<boolean>('format.removeMissingModules'),
