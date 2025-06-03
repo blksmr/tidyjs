@@ -47,32 +47,6 @@
         "when": "editorTextFocus"
       }
     ],
-    "menus": {
-      "editor/context": [
-        {
-          "command": "extension.format",
-          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx)$/",
-          "group": "1_modification"
-        }
-      ],
-      "command-palette": [
-        {
-          "command": "extension.format"
-        },
-        {
-          "command": "tidyjs.showStatus"
-        },
-        {
-          "command": "tidyjs.reloadConfig"
-        },
-        {
-          "command": "tidyjs.repairConfig"
-        },
-        {
-          "command": "tidyjs.validateConfig"
-        }
-      ]
-    },
     "configuration": {
       "title": "TidyJS",
       "properties": {
@@ -117,44 +91,6 @@
               "order"
             ]
           }
-        },
-        "tidyjs.importOrder": {
-          "type": "object",
-          "default": {
-            "default": 0,
-            "named": 1,
-            "typeOnly": 2,
-            "sideEffect": 3
-          },
-          "description": "Order of import types within each group",
-          "properties": {
-            "default": {
-              "type": "number",
-              "description": "Order for default imports"
-            },
-            "named": {
-              "type": "number",
-              "description": "Order for named imports"
-            },
-            "typeOnly": {
-              "type": "number",
-              "description": "Order for type-only imports"
-            },
-            "sideEffect": {
-              "type": "number",
-              "description": "Order for side-effect imports"
-            }
-          }
-        },
-        "tidyjs.format.onSave": {
-          "type": "boolean",
-          "default": false,
-          "description": "Automatically format imports on file save"
-        },
-        "tidyjs.format.indent": {
-          "type": "number",
-          "default": 4,
-          "description": "Number of spaces for indentation"
         },
         "tidyjs.format.removeUnusedImports": {
           "type": "boolean",

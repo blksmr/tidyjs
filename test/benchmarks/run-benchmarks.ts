@@ -28,7 +28,6 @@ const DEFAULT_CONFIG: Config = {
         sideEffect: 3,
     },
     format: {
-        onSave: false,
         indent: 4,
         removeUnusedImports: false,
         removeMissingModules: false,

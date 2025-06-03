@@ -17,7 +17,6 @@ export interface Config {
   };
 
   format: {
-    onSave: boolean;
     indent?: number;
     removeUnusedImports?: boolean;
     removeMissingModules?: boolean;

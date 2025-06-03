@@ -4,13 +4,13 @@ A VS Code extension that automatically organizes and formats import declarations
 
 ## Features
 
-- Group imports by configurable categories
-- Align 'from' keywords for improved readability
-- Sort imports by type hierarchy (side-effects, default, named, type)
-- Remove unused imports and missing modules (optional)
-- Dynamically create groups for @app subfolders
-- Support for TypeScript, JavaScript, TSX and JSX files
-- Configuration validation with helpful error messages
+-   Group imports by configurable categories
+-   Align 'from' keywords for improved readability
+-   Sort imports by type hierarchy (side-effects, default, named, type)
+-   Remove unused imports and missing modules (optional)
+-   Dynamically create groups for @app subfolders
+-   Support for TypeScript, JavaScript, TSX and JSX files
+-   Configuration validation with helpful error messages
 
 ## Example
 
@@ -30,17 +30,10 @@ import { useTranslation } from '@core/i18n';
 ```typescript
 // Misc
 import React, { FC, useState } from 'react';
-import cn                      from 'classnames';
+import cn from 'classnames';
 
 // DS
-import {
-    YpButton,
-    YpDivider,
-    YpElement,
-    YpTag,
-    YpTable,
-    YpTypography
-} from 'ds';
+import { YpButton, YpDivider, YpElement, YpTag, YpTable, YpTypography } from 'ds';
 
 // @app/dossier
 import type { User } from '@app/dossier/models';
@@ -63,18 +56,8 @@ import { formatDate } from '@library/helpers';
 
 ### Manual Formatting
 
-- Use the keyboard shortcut `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)
-- Or use the command palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for "TidyJS: Format Imports"
-
-### Automatic Formatting
-
-Enable automatic formatting on save by adding this to your VS Code settings:
-
-```json
-{
-  "tidyjs.format.onSave": true
-}
-```
+-   Use the keyboard shortcut `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)
+-   Or use the command palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for "TidyJS: Format Imports"
 
 ## Configuration
 
@@ -82,28 +65,28 @@ Enable automatic formatting on save by adding this to your VS Code settings:
 
 ```json
 {
-  "tidyjs.groups": [
-    {
-      "name": "React",
-      "match": "/^(react|react-dom|next)$/",
-      "order": 0
-    },
-    {
-      "name": "External",
-      "match": "/^[^@]/",
-      "order": 1
-    },
-    {
-      "name": "Internal",
-      "match": "/^@app/",
-      "order": 2
-    },
-    {
-      "name": "Misc",
-      "order": 3,
-      "isDefault": true
-    }
-  ]
+    "tidyjs.groups": [
+        {
+            "name": "React",
+            "match": "/^(react|react-dom|next)$/",
+            "order": 0
+        },
+        {
+            "name": "External",
+            "match": "/^[^@]/",
+            "order": 1
+        },
+        {
+            "name": "Internal",
+            "match": "/^@app/",
+            "order": 2
+        },
+        {
+            "name": "Misc",
+            "order": 3,
+            "isDefault": true
+        }
+    ]
 }
 ```
 
@@ -114,18 +97,19 @@ Enable automatic formatting on save by adding this to your VS Code settings:
 `tidyjs.groups` - Array of import group definitions
 
 Each group can have:
-- `name` (required): The name of the group (used in comments)
-- `match` (optional): Regex pattern to match import paths
-- `order` (required): Numeric order for sorting groups
-- `isDefault` (optional): Mark as default group for unmatched imports
+
+-   `name` (required): The name of the group (used in comments)
+-   `match` (optional): Regex pattern to match import paths
+-   `order` (required): Numeric order for sorting groups
+-   `isDefault` (optional): Mark as default group for unmatched imports
 
 **Important**: Exactly one group must have `isDefault: true`
 
 #### Format Options
 
-- `tidyjs.format.onSave`: Enable automatic formatting when saving files (default: `false`)
-- `tidyjs.format.removeUnusedImports`: Remove imports that aren't used in the code (default: `false`)
-- `tidyjs.format.removeMissingModules`: Remove imports from non-existent modules (default: `false`)
+-   `tidyjs.format.onSave`: Enable automatic formatting when saving files (default: `false`)
+-   `tidyjs.format.removeUnusedImports`: Remove imports that aren't used in the code (default: `false`)
+-   `tidyjs.format.removeMissingModules`: Remove imports from non-existent modules (default: `false`)
 
 #### Import Order
 
@@ -133,19 +117,19 @@ Each group can have:
 
 ```json
 {
-  "tidyjs.importOrder": {
-    "sideEffect": 0,
-    "default": 1,
-    "named": 2,
-    "typeOnly": 3
-  }
+    "tidyjs.importOrder": {
+        "sideEffect": 0,
+        "default": 1,
+        "named": 2,
+        "typeOnly": 3
+    }
 }
 ```
 
 #### Other Options
 
-- `tidyjs.excludedFolders`: Array of folder names to exclude from processing
-- `tidyjs.debug`: Enable debug logging (default: `false`)
+-   `tidyjs.excludedFolders`: Array of folder names to exclude from processing
+-   `tidyjs.debug`: Enable debug logging (default: `false`)
 
 ## Import Sorting Rules
 
@@ -173,7 +157,7 @@ Enable debug logging to troubleshoot issues:
 
 ```json
 {
-  "tidyjs.debug": true
+    "tidyjs.debug": true
 }
 ```
 
