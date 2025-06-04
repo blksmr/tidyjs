@@ -211,13 +211,6 @@ export class ImportParser {
           const importNode = node as TSESTree.ImportDeclaration;
           const source = importNode.source.value as string;
 
-          const specifiers: ImportSpecifier[] = [];
-          let type: ImportType = ImportType.NAMED;
-          let defaultImport: string | undefined;
-          let hasDefault = false;
-          let hasNamed = false;
-          let hasNamespace = false;
-          
           // Extract raw text once for this import
           const raw = this.sourceCode.substring(importNode.range?.[0] || 0, importNode.range?.[1] || 0);
           
@@ -226,98 +219,148 @@ export class ImportParser {
 
           if (importNode.specifiers.length === 0) {
             // Side-effect import (no specifiers)
-            type = ImportType.SIDE_EFFECT;
-          } else {
-            for (const specifierNode of importNode.specifiers) {
-              if (specifierNode.type === "ImportDefaultSpecifier") {
-                hasDefault = true;
-                defaultImport = specifierNode.local.name;
-              } else if (specifierNode.type === "ImportSpecifier") {
-                hasNamed = true;
-                const importedName = specifierNode.imported ? (specifierNode.imported as TSESTree.Identifier).name : specifierNode.local.name;
-                const localName = specifierNode.local.name;
-                
-                if (importedName !== localName) {
-                  // Import with alias
-                  specifiers.push({ imported: importedName, local: localName });
-                } else {
-                  // Regular import without alias
-                  specifiers.push(importedName);
-                }
-              } else if (specifierNode.type === "ImportNamespaceSpecifier") {
-                hasNamespace = true;
-                specifiers.push(`* as ${specifierNode.local.name}`);
-              }
-            }
+            const { groupName, isPriority } = this.determineGroup(source);
+            imports.push({
+              type: ImportType.SIDE_EFFECT,
+              source,
+              specifiers: [],
+              defaultImport: undefined,
+              raw,
+              groupName,
+              isPriority,
+              sourceIndex: imports.length,
+            });
+            continue;
+          }
 
-            if (hasDefault && (hasNamed || hasNamespace)) {
-              // Split mixed imports into separate default and named imports
-              const { groupName, isPriority } = this.determineGroup(source);
-              
-              // Create default import
-              imports.push({
-                type: typeOnly ? ImportType.TYPE_DEFAULT : ImportType.DEFAULT,
-                source,
-                specifiers: [defaultImport!],
-                defaultImport,
-                raw,
-                groupName,
-                isPriority,
-                sourceIndex: imports.length,
-              });
-              
-              // Create named/namespace import
-              if (hasNamed) {
-                imports.push({
-                  type: typeOnly ? ImportType.TYPE_NAMED : ImportType.NAMED,
-                  source,
-                  specifiers,
-                  defaultImport: undefined,
-                  raw,
-                  groupName,
-                  isPriority,
-                  sourceIndex: imports.length,
-                });
+          // Separate specifiers by type (value vs type) and by kind (default vs named vs namespace)
+          const valueSpecifiers: ImportSpecifier[] = [];
+          const typeSpecifiers: ImportSpecifier[] = [];
+          let defaultImport: string | undefined;
+          let typeDefaultImport: string | undefined;
+          let namespaceSpecifier: string | undefined;
+          let typeNamespaceSpecifier: string | undefined;
+
+          for (const specifierNode of importNode.specifiers) {
+            if (specifierNode.type === "ImportDefaultSpecifier") {
+              if (typeOnly) {
+                typeDefaultImport = specifierNode.local.name;
+              } else {
+                defaultImport = specifierNode.local.name;
               }
+            } else if (specifierNode.type === "ImportSpecifier") {
+              // Only ImportSpecifier has importKind property for individual type specifiers
+              const isTypeSpecifier = (specifierNode as TSESTree.ImportSpecifier).importKind === 'type' || typeOnly;
+              const importedName = specifierNode.imported ? (specifierNode.imported as TSESTree.Identifier).name : specifierNode.local.name;
+              const localName = specifierNode.local.name;
               
-              if (hasNamespace) {
-                imports.push({
-                  type: typeOnly ? ImportType.TYPE_DEFAULT : ImportType.DEFAULT, // namespace imports are treated as default
-                  source,
-                  specifiers,
-                  defaultImport: undefined,
-                  raw,
-                  groupName,
-                  isPriority,
-                  sourceIndex: imports.length,
-                });
+              const specifier = importedName !== localName 
+                ? { imported: importedName, local: localName }
+                : importedName;
+
+              if (isTypeSpecifier) {
+                typeSpecifiers.push(specifier);
+              } else {
+                valueSpecifiers.push(specifier);
               }
-              
-              continue; // Skip the normal processing below
-            } else if (hasDefault) {
-              type = typeOnly ? ImportType.TYPE_DEFAULT : ImportType.DEFAULT;
-              if (defaultImport) {
-                specifiers.push(defaultImport);
+            } else if (specifierNode.type === "ImportNamespaceSpecifier") {
+              const namespaceSpec = `* as ${specifierNode.local.name}`;
+              if (typeOnly) {
+                typeNamespaceSpecifier = namespaceSpec;
+              } else {
+                namespaceSpecifier = namespaceSpec;
               }
-            } else if (hasNamespace) {
-              type = typeOnly ? ImportType.TYPE_DEFAULT : ImportType.DEFAULT;
-            } else if (hasNamed) {
-              type = typeOnly ? ImportType.TYPE_NAMED : ImportType.NAMED;
             }
           }
 
           const { groupName, isPriority } = this.determineGroup(source);
 
-          imports.push({
-            type,
-            source,
-            specifiers,
-            defaultImport,
-            raw,
-            groupName,
-            isPriority,
-            sourceIndex: imports.length,
-          });
+          // Create separate imports for different types and kinds
+          
+          // Regular default import
+          if (defaultImport) {
+            imports.push({
+              type: ImportType.DEFAULT,
+              source,
+              specifiers: [defaultImport],
+              defaultImport,
+              raw,
+              groupName,
+              isPriority,
+              sourceIndex: imports.length,
+            });
+          }
+
+          // Type default import
+          if (typeDefaultImport) {
+            imports.push({
+              type: ImportType.TYPE_DEFAULT,
+              source,
+              specifiers: [typeDefaultImport],
+              defaultImport: typeDefaultImport,
+              raw,
+              groupName,
+              isPriority,
+              sourceIndex: imports.length,
+            });
+          }
+
+          // Regular named imports
+          if (valueSpecifiers.length > 0) {
+            imports.push({
+              type: ImportType.NAMED,
+              source,
+              specifiers: valueSpecifiers,
+              defaultImport: undefined,
+              raw,
+              groupName,
+              isPriority,
+              sourceIndex: imports.length,
+            });
+          }
+
+          // Type named imports
+          if (typeSpecifiers.length > 0) {
+            imports.push({
+              type: ImportType.TYPE_NAMED,
+              source,
+              specifiers: typeSpecifiers,
+              defaultImport: undefined,
+              raw,
+              groupName,
+              isPriority,
+              sourceIndex: imports.length,
+            });
+          }
+
+          // Regular namespace import
+          if (namespaceSpecifier) {
+            imports.push({
+              type: ImportType.DEFAULT, // namespace imports are treated as default
+              source,
+              specifiers: [namespaceSpecifier],
+              defaultImport: undefined,
+              raw,
+              groupName,
+              isPriority,
+              sourceIndex: imports.length,
+            });
+          }
+
+          // Type namespace import
+          if (typeNamespaceSpecifier) {
+            imports.push({
+              type: ImportType.TYPE_DEFAULT, // type namespace imports are treated as type default
+              source,
+              specifiers: [typeNamespaceSpecifier],
+              defaultImport: undefined,
+              raw,
+              groupName,
+              isPriority,
+              sourceIndex: imports.length,
+            });
+          }
+
         } catch (error) {
           const raw = this.sourceCode.substring(node.range?.[0] || 0, node.range?.[1] || 0);
           this.invalidImports.push({
@@ -349,6 +392,7 @@ export class ImportParser {
       sideEffect?: ParsedImport;
       typeDefault?: ParsedImport;
       typeNamed?: ParsedImport;
+      typeNamespace?: ParsedImport;
     }>();
     
     // Group imports by source
@@ -357,6 +401,8 @@ export class ImportParser {
       
       if (imp.type === ImportType.DEFAULT && imp.defaultImport) {
         sourceImports.default = imp;
+      } else if (imp.type === ImportType.DEFAULT && imp.specifiers.some(s => typeof s === 'string' && s.startsWith('* as'))) {
+        sourceImports.namespace = imp;
       } else if (imp.type === ImportType.NAMED) {
         if (sourceImports.named) {
           // Merge specifiers for named imports from same source
@@ -419,12 +465,12 @@ export class ImportParser {
         } else {
           sourceImports.typeNamed = imp;
         }
-      } else if (imp.type === ImportType.DEFAULT && imp.specifiers.some(s => typeof s === 'string' && s.startsWith('* as'))) {
-        sourceImports.namespace = imp;
       } else if (imp.type === ImportType.SIDE_EFFECT) {
         sourceImports.sideEffect = imp;
-      } else if (imp.type === ImportType.TYPE_DEFAULT) {
+      } else if (imp.type === ImportType.TYPE_DEFAULT && imp.defaultImport) {
         sourceImports.typeDefault = imp;
+      } else if (imp.type === ImportType.TYPE_DEFAULT && imp.specifiers.some(s => typeof s === 'string' && s.startsWith('* as'))) {
+        sourceImports.typeNamespace = imp;
       }
       
       importsBySource.set(imp.source, sourceImports);
@@ -442,7 +488,7 @@ export class ImportParser {
       if (sourceImports.named) {
         consolidated.push(sourceImports.named);
       }
-      if (sourceImports.namespace && !sourceImports.default) {
+      if (sourceImports.namespace) {
         consolidated.push(sourceImports.namespace);
       }
       if (sourceImports.typeDefault) {
@@ -450,6 +496,9 @@ export class ImportParser {
       }
       if (sourceImports.typeNamed) {
         consolidated.push(sourceImports.typeNamed);
+      }
+      if (sourceImports.typeNamespace) {
+        consolidated.push(sourceImports.typeNamespace);
       }
     }
     
@@ -604,10 +653,10 @@ export class ImportParser {
       const line = lines[i].trim();
       
       if (line.includes('*/')) {
-        inMultilineComment = true;
+        inMultilineComment = false;
         startLineIndex = i;
       } else if (line.includes('/*')) {
-        inMultilineComment = false;
+        inMultilineComment = true;
         startLineIndex = i;
       } else if (inMultilineComment) {
         startLineIndex = i;

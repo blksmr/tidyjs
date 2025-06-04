@@ -70,15 +70,15 @@ class ConfigManager {
     }
     const orders = config.groups.map(g => g.order);
     const uniqueOrders = uniq(orders);
-    const duplicateOrders = difference(orders, uniqueOrders);
-    if (duplicateOrders.length > 0) {
+    if (orders.length !== uniqueOrders.length) {
+      const duplicateOrders = orders.filter((order, index) => orders.indexOf(order) !== index);
       const uniqueDuplicates = uniq(duplicateOrders);
       errors.push(`Duplicate group orders found: ${uniqueDuplicates.join(', ')}. Each group should have a unique order.`);
     }
     const names = config.groups.map(g => g.name);
     const uniqueNames = uniq(names);
-    const duplicateNames = difference(names, uniqueNames);
-    if (duplicateNames.length > 0) {
+    if (names.length !== uniqueNames.length) {
+      const duplicateNames = names.filter((name, index) => names.indexOf(name) !== index);
       const uniqueDuplicateNames = uniq(duplicateNames);
       errors.push(`Duplicate group names found: ${uniqueDuplicateNames.join(', ')}. Each group must have a unique name.`);
     }

@@ -28,7 +28,7 @@ export function logDebug(message: string, ...args: unknown[]): void {
   }
 
   OUTPUT_CHANNEL.appendLine(formattedMessage);
-  OUTPUT_CHANNEL.show();
+  // Removed OUTPUT_CHANNEL.show() - debug messages should not interrupt the user
 }
 
 export function logError(message: string, ...args: unknown[]): void {
@@ -51,6 +51,22 @@ export function logError(message: string, ...args: unknown[]): void {
   }
 
   OUTPUT_CHANNEL.appendLine(formattedMessage);
+  // Show errors but don't steal focus from the user's current work
+  OUTPUT_CHANNEL.show(true);
+}
+
+/**
+ * Show the output channel for debugging purposes
+ * This can be called manually when user wants to see logs
+ */
+export function showOutputChannel(): void {
   OUTPUT_CHANNEL.show();
+}
+
+/**
+ * Clear all logs from the output channel
+ */
+export function clearLogs(): void {
+  OUTPUT_CHANNEL.clear();
 }
 

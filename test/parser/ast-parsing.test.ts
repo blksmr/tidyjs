@@ -222,18 +222,20 @@ import { useState } from "react";`;
     const result = parser.parse(sourceCode);
     
     // Mixed imports are split, named imports consolidated
-    expect(result.groups[0].imports).toHaveLength(3);
+    expect(result.groups[0].imports).toHaveLength(4);
     
     // Imports are sorted by type order: sideEffect(0), default(1), named(2)
+    // Now default + namespace are separated into two default imports
     const types = result.groups[0].imports.map(imp => imp.type);
     expect(types).toEqual([
       'sideEffect',  // "module-name"
-      'default',     // defaultExport from "module-name" (plus namespace)
+      'default',     // defaultExport from "module-name"
+      'default',     // namespace import from "module-name"
       'named'        // all named imports consolidated
     ]);
     
-    // Check that named imports are consolidated
-    const namedImport = result.groups[0].imports[2];
+    // Check that named imports are consolidated (now at index 3)
+    const namedImport = result.groups[0].imports[3];
     expect(namedImport.specifiers).toContain('export1');
     expect(namedImport.specifiers).toContain('export2');
   });
