@@ -44,11 +44,6 @@ function alignFromKeyword(line: string, fromIndex: number, maxFromIndex: number)
   const paddedPrefix = prefix.padEnd(targetPadding);
   const result = paddedPrefix + suffix;
   
-  // Check for invalid patterns like "123abc" or "123import" and fix them
-  if (/\d[a-zA-Z_$]/.test(result)) {
-    return result.replace(/(\d)([a-zA-Z_$])/g, '$1 $2');
-  }
-
   return result;
 }
 
