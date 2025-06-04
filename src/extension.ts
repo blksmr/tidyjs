@@ -306,6 +306,12 @@ function ensureExtensionEnabled(): boolean {
   // Create or recreate parser if needed
   if (!parser || configChanged) {
     try {
+      // Dispose of old parser to clean up cache
+      if (parser) {
+        logDebug('Disposing old parser instance');
+        parser.dispose();
+      }
+      
       logDebug(configChanged ? 'Configuration changed, recreating parser' : 'Creating new parser instance');
       parser = new ImportParser(config);
       lastConfigString = configString;
@@ -438,4 +444,26 @@ function formatImportError(invalidImport: InvalidImport): string {
   }
 
   return formattedError;
+}
+
+/**
+ * Called when the extension is deactivated
+ */
+export function deactivate(): void {
+  try {
+    logDebug('Extension deactivating - cleaning up resources');
+    
+    // Dispose of parser to clean up cache
+    if (parser) {
+      parser.dispose();
+      parser = null;
+    }
+    
+    // Clear configuration cache
+    lastConfigString = '';
+    
+    logDebug('Extension deactivated successfully');
+  } catch (error) {
+    logError('Error during extension deactivation:', error);
+  }
 }

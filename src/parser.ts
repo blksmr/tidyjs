@@ -676,6 +676,22 @@ export class ImportParser {
 
     return adjustedStart;
   }
+
+  /**
+   * Get the GroupMatcher instance for cache management
+   */
+  getGroupMatcher(): GroupMatcher {
+    return this.groupMatcher;
+  }
+
+  /**
+   * Dispose of the parser and clean up resources
+   */
+  dispose(): void {
+    this.groupMatcher.dispose();
+    this.sourceCode = "";
+    this.invalidImports = [];
+  }
 }
 
 export function parseImports(sourceCode: string, config: ExtensionGlobalConfig): ParserResult {
