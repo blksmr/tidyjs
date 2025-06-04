@@ -233,15 +233,6 @@ async function testConfigurationValidation(): Promise<void> {
       detailMessage += `  - "${defaultGroups[0].name}" is correctly marked as default\n\n`;
     }
 
-    detailMessage += "=== MANUAL VALIDATION TEST ===\n";
-    const manualValidation = validateConfigurationManual(config);
-    detailMessage += `Manual validation result: ${manualValidation.isValid ? "✅" : "❌"}\n`;
-    if (!manualValidation.isValid) {
-      detailMessage += "Manual validation errors:\n";
-      manualValidation.errors.forEach((error, index) => {
-        detailMessage += `  ${index + 1}. ${error}\n`;
-      });
-    }
 
     const doc = await workspace.openTextDocument({
       content: detailMessage,
@@ -263,48 +254,6 @@ async function testConfigurationValidation(): Promise<void> {
   }
 }
 
-/**
- * Validation manuelle pour comparaison
- */
-function validateConfigurationManual(config: ReturnType<typeof configManager.getConfig>): { isValid: boolean; errors: string[] } {
-  const errors: string[] = [];
-
-  const defaultGroups = config.groups.filter((group) => {
-    logDebug(`Checking group "${group.name}": isDefault = ${group.isDefault} (type: ${typeof group.isDefault})`);
-    return group.isDefault === true;
-  });
-
-  logDebug(
-    `Found ${defaultGroups.length} default groups:`,
-    defaultGroups.map((g) => g.name)
-  );
-
-  if (defaultGroups.length === 0) {
-    errors.push("No group is marked as default. At least one group must be the default.");
-  } else if (defaultGroups.length > 1) {
-    const groupNames = defaultGroups.map((g) => `"${g.name}"`).join(", ");
-    errors.push(`Multiple groups are marked as default: ${groupNames}. Only one group can be the default.`);
-  }
-
-  const orders = config.groups.map((g) => g.order);
-  const duplicateOrders = orders.filter((order, index) => orders.indexOf(order) !== index);
-  if (duplicateOrders.length > 0) {
-    const uniqueDuplicates = [...new Set(duplicateOrders)];
-    errors.push(`Duplicate group orders found: ${uniqueDuplicates.join(", ")}. Each group should have a unique order.`);
-  }
-
-  const names = config.groups.map((g) => g.name);
-  const duplicateNames = names.filter((name, index) => names.indexOf(name) !== index);
-  if (duplicateNames.length > 0) {
-    const uniqueDuplicateNames = [...new Set(duplicateNames)];
-    errors.push(`Duplicate group names found: ${uniqueDuplicateNames.join(", ")}. Each group must have a unique name.`);
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  };
-}
 
 
 /**
@@ -416,21 +365,26 @@ export function activate(context: ExtensionContext): void {
       // Forcer l'utilisation de TidyJS comme formatter pour cette exécution
       // en appelant directement notre provider
       const provider = new TidyJSFormattingProvider();
-      const edits = await provider.provideDocumentFormattingEdits(
-        editor.document,
-        { tabSize: 2, insertSpaces: true }, // Options par défaut
-        new CancellationTokenSource().token
-      );
+      const tokenSource = new CancellationTokenSource();
+      try {
+        const edits = await provider.provideDocumentFormattingEdits(
+          editor.document,
+          { tabSize: 2, insertSpaces: true }, // Options par défaut
+          tokenSource.token
+        );
 
-      if (edits && edits.length > 0) {
-        await editor.edit(editBuilder => {
-          edits.forEach(edit => {
-            editBuilder.replace(edit.range, edit.newText);
+        if (edits && edits.length > 0) {
+          await editor.edit(editBuilder => {
+            edits.forEach(edit => {
+              editBuilder.replace(edit.range, edit.newText);
+            });
           });
-        });
-        logDebug("Imports formatted successfully via command!");
-      } else {
-        logDebug("No formatting changes needed");
+          logDebug("Imports formatted successfully via command!");
+        } else {
+          logDebug("No formatting changes needed");
+        }
+      } finally {
+        tokenSource.dispose();
       }
     });
 

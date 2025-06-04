@@ -19,7 +19,7 @@ export class ConfigCache {
         validateFn: (config: Config) => { isValid: boolean; errors: string[] }
     ): { config: Config; validation: { isValid: boolean; errors: string[] } } {
         const config = loadFn();
-        const configString = JSON.stringify(config);
+        const configString = this.serializeConfig(config);
 
         // If config hasn't changed, return cached validation
         if (configString === this.lastConfigString && this.lastValidatedConfig && this.lastValidationResult) {
@@ -50,6 +50,18 @@ export class ConfigCache {
         this.lastConfigString = '';
         this.lastValidatedConfig = null;
         this.lastValidationResult = null;
+    }
+
+    /**
+     * Serialize config with proper RegExp handling for cache comparison
+     */
+    private serializeConfig(config: Config): string {
+        return JSON.stringify(config, (key, value) => {
+            if (value instanceof RegExp) {
+                return `__REGEXP__${value.source}__FLAGS__${value.flags}`;
+            }
+            return value;
+        });
     }
 
     /**
