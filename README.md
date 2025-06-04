@@ -168,4 +168,5 @@ MIT
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request
+For a detailed guide, see [documentation](documentation/README.md).
