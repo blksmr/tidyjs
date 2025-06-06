@@ -137,6 +137,7 @@
     "bump:major": "sh ./scripts/bump.sh major",
     "build": "npm run build-prod && vsce package",
     "build-prod": "node scripts/build.js --production",
+    "package": "vsce package",
     "vscode:prepublish": "npm run build-prod",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "compile-tests": "tsc -p . --outDir out"
