@@ -6,6 +6,7 @@
     "lib": ["ES2021", "ES2021.String"],
     "sourceMap": true,
     "rootDir": "src",
+    "outDir": "out",
     "checkJs": true,
     "strict": true /* enable all strict type-checking options */,
     "skipLibCheck": true,

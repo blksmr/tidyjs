@@ -7,6 +7,7 @@ export interface Config {
     isDefault?: boolean;
     match?: RegExp;
     priority?: number;
+    sortOrder?: 'alphabetic' | string[];
   }[];
 
   importOrder: {

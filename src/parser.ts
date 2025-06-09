@@ -12,6 +12,7 @@ export type ConfigImportGroup = {
   name: string;
   order: number;
   priority?: number;
+  sortOrder?: 'alphabetic' | string[];
 } & (
   | {
       isDefault: true;
@@ -111,6 +112,7 @@ export class ImportParser {
           isDefault: true,
           match: g.match,
           priority: g.priority,
+          sortOrder: g.sortOrder,
         };
       } else if (g.match) {
         return {
@@ -119,6 +121,7 @@ export class ImportParser {
           isDefault: false,
           match: g.match,
           priority: g.priority,
+          sortOrder: g.sortOrder,
         };
       } else {
         return {
@@ -126,6 +129,7 @@ export class ImportParser {
           order: g.order,
           isDefault: true,
           priority: g.priority,
+          sortOrder: g.sortOrder,
         };
       }
     });
@@ -572,7 +576,14 @@ export class ImportParser {
           if (typeOrderA !== typeOrderB) {
             return typeOrderA - typeOrderB;
           }
-          // Sort alphabetically by source within same type
+          
+          // Apply custom sort order within same type
+          const groupConfig = this.internalConfig.importGroups.find(g => g.name === group.name);
+          if (groupConfig?.sortOrder) {
+            return this.sortImportsByCustomOrder(a, b, groupConfig.sortOrder);
+          }
+          
+          // Default: sort alphabetically by source within same type
           return a.source.localeCompare(b.source);
         });
       }
@@ -581,6 +592,71 @@ export class ImportParser {
     return Array.from(groupMap.values())
       .filter((group) => group.imports.length > 0)
       .sort((a, b) => a.order - b.order);
+  }
+
+  /**
+   * Sorts imports based on custom sort order configuration
+   * Supports alphabetic sorting or custom array with wildcard patterns
+   * @param a First import to compare
+   * @param b Second import to compare
+   * @param sortOrder Sort configuration ('alphabetic' or array of patterns)
+   * @returns Comparison result for sorting
+   */
+  private sortImportsByCustomOrder(
+    a: ParsedImport, 
+    b: ParsedImport, 
+    sortOrder: 'alphabetic' | string[]
+  ): number {
+    if (sortOrder === 'alphabetic') {
+      return a.source.localeCompare(b.source);
+    }
+
+    // Custom order with patterns
+    const getPatternIndex = (source: string): number => {
+      for (let i = 0; i < sortOrder.length; i++) {
+        const pattern = sortOrder[i];
+        if (this.matchesPattern(source, pattern)) {
+          return i;
+        }
+      }
+      return Infinity; // Not found in custom order, will be sorted alphabetically at the end
+    };
+
+    const indexA = getPatternIndex(a.source);
+    const indexB = getPatternIndex(b.source);
+
+    if (indexA !== indexB) {
+      return indexA - indexB;
+    }
+
+    // Same pattern index or both not found, sort alphabetically
+    return a.source.localeCompare(b.source);
+  }
+
+  /**
+   * Checks if a source matches a pattern with wildcard support
+   * Supports patterns like "react", "react-*", "@scope/*"
+   * @param source Import source to match
+   * @param pattern Pattern to match against (supports * wildcard)
+   * @returns True if source matches pattern
+   */
+  private matchesPattern(source: string, pattern: string): boolean {
+    if (pattern === source) {
+      return true;
+    }
+
+    // Handle wildcard patterns
+    if (pattern.includes('*')) {
+      // Convert pattern to regex: "react-*" becomes "^react-.*$"
+      const regexPattern = pattern
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
+        .replace(/\\?\*/g, '.*'); // Convert * to .*
+      
+      const regex = new RegExp(`^${regexPattern}$`);
+      return regex.test(source);
+    }
+
+    return false;
   }
 
   private calculateImportRange(): { start: number; end: number } | undefined {
