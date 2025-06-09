@@ -119,6 +119,8 @@ class ConfigManager {
    * Checks for:
    * - Exactly one default group
    * - No duplicate group names (order collisions are now auto-resolved)
+   * - Valid regex patterns in group match properties
+   * - Valid sortOrder configurations
    * @param config The configuration to validate
    * @returns Object containing validation status and error messages
    */
@@ -142,12 +144,128 @@ class ConfigManager {
       errors.push(`Duplicate group names found: ${uniqueDuplicateNames.join(', ')}. Each group must have a unique name.`);
     }
 
+    // Validate regex patterns
+    const regexErrors = this.validateRegexPatterns(config.groups);
+    errors.push(...regexErrors);
+
+    // Validate sortOrder configurations
+    const sortOrderErrors = this.validateSortOrders(config.groups);
+    errors.push(...sortOrderErrors);
+
     return {
       isValid: errors.length === 0,
       errors
     };
   }
 
+  /**
+   * Validates regex patterns in group configurations
+   * Checks that all match patterns are valid RegExp objects or can be created from strings
+   * @param groups Array of groups to validate
+   * @returns Array of validation error messages
+   */
+  private validateRegexPatterns(groups: Config['groups']): string[] {
+    const errors: string[] = [];
+    
+    for (const group of groups) {
+      // Check if group has originalMatchString (raw string from config)
+      const groupWithOriginal = group as Config['groups'][0] & { originalMatchString?: string };
+      const matchString = groupWithOriginal.originalMatchString;
+      
+      if (matchString !== undefined && matchString !== null) {
+        const validation = this.validateRegexString(matchString);
+        if (!validation.isValid) {
+          errors.push(`Invalid regex pattern in group "${group.name}": ${validation.error}`);
+        }
+      } else if (group.match !== undefined) {
+        try {
+          // If it's already a RegExp, test it with a simple string
+          if (group.match instanceof RegExp) {
+            group.match.test('test');
+          } else {
+            // If it's a string, try to create a RegExp from it
+            new RegExp(group.match as string);
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown regex error';
+          errors.push(`Invalid regex pattern in group "${group.name}": ${errorMessage}`);
+        }
+      }
+    }
+    
+    return errors;
+  }
+
+  /**
+   * Validates sortOrder configurations in groups
+   * Checks that sortOrder is either 'alphabetic' or a valid array of strings
+   * @param groups Array of groups to validate
+   * @returns Array of validation error messages
+   */
+  private validateSortOrders(groups: Config['groups']): string[] {
+    const errors: string[] = [];
+    
+    for (const group of groups) {
+      if (group.sortOrder !== undefined) {
+        if (group.sortOrder !== 'alphabetic' && !Array.isArray(group.sortOrder)) {
+          errors.push(`Invalid sortOrder in group "${group.name}": must be 'alphabetic' or an array of strings`);
+        } else if (Array.isArray(group.sortOrder)) {
+          if (group.sortOrder.length === 0) {
+            errors.push(`Invalid sortOrder in group "${group.name}": array cannot be empty`);
+          } else if (!group.sortOrder.every(item => typeof item === 'string')) {
+            errors.push(`Invalid sortOrder in group "${group.name}": all array items must be strings`);
+          } else {
+            // Check for duplicate patterns in sortOrder
+            const uniquePatterns = [...new Set(group.sortOrder)];
+            if (uniquePatterns.length !== group.sortOrder.length) {
+              errors.push(`Invalid sortOrder in group "${group.name}": duplicate patterns found`);
+            }
+          }
+        }
+      }
+    }
+    
+    return errors;
+  }
+
+  /**
+   * Safely validates a regex string before creating a RegExp object
+   * @param regexStr The regex string to validate
+   * @returns Object with validation status and error message if invalid
+   */
+  private validateRegexString(regexStr: string): { isValid: boolean; error?: string } {
+    if (!regexStr) {
+      return { isValid: false, error: 'Empty regex pattern' };
+    }
+
+    try {
+      if (regexStr.startsWith('/') && regexStr.length > 1) {
+        const lastSlashIndex = regexStr.lastIndexOf('/');
+        if (lastSlashIndex > 0) {
+          const pattern = regexStr.slice(1, lastSlashIndex);
+          const flags = regexStr.slice(lastSlashIndex + 1);
+          
+          // Validate flags
+          const validFlags = /^[gimsuy]*$/.test(flags);
+          if (!validFlags) {
+            return { isValid: false, error: `Invalid regex flags '${flags}'` };
+          }
+          
+          // Test pattern creation
+          new RegExp(pattern, flags);
+        } else {
+          new RegExp(regexStr.slice(1));
+        }
+      } else {
+        new RegExp(regexStr);
+      }
+      
+      return { isValid: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown regex error';
+      return { isValid: false, error: errorMessage };
+    }
+  }
 
   /**
    * Gets the current configuration
@@ -228,16 +346,25 @@ class ConfigManager {
   /**
    * Parses a RegExp string in format "/pattern/flags" or "pattern"
    * Handles both slash-delimited regex strings with flags and plain patterns
+   * Now includes validation before parsing to prevent runtime errors
    * @param regexStr The regex string to parse
    * @returns Parsed RegExp object or undefined if parsing fails
    * @example
    * ```typescript
    * parseRegexString('/^@app\/(.*)/i') // Returns: /^@app\/(.*)/i
    * parseRegexString('^@app') // Returns: /^@app/
+   * parseRegexString('[invalid') // Returns: undefined (logs error)
    * ```
    */
   private parseRegexString(regexStr: string): RegExp | undefined {
     if (!regexStr) {return undefined;}
+
+    // Validate the regex string first
+    const validation = this.validateRegexString(regexStr);
+    if (!validation.isValid) {
+      logError(`Invalid regex pattern "${regexStr}": ${validation.error}`);
+      return undefined;
+    }
 
     try {
       if (regexStr.startsWith('/') && regexStr.length > 1) {
@@ -245,12 +372,6 @@ class ConfigManager {
         if (lastSlashIndex > 0) {
           const pattern = regexStr.slice(1, lastSlashIndex);
           const flags = regexStr.slice(lastSlashIndex + 1);
-          const validFlags = /^[gimsuy]*$/.test(flags);
-          if (!validFlags) {
-            logError(`Invalid regex flags '${flags}' in pattern: ${regexStr}`);
-            return new RegExp(pattern); // Utiliser sans flags
-          }
-          
           return new RegExp(pattern, flags);
         } else {
           return new RegExp(regexStr.slice(1));
@@ -279,6 +400,7 @@ class ConfigManager {
         match?: string;
         order: number;
         isDefault?: boolean;
+        sortOrder?: 'alphabetic' | string[];
       }[]>('groups');
 
       if (customGroupsSetting !== undefined) {
@@ -288,6 +410,8 @@ class ConfigManager {
             match: group.match ? this.parseRegexString(group.match) : undefined,
             order: group.order,
             isDefault: !!group.isDefault,
+            sortOrder: group.sortOrder,
+            originalMatchString: group.match, // Keep original string for validation
           };
         });
         

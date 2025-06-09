@@ -84,6 +84,33 @@
                 "type": "boolean",
                 "default": false,
                 "description": "Whether this group is the default for unmatched imports (only one group should have this set to true)"
+              },
+              "sortOrder": {
+                "description": "Custom sort order for imports within this group",
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "alphabetic"
+                    ],
+                    "description": "Sort imports alphabetically"
+                  },
+                  {
+                    "type": "array",
+                    "description": "Custom sort order with patterns (supports wildcards like 'react-*', '@app/*', '*test*')",
+                    "items": {
+                      "type": "string",
+                      "description": "Import pattern (exact match or wildcard pattern)"
+                    },
+                    "examples": [
+                      [
+                        "react",
+                        "react-*",
+                        "lodash"
+                      ]
+                    ]
+                  }
+                ]
               }
             },
             "required": [

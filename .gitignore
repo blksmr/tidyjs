@@ -8,8 +8,14 @@ dist
 out
 */prompts/**/*
 *.vsix
+coverage/
 **/.DS_Store
 .clinerules
 memory-bank
 test/.vscode
+test/**/*.js
 ignore
+
+# Compiled JavaScript files in src (should only have TypeScript)
+src/**/*.js
+src/**/*.js.map
