@@ -1,0 +1,12 @@
+{
+  "name": "tidyjs-e2e-test-fixtures",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.0.0",
+    "@types/react": "^18.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
