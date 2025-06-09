@@ -266,7 +266,7 @@ describe('GroupMatcher Cache Management', () => {
       const maxSize = matcher.getCacheStats().maxSize;
       
       // Simulate a large codebase with many unique imports
-      const uniqueImports = [];
+      const uniqueImports: string[] = [];
       for (let i = 0; i < maxSize * 2; i++) {
         uniqueImports.push(`@company/package-${i}/module-${i % 10}`);
       }

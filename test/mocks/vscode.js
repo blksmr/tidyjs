@@ -41,6 +41,29 @@ module.exports = {
             this.start = start;
             this.end = end;
         }
+        
+        get isEmpty() { return this.start.line === this.end.line && this.start.character === this.end.character; }
+        get isSingleLine() { return this.start.line === this.end.line; }
+        contains() { return false; }
+        isEqual() { return false; }
+        intersection() { return null; }
+        union() { return this; }
+        with() { return this; }
+    },
+    Diagnostic: class Diagnostic {
+        constructor(range, message, severity) {
+            this.range = range;
+            this.message = message;
+            this.severity = severity;
+            this.code = undefined;
+            this.source = undefined;
+        }
+    },
+    DiagnosticSeverity: {
+        Error: 0,
+        Warning: 1,
+        Information: 2,
+        Hint: 3
     },
     workspace: {
         getConfiguration: () => ({

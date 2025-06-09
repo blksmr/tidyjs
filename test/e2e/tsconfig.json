@@ -1,11 +1,11 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "rootDir": ".",
+    "rootDir": "../..",
     "outDir": "../../out/test/e2e",
     "module": "commonjs",
     "moduleResolution": "node"
   },
-  "include": ["./**/*.ts"],
+  "include": ["./**/*.ts", "../../src/**/*.ts"],
   "exclude": ["../../node_modules"]
 }
