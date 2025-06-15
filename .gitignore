@@ -19,3 +19,7 @@ ignore
 # Compiled JavaScript files in src (should only have TypeScript)
 src/**/*.js
 src/**/*.js.map
+
+# Test files
+test/**/package.json
+test/**/package-*.json

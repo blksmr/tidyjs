@@ -1,0 +1,83 @@
+{
+  // TidyJS
+  "tidyjs.debug": true,
+  "tidyjs.format.removeUnusedImports": true,
+  "tidyjs.format.removeMissingModules": true,
+  "tidyjs.excludedFolders": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    "public",
+    ".next",
+    ".storybook",
+    ".vscode",
+    "fixtures/input"
+  ],
+  "tidyjs.groups": [
+    {
+      "name": "Misc",
+      "order": 0,
+      "priority": 999,
+      "isDefault": true,
+      "match": "^(react|react-.*|lodash|date-fns|classnames|@fortawesome|@reach|uuid|@tanstack|ag-grid-community|framer-motion)$"
+    },
+    {
+      "name": "DS",
+      // "isDefault": true,
+      "order": 1,
+      "match": "^ds$"
+    },
+    {
+      "name": "@app/dossier",
+      "order": 2,
+      "match": "^@app\\/dossier"
+    },
+    {
+      "name": "@app/components",
+      "order": 3,
+      "match": "^@app\\/components"
+    },
+    {
+      "name": "@app/types",
+      "order": 4,
+      "match": "^@app\\/types"
+    },
+    {
+      "name": "@app/utils",
+      "order": 5,
+      "match": "^@app\\/utils"
+    },
+    {
+      "name": "@core",
+      "order": 7,
+      "match": "^@core"
+    },
+    {
+      "name": "@library",
+      "order": 8,
+      "match": "^@library"
+    },
+    {
+      "name": "Utils",
+      "order": 9,
+      "match": "^yutils"
+    },
+    {
+      "name": "@app/services",
+      "order": 10,
+      "priority": 1000,
+      "match": "@app\\/services"
+    },
+    {
+      "name": "@mui",
+      "order": 11,
+      "match": "@mui\\/.*"
+    },
+    {
+      "name": "winston",
+      "order": 12,
+      "match": "winston"
+    },
+  ]
+}
