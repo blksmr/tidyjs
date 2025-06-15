@@ -164,7 +164,7 @@ export class ImportParser {
     this.sourceCode = "";
   }
 
-  public parse(sourceCode: string): ParserResult {
+  public parse(sourceCode: string, missingModules?: Set<string>, unusedImports?: string[]): ParserResult {
     this.sourceCode = sourceCode;
     this.invalidImports = [];
 
@@ -177,7 +177,7 @@ export class ImportParser {
         errorOnTypeScriptSyntacticAndSemanticIssues: false,
       });
 
-      const imports = this.extractImports();
+      const imports = this.extractImports(missingModules, unusedImports);
       const groups = this.organizeImportsIntoGroups(imports);
       const importRange = this.calculateImportRange();
 
@@ -201,7 +201,7 @@ export class ImportParser {
     }
   }
 
-  private extractImports(): ParsedImport[] {
+  private extractImports(missingModules?: Set<string>, unusedImports?: string[]): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const program = this.ast;
 
@@ -214,6 +214,11 @@ export class ImportParser {
         try {
           const importNode = node as TSESTree.ImportDeclaration;
           const source = importNode.source.value as string;
+
+          // Skip imports from missing modules if specified
+          if (missingModules?.has(source)) {
+            continue;
+          }
 
           // Extract raw text once for this import
           const raw = this.sourceCode.substring(importNode.range?.[0] || 0, importNode.range?.[1] || 0);
@@ -247,16 +252,27 @@ export class ImportParser {
 
           for (const specifierNode of importNode.specifiers) {
             if (specifierNode.type === "ImportDefaultSpecifier") {
+              const localName = specifierNode.local.name;
+              // Skip if this import is in the unused list
+              if (unusedImports?.includes(localName)) {
+                continue;
+              }
+              
               if (typeOnly) {
-                typeDefaultImport = specifierNode.local.name;
+                typeDefaultImport = localName;
               } else {
-                defaultImport = specifierNode.local.name;
+                defaultImport = localName;
               }
             } else if (specifierNode.type === "ImportSpecifier") {
               // Only ImportSpecifier has importKind property for individual type specifiers
               const isTypeSpecifier = (specifierNode as TSESTree.ImportSpecifier).importKind === 'type' || typeOnly;
               const importedName = specifierNode.imported ? (specifierNode.imported as TSESTree.Identifier).name : specifierNode.local.name;
               const localName = specifierNode.local.name;
+              
+              // Skip if this import is in the unused list
+              if (unusedImports?.includes(localName)) {
+                continue;
+              }
               
               const specifier = importedName !== localName 
                 ? { imported: importedName, local: localName }
@@ -268,7 +284,13 @@ export class ImportParser {
                 valueSpecifiers.push(specifier);
               }
             } else if (specifierNode.type === "ImportNamespaceSpecifier") {
-              const namespaceSpec = `* as ${specifierNode.local.name}`;
+              const localName = specifierNode.local.name;
+              // Skip if this import is in the unused list
+              if (unusedImports?.includes(localName)) {
+                continue;
+              }
+              
+              const namespaceSpec = `* as ${localName}`;
               if (typeOnly) {
                 typeNamespaceSpecifier = namespaceSpec;
               } else {

@@ -25,18 +25,18 @@ import type {
 }                                  from 'vscode';
 
 // Utils
-import { configManager }    from './utils/config';
-import { diagnosticsCache } from './utils/diagnostics-cache';
+import { configManager }       from './utils/config';
+import { diagnosticsCache }    from './utils/diagnostics-cache';
 import {
     logDebug,
     logError
-}                           from './utils/log';
+}                              from './utils/log';
 import {
     showMessage,
     getUnusedImports,
-    removeUnusedImports
-}                           from './utils/misc';
-import { perfMonitor }      from './utils/performance';
+    getMissingAndUnusedImports
+}                              from './utils/misc';
+import { perfMonitor }         from './utils/performance';
 
 let parser: ImportParser | null = null;
 let lastConfigString = '';
@@ -82,10 +82,53 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
       perfMonitor.clear();
       perfMonitor.start('total_format_operation');
 
-      // Parser le document
-      let parserResult = perfMonitor.measureSync(
+      // Pre-filter imports if removal features are enabled
+      let missingModules: Set<string> | undefined;
+      let unusedImportsList: string[] | undefined;
+      
+      if (configManager.getConfig().format?.removeUnusedImports || configManager.getConfig().format?.removeMissingModules) {
+        try {
+          const config = perfMonitor.measureSync('config_getConfig', () => configManager.getConfig());
+          const includeMissingModules = config.format?.removeMissingModules ?? false;
+          
+          const diagnostics = perfMonitor.measureSync(
+            'get_diagnostics',
+            () => diagnosticsCache.getDiagnostics(document.uri),
+            { uri: document.uri.toString() }
+          );
+
+          // Parse once to get initial import info for filtering
+          const initialParserResult = perfMonitor.measureSync(
+            'initial_parser_parse',
+            () => parser!.parse(documentText) as ParserResult,
+            { documentLength: documentText.length }
+          );
+
+          if (config.format?.removeUnusedImports) {
+            unusedImportsList = perfMonitor.measureSync(
+              'get_unused_imports',
+              () => getUnusedImports(document.uri, initialParserResult, includeMissingModules, diagnostics),
+              { includeMissingModules }
+            );
+          }
+
+          if (includeMissingModules) {
+            const { missingModules: detectedMissing } = perfMonitor.measureSync(
+              'get_missing_modules',
+              () => getMissingAndUnusedImports(document.uri, initialParserResult, diagnostics),
+              { includeMissingModules }
+            );
+            missingModules = detectedMissing;
+          }
+        } catch (error) {
+          logError("Error pre-filtering imports:", error instanceof Error ? error.message : String(error));
+        }
+      }
+
+      // Parser le document with pre-filtering
+      const parserResult = perfMonitor.measureSync(
         'parser_parse',
-        () => parser!.parse(documentText) as ParserResult,
+        () => parser!.parse(documentText, missingModules, unusedImportsList) as ParserResult,
         { documentLength: documentText.length }
       );
 
@@ -102,36 +145,6 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
         });
         logError("Invalid imports found:", errorMessages.join("\n"));
         return undefined;
-      }
-
-      // Gérer la suppression des imports non utilisés
-      if (configManager.getConfig().format?.removeUnusedImports) {
-        try {
-          const config = perfMonitor.measureSync('config_getConfig', () => configManager.getConfig());
-          const includeMissingModules = config.format?.removeMissingModules ?? false;
-          
-          const diagnostics = perfMonitor.measureSync(
-            'get_diagnostics',
-            () => diagnosticsCache.getDiagnostics(document.uri),
-            { uri: document.uri.toString() }
-          );
-          
-          const unusedImports = perfMonitor.measureSync(
-            'get_unused_imports',
-            () => getUnusedImports(document.uri, parserResult, includeMissingModules, diagnostics),
-            { includeMissingModules }
-          );
-          
-          if (unusedImports.length > 0) {
-            parserResult = perfMonitor.measureSync(
-              'remove_unused_imports',
-              () => removeUnusedImports(parserResult, unusedImports),
-              { count: unusedImports.length }
-            );
-          }
-        } catch (error) {
-          logError("Error removing unused imports:", error instanceof Error ? error.message : String(error));
-        }
       }
 
       // Formater les imports

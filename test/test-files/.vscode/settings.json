@@ -1,5 +1,6 @@
 {
   // TidyJS
+  "editor.formatOnSave": false,
   "tidyjs.debug": true,
   "tidyjs.format.removeUnusedImports": true,
   "tidyjs.format.removeMissingModules": true,

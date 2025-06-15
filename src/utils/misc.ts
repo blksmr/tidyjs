@@ -24,9 +24,6 @@ export function isEmptyLine(line: string): boolean {
   return line.trim() === '';
 }
 
-
-
-
 /**
  * Fonctions d'affichage de messages dans l'interface de VSCode
  * Permet d'utiliser showMessage.info(), showMessage.error() ou showMessage.warning()
@@ -60,7 +57,6 @@ export const showMessage = {
   },
 };
 
-
 /**
  * Récupère les imports de modules inexistants ET non utilisés à partir des diagnostics
  * @param uri URI du document actuel
@@ -72,6 +68,7 @@ export function getMissingAndUnusedImports(uri: Uri, parserResult: ParserResult,
   try {
     // Quick safety check - if these VS Code APIs are not available, return empty sets
     if (!languages || typeof languages.getDiagnostics !== 'function') {
+      logDebug('VS Code APIs not available for diagnostic retrieval');
       return { missingModules: new Set(), unusedFromMissing: new Set() };
     }
     
@@ -79,7 +76,10 @@ export function getMissingAndUnusedImports(uri: Uri, parserResult: ParserResult,
     const missingModules = new Set<string>();
     const unusedVariables = new Set<string>();
 
+    logDebug(`getMissingAndUnusedImports: Processing ${cachedDiagnostics?.length || 0} diagnostics for ${uri.toString()}`);
+
     if (!cachedDiagnostics || cachedDiagnostics.length === 0) {
+      logDebug('No diagnostics available for missing module detection');
       return { missingModules: new Set(), unusedFromMissing: new Set() };
     }
 
@@ -90,6 +90,7 @@ export function getMissingAndUnusedImports(uri: Uri, parserResult: ParserResult,
 
     // First pass: collect missing modules
     for (const diagnostic of cachedDiagnostics) {
+      logDebug(`Diagnostic: severity=${diagnostic.severity}, code=${diagnostic.code}, message="${diagnostic.message}"`);
       if (diagnostic.severity === DiagnosticSeverity.Error && 
           MODULE_NOT_FOUND_CODES.includes(String(diagnostic.code))) {
         const message = diagnostic.message;
@@ -97,6 +98,7 @@ export function getMissingAndUnusedImports(uri: Uri, parserResult: ParserResult,
         
         if (moduleMatch && moduleMatch[1]) {
           missingModules.add(moduleMatch[1]);
+          logDebug(`Found missing module: ${moduleMatch[1]}`);
         }
       }
     }
@@ -123,8 +125,8 @@ export function getMissingAndUnusedImports(uri: Uri, parserResult: ParserResult,
     // Find which unused variables come from missing modules
     const unusedFromMissing = new Set<string>();
     
-    logDebug('Missing modules:', Array.from(missingModules));
-    logDebug('Unused variables:', Array.from(unusedVariables));
+    logDebug('Missing modules detected:', Array.from(missingModules));
+    logDebug('Unused variables detected:', Array.from(unusedVariables));
     
     for (const group of parserResult.groups) {
       for (const imp of group.imports) {
@@ -236,8 +238,9 @@ export function getUnusedImports(uri: Uri, parserResult: ParserResult, includeMi
       }
     }
 
-    // Optionally include imports from missing modules that are also unused
+    // Optionally include imports from missing modules
     if (includeMissingModules) {
+      logDebug(`removeMissingModules is enabled, checking for missing modules...`);
       try {
         const { missingModules, unusedFromMissing } = getMissingAndUnusedImports(uri, parserResult, cachedDiagnostics);
         
@@ -249,37 +252,53 @@ export function getUnusedImports(uri: Uri, parserResult: ParserResult, includeMi
           unusedImports.push(unusedImport);
         });
         
-        // Also check if ALL imports from a missing module are unused
-        // If so, we can remove the entire import statement
-        for (const group of parserResult.groups) {
-          for (const imp of group.imports) {
-            if (missingModules.has(imp.source)) {
-              // Check if ALL specifiers from this import are unused
-              const allSpecifiersUnused = imp.specifiers.every(spec => {
-                const specName = typeof spec === 'string' ? spec : spec.local;
-                return unusedFromMissing.has(specName);
-              });
-              const defaultUnusedOrMissing = !imp.defaultImport || unusedFromMissing.has(imp.defaultImport);
+        // If removeMissingModules is true AND a diagnostic shows "All imports in import declaration are unused"
+        // then we can safely remove all imports from that missing module
+        const allUnusedImportDiagnostics = cachedDiagnostics.filter(d => 
+          d.code === '6192' || d.code === 6192 // "All imports in import declaration are unused"
+        );
+        
+        for (const diagnostic of allUnusedImportDiagnostics) {
+          try {
+            // Get the import line from the diagnostic range
+            const lineNumber = diagnostic.range.start.line;
+            const lineText = document.lineAt(lineNumber).text;
+            
+            // Extract module name from the import line
+            const moduleMatch = lineText.match(/from\s+['"]([^'"]+)['"]/);
+            if (moduleMatch && moduleMatch[1] && missingModules.has(moduleMatch[1])) {
+              logDebug(`All imports from missing module ${moduleMatch[1]} are unused, removing all`);
               
-              if (allSpecifiersUnused && defaultUnusedOrMissing) {
-                // All imports from this module are unused, so we can remove them all
-                imp.specifiers.forEach(spec => {
-                  const specName = typeof spec === 'string' ? spec : spec.local;
-                  if (!unusedImports.includes(specName)) {
-                    unusedImports.push(specName);
+              // Find and add all imports from this module
+              for (const group of parserResult.groups) {
+                for (const imp of group.imports) {
+                  if (imp.source === moduleMatch[1]) {
+                    imp.specifiers.forEach(spec => {
+                      const specName = typeof spec === 'string' ? spec : spec.local;
+                      if (!unusedImports.includes(specName)) {
+                        unusedImports.push(specName);
+                        logDebug(`  - Adding specifier: ${specName}`);
+                      }
+                    });
+                    
+                    if (imp.defaultImport && !unusedImports.includes(imp.defaultImport)) {
+                      unusedImports.push(imp.defaultImport);
+                      logDebug(`  - Adding default import: ${imp.defaultImport}`);
+                    }
                   }
-                });
-                if (imp.defaultImport && !unusedImports.includes(imp.defaultImport)) {
-                  unusedImports.push(imp.defaultImport);
                 }
               }
             }
+          } catch (error) {
+            logDebug(`Error processing diagnostic: ${error}`);
           }
         }
       } catch (error) {
         console.warn('Error getting missing module imports:', error);
         // Continue without missing modules if there's an error
       }
+    } else {
+      logDebug(`removeMissingModules is disabled, not processing missing modules`);
     }
 
     const finalUnusedImports = [...new Set(unusedImports)]; // Remove duplicates
