@@ -246,7 +246,6 @@ function formatImportLine(importItem: ParsedImport): string {
   return `import ${typePrefix}{ ${specifiersStr} } from '${source}';`;
 }
 
-
 function formatImportsFromParser(sourceText: string, importRange: { start: number; end: number }, parserResult: ParserResult, config: Config): string {
   if (importRange.start === importRange.end) {
     return sourceText;
