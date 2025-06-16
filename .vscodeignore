@@ -8,6 +8,10 @@ node_modules
 out
 src
 test
+resources/*
+!resources/small.png
+coverage
+*.md
 scripts
 documentation
 *.config.js
