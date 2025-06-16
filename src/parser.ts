@@ -1,5 +1,5 @@
 // Misc
-import { parse }    from '@typescript-eslint/parser';
+import { parse } from '@typescript-eslint/parser';
 import { TSESTree } from '@typescript-eslint/types';
 
 // Utils
@@ -168,6 +168,19 @@ export class ImportParser {
         this.sourceCode = sourceCode;
         this.invalidImports = [];
 
+        // Debug log to see what filtering parameters are received
+        if (this.internalConfig.formatting.quoteStyle) {
+            // Check if we have config (always true)
+            const debugInfo = {
+                missingModulesProvided: missingModules !== undefined,
+                missingModulesCount: missingModules?.size || 0,
+                unusedImportsProvided: unusedImports !== undefined,
+                unusedImportsCount: unusedImports?.length || 0,
+            };
+            // Using console.log instead of logDebug to avoid circular dependency
+            console.log('[Parser] Filtering parameters received:', debugInfo);
+        }
+
         try {
             this.ast = parse(sourceCode, {
                 ecmaVersion: 2020,
@@ -177,13 +190,21 @@ export class ImportParser {
                 errorOnTypeScriptSyntacticAndSemanticIssues: false,
             });
 
-            const imports = this.extractImports(missingModules, unusedImports);
-            const groups = this.organizeImportsIntoGroups(imports);
-            const importRange = this.calculateImportRange();
+            // Extract all imports first
+            const allImports = this.extractAllImports();
+
+            // Apply filters to produce clean AST
+            const filteredImports = this.applyFilters(allImports, missingModules, unusedImports);
+
+            // Organize the clean imports into groups
+            const groups = this.organizeImportsIntoGroups(filteredImports);
+
+            // Calculate import range based on filtered imports
+            const importRange = this.calculateFilteredImportRange(filteredImports);
 
             return {
                 groups,
-                originalImports: imports.map((imp) => imp.raw),
+                originalImports: filteredImports.map((imp) => imp.raw),
                 invalidImports: this.invalidImports.length > 0 ? this.invalidImports : undefined,
                 importRange,
             };
@@ -201,7 +222,7 @@ export class ImportParser {
         }
     }
 
-    private extractImports(missingModules?: Set<string>, unusedImports?: string[]): ParsedImport[] {
+    private extractAllImports(): ParsedImport[] {
         const imports: ParsedImport[] = [];
         const program = this.ast;
 
@@ -209,18 +230,11 @@ export class ImportParser {
             return imports;
         }
 
-        // Debug: Log filtering parameters
-
         for (const node of program.body) {
             if (node.type === 'ImportDeclaration') {
                 try {
                     const importNode = node as TSESTree.ImportDeclaration;
                     const source = importNode.source.value as string;
-
-                    // Skip imports from missing modules if specified
-                    if (missingModules?.has(source)) {
-                        continue;
-                    }
 
                     // Extract raw text once for this import
                     const raw = this.sourceCode.substring(importNode.range?.[0] || 0, importNode.range?.[1] || 0);
@@ -256,10 +270,6 @@ export class ImportParser {
                     for (const specifierNode of importNode.specifiers) {
                         if (specifierNode.type === 'ImportDefaultSpecifier') {
                             const localName = specifierNode.local.name;
-                            // Skip if this import is in the unused list
-                            if (unusedImports?.includes(localName)) {
-                                continue;
-                            }
 
                             if (typeOnly) {
                                 typeDefaultImport = localName;
@@ -274,11 +284,6 @@ export class ImportParser {
                                 : specifierNode.local.name;
                             const localName = specifierNode.local.name;
 
-                            // Skip if this import is in the unused list
-                            if (unusedImports?.includes(localName)) {
-                                continue;
-                            }
-
                             const specifier = importedName !== localName ? { imported: importedName, local: localName } : importedName;
 
                             if (isTypeSpecifier) {
@@ -288,10 +293,6 @@ export class ImportParser {
                             }
                         } else if (specifierNode.type === 'ImportNamespaceSpecifier') {
                             const localName = specifierNode.local.name;
-                            // Skip if this import is in the unused list
-                            if (unusedImports?.includes(localName)) {
-                                continue;
-                            }
 
                             const namespaceSpec = `* as ${localName}`;
                             if (typeOnly) {
@@ -400,6 +401,61 @@ export class ImportParser {
         }
 
         return imports;
+    }
+
+    private applyFilters(allImports: ParsedImport[], missingModules?: Set<string>, unusedImports?: string[]): ParsedImport[] {
+        if (!missingModules && !unusedImports) {
+            return allImports;
+        }
+
+        const filteredImports: ParsedImport[] = [];
+
+        for (const importItem of allImports) {
+            // Skip entire imports from missing modules
+            if (missingModules?.has(importItem.source)) {
+                continue;
+            }
+
+            // Filter individual specifiers based on unused imports
+            if (unusedImports && unusedImports.length > 0) {
+                const filteredSpecifiers: ImportSpecifier[] = [];
+                let filteredDefaultImport: string | undefined;
+
+                // Filter default import
+                if (importItem.defaultImport && !unusedImports.includes(importItem.defaultImport)) {
+                    filteredDefaultImport = importItem.defaultImport;
+                }
+
+                // Filter specifiers
+                for (const specifier of importItem.specifiers) {
+                    const localName = typeof specifier === 'string' ? specifier : specifier.local;
+
+                    // For namespace imports (like * as Utils), check the namespace name
+                    if (typeof specifier === 'string' && specifier.startsWith('* as ')) {
+                        const namespaceName = specifier.substring(5); // Remove '* as '
+                        if (!unusedImports.includes(namespaceName)) {
+                            filteredSpecifiers.push(specifier);
+                        }
+                    } else if (!unusedImports.includes(localName)) {
+                        filteredSpecifiers.push(specifier);
+                    }
+                }
+
+                // Only keep import if it has remaining specifiers or default import
+                if (filteredSpecifiers.length > 0 || filteredDefaultImport) {
+                    filteredImports.push({
+                        ...importItem,
+                        specifiers: filteredSpecifiers,
+                        defaultImport: filteredDefaultImport,
+                    });
+                }
+            } else {
+                // No unused imports filtering, keep the import as-is
+                filteredImports.push(importItem);
+            }
+        }
+
+        return filteredImports;
     }
 
     private determineGroup(source: string): { groupName: string | null; isPriority: boolean } {
@@ -775,6 +831,17 @@ export class ImportParser {
         }
 
         return adjustedStart;
+    }
+
+    private calculateFilteredImportRange(filteredImports: ParsedImport[]): { start: number; end: number } | undefined {
+        if (filteredImports.length === 0) {
+            // If no imports remain after filtering, we still need to return the original range
+            // so the formatter can remove the entire import section
+            return this.calculateImportRange();
+        }
+
+        // Use the original import range since we're replacing the entire section
+        return this.calculateImportRange();
     }
 
     /**
