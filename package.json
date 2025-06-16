@@ -2,7 +2,7 @@
   "name": "tidyjs",
   "displayName": "TidyJS",
   "description": "Automatically organizes and formats import declarations",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "publisher": "Asmir",
   "license": "MIT",
   "icon": "resources/small.png",
@@ -194,15 +194,8 @@
     "ts-jest": "^29.2.6",
     "typescript": "^5.8.2"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@vscode/vsce-sign",
-      "esbuild",
-      "keytar"
-    ]
-  },
   "dependencies": {
     "lodash": "^4.17.21",
-    "typescript-eslint": "^8.32.1"
+    "typescript-eslint": "^8.34.1"
   }
 }
