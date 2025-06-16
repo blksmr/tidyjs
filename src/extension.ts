@@ -61,12 +61,6 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
         return undefined;
       }
 
-      // Vérifier si nous pouvons formater ce document
-      if (!canFormatDocument(document)) {
-        logDebug("Formatting skipped: document cannot be formatted");
-        return undefined;
-      }
-
       const documentText = document.getText();
 
       // Vérification de sécurité pour éviter de formater des logs
@@ -223,14 +217,6 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
 }
 
 /**
- * Simple check if document can be formatted
- */
-function canFormatDocument(document: import("vscode").TextDocument): boolean {
-  // Permettre le formatage de tous les documents
-  return true;
-}
-
-/**
  * Commande de test pour déboguer la validation de configuration
  */
 async function testConfigurationValidation(): Promise<void> {
@@ -302,8 +288,6 @@ async function testConfigurationValidation(): Promise<void> {
   }
 }
 
-
-
 /**
  * Check if the current document is in an excluded folder
  */
@@ -332,8 +316,6 @@ function isDocumentInExcludedFolder(document: import("vscode").TextDocument): bo
            normalizedDocumentPath === normalizedExcludedPath;
   });
 }
-
-
 
 /**
  * Vérifie que l'extension est activée avant d'exécuter une commande
