@@ -168,18 +168,6 @@ export class ImportParser {
         this.sourceCode = sourceCode;
         this.invalidImports = [];
 
-        // Debug log to see what filtering parameters are received
-        if (this.internalConfig.formatting.quoteStyle) {
-            // Check if we have config (always true)
-            const debugInfo = {
-                missingModulesProvided: missingModules !== undefined,
-                missingModulesCount: missingModules?.size || 0,
-                unusedImportsProvided: unusedImports !== undefined,
-                unusedImportsCount: unusedImports?.length || 0,
-            };
-            // Using console.log instead of logDebug to avoid circular dependency
-            console.log('[Parser] Filtering parameters received:', debugInfo);
-        }
 
         try {
             this.ast = parse(sourceCode, {
