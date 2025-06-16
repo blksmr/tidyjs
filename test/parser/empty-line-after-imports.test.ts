@@ -43,6 +43,7 @@ const Component = () => {};`;
     const result = parser.parse(code);
     const formatted = await formatImports(code, config, result);
     
+    
     expect(formatted.text).toContain(';\n\nconst Component');
     expect(formatted.text).not.toContain(';\n\n\nconst');
   });
@@ -84,6 +85,7 @@ import { useState } from 'react';`;
     const parser = new ImportParser(config);
     const result = parser.parse(code);
     const formatted = await formatImports(code, config, result);
+    
     
     // Should end with exactly one empty line (two newlines total)
     expect(formatted.text).toMatch(/;\n\n$/);
