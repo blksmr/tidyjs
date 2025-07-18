@@ -2,11 +2,11 @@
 import {
     fetchData,
     ApiResponse
-}                    from './api';
+}               from './api';
 import {
     FC,
     ReactNode
-}             from 'react';
+}               from 'react';
 
 interface Props {
   children: ReactNode;

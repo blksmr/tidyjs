@@ -469,11 +469,7 @@ async function formatImports(sourceText: string, config: Config, parserResult?: 
     try {
         const formattedText = formatImportsFromParser(sourceText, importRange, parserResult, config);
 
-        if (formattedText !== sourceText) {
-            return { text: formattedText };
-        }
-
-        return { text: sourceText };
+        return { text: formattedText };
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         showMessage.error(`An error occurred while formatting imports: ${errorMessage}`);

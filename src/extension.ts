@@ -161,11 +161,6 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 return undefined;
             }
 
-            // Si aucun changement n'est nécessaire
-            if (formattedDocument.text === documentText) {
-                logDebug('No changes needed for document');
-                return undefined;
-            }
 
             // Créer et retourner les éditions
             const fullRange = new Range(document.positionAt(0), document.positionAt(documentText.length));
