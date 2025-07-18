@@ -1,17 +1,11 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-  useContext,
-  createContext,
-  memo,
-  forwardRef,
-  lazy,
-  Suspense
-} from 'react';
-import { WsDataModel }  from '@library/form-new/models/ProviderModel';
+// Misc
+import React    from 'react';
+import {
+    useMemo,
+    useState,
+    useEffect,
+    useCallback
+}               from 'react';
 
 export default function TestComponent() {
   const [state, setState] = useState(null);
