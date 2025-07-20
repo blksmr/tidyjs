@@ -1,0 +1,50 @@
+{
+  "$schema": "./tidyjs.schema.json",
+  "groups": [
+    {
+      "name": "React",
+      "match": "^react",
+      "order": 1,
+      "sortOrder": "alphabetic"
+    },
+    {
+      "name": "External",
+      "match": "^[^@.]",
+      "order": 2
+    },
+    {
+      "name": "Internal",
+      "match": "^@/",
+      "order": 3
+    },
+    {
+      "name": "Relative",
+      "match": "^\\.",
+      "order": 4
+    },
+    {
+      "name": "Misc",
+      "order": 5,
+      "isDefault": true
+    }
+  ],
+  "importOrder": {
+    "sideEffect": 0,
+    "default": 1,
+    "named": 2,
+    "typeOnly": 3
+  },
+  "format": {
+    "indent": 4,
+    "removeUnusedImports": true,
+    "removeMissingModules": false,
+    "singleQuote": true,
+    "bracketSpacing": true
+  },
+  "pathResolution": {
+    "enabled": false,
+    "mode": "relative",
+    "preferredAliases": ["@"]
+  },
+  "excludedFolders": ["node_modules", "dist", "build"]
+}

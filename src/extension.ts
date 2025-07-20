@@ -27,14 +27,20 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
         _token: CancellationToken
     ): Promise<TextEdit[] | undefined> {
         try {
+            // Get document-specific configuration
+            const currentConfig = await configManager.getConfigForDocument(document);
+            
+            logDebug(`Document config loaded for ${document.fileName}:`, {
+                debug: currentConfig.debug,
+                groups: currentConfig.groups?.length || 0,
+                formatConfig: currentConfig.format,
+                singleQuote: currentConfig.format?.singleQuote,
+                indent: currentConfig.format?.indent
+            });
+            
             // Vérifier si le document est dans un dossier exclu
-            if (isDocumentInExcludedFolder(document)) {
+            if (isDocumentInExcludedFolder(document, currentConfig)) {
                 logDebug('Formatting skipped: document is in excluded folder');
-                return undefined;
-            }
-
-            // Vérifier si l'extension est activée et configurée correctement
-            if (!ensureExtensionEnabled()) {
                 return undefined;
             }
 
@@ -44,9 +50,25 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             // Supprimer cette vérification car elle est trop restrictive et empêche le formatage
             // de fichiers légitimes qui pourraient contenir ces chaînes dans leur code
 
-            if (!parser) {
-                logError('Parser not initialized');
-                return undefined;
+            // Create or update parser with document-specific configuration
+            const configString = JSON.stringify(currentConfig);
+            const configChanged = configString !== lastConfigString;
+
+            if (!parser || configChanged) {
+                try {
+                    // Dispose of old parser to clean up cache
+                    if (parser) {
+                        logDebug('Disposing old parser instance for document-specific config');
+                        parser.dispose();
+                    }
+
+                    logDebug(configChanged ? 'Document config differs, creating new parser' : 'Creating new parser instance');
+                    parser = new ImportParser(currentConfig);
+                    lastConfigString = configString;
+                } catch (error) {
+                    logError('Error initializing parser with document config:', error);
+                    return undefined;
+                }
             }
 
             perfMonitor.clear();
@@ -55,8 +77,6 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             // Prepare filtering parameters for parser
             let missingModules: Set<string> | undefined;
             let unusedImportsList: string[] | undefined;
-
-            const currentConfig = configManager.getConfig();
             
             logDebug('Current configuration:', {
                 removeUnusedImports: currentConfig.format?.removeUnusedImports,
@@ -236,7 +256,7 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             
             // Formater les imports
             const formattedDocument = await perfMonitor.measureAsync('format_imports', () =>
-                formatImports(documentText, configManager.getConfig(), parserResult)
+                formatImports(documentText, currentConfig, parserResult)
             );
 
             if (formattedDocument.error) {
@@ -268,9 +288,9 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
 /**
  * Check if the current document is in an excluded folder
  */
-function isDocumentInExcludedFolder(document: import('vscode').TextDocument): boolean {
-    const config = configManager.getConfig();
-    const excludedFolders = config.excludedFolders;
+function isDocumentInExcludedFolder(document: import('vscode').TextDocument, config?: import('./types').Config): boolean {
+    const currentConfig = config || configManager.getConfig();
+    const excludedFolders = currentConfig.excludedFolders;
 
     if (!excludedFolders || excludedFolders.length === 0) {
         return false;
@@ -296,8 +316,12 @@ function isDocumentInExcludedFolder(document: import('vscode').TextDocument): bo
 /**
  * Vérifie que l'extension est activée avant d'exécuter une commande
  */
-function ensureExtensionEnabled(): boolean {
-    const validation = configManager.validateCurrentConfiguration();
+async function ensureExtensionEnabled(document?: import('vscode').TextDocument): Promise<boolean> {
+    // Get document-specific config if document is provided
+    const config = document ? await configManager.getConfigForDocument(document) : configManager.getParserConfig();
+    
+    // Validate the configuration
+    const validation = configManager.validateConfiguration(config);
 
     if (!validation.isValid) {
         showMessage.error(
@@ -309,7 +333,6 @@ function ensureExtensionEnabled(): boolean {
     }
 
     // Check if configuration has changed
-    const config = configManager.getParserConfig();
     const configString = JSON.stringify(config);
     const configChanged = configString !== lastConfigString;
 
@@ -337,6 +360,9 @@ function ensureExtensionEnabled(): boolean {
 
 export function activate(context: ExtensionContext): void {
     try {
+        // Initialize ConfigManager with context
+        configManager.initialize(context);
+        
         // Validate configuration on startup
         const validation = configManager.validateCurrentConfiguration();
 
@@ -368,13 +394,13 @@ export function activate(context: ExtensionContext): void {
         const formattingProvider = languages.registerDocumentFormattingEditProvider(documentSelector, new TidyJSFormattingProvider());
 
         const formatCommand = commands.registerCommand('extension.format', async () => {
-            if (!ensureExtensionEnabled()) {
-                return;
-            }
-
             const editor = window.activeTextEditor;
             if (!editor) {
                 showMessage.warning('No active editor found');
+                return;
+            }
+
+            if (!await ensureExtensionEnabled(editor.document)) {
                 return;
             }
 
@@ -410,6 +436,8 @@ export function activate(context: ExtensionContext): void {
                 logDebug('TidyJS configuration changed, parser will be recreated on next use');
                 // Force parser recreation on next use by clearing the config string
                 lastConfigString = '';
+                // Clear document config cache
+                configManager.clearDocumentCache();
             }
         });
         

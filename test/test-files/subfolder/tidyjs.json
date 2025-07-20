@@ -1,0 +1,37 @@
+{
+    "groups": [
+        {
+            "name": "React",
+            "match": "^react",
+            "order": 1,
+            "sortOrder": "alphabetic"
+        },
+        {
+            "name": "Node Modules",
+            "match": "^[^@/.]",
+            "order": 2
+        },
+        {
+            "name": "Scoped Packages",
+            "match": "^@",
+            "order": 3
+        },
+        {
+            "name": "Local Files",
+            "match": "^\\.",
+            "order": 4
+        },
+        {
+            "name": "Default",
+            "order": 5,
+            "isDefault": true
+        }
+    ],
+    "format": {
+        "indent": 12,
+        "singleQuote": true,
+        "removeUnusedImports": false,
+        "removeMissingModules": false,
+        "bracketSpacing": true
+    }
+}

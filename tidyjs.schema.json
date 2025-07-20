@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TidyJS Configuration",
+  "description": "Configuration file for TidyJS import organization",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path to the JSON schema file"
+    },
+    "extends": {
+      "type": "string",
+      "description": "Path to another configuration file to extend from"
+    },
+    "groups": {
+      "type": "array",
+      "description": "Import groups configuration",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the import group"
+          },
+          "match": {
+            "type": "string",
+            "description": "Regex pattern to match imports for this group"
+          },
+          "order": {
+            "type": "integer",
+            "description": "Order of this group (lower numbers appear first)",
+            "minimum": 0
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Whether this is the default group for unmatched imports",
+            "default": false
+          },
+          "priority": {
+            "type": "integer",
+            "description": "Priority when multiple groups match (higher priority wins)",
+            "minimum": 0
+          },
+          "sortOrder": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["alphabetic"],
+                "description": "Sort imports alphabetically"
+              },
+              {
+                "type": "array",
+                "description": "Custom sort order patterns",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      }
+    },
+    "importOrder": {
+      "type": "object",
+      "description": "Order of import types within each group",
+      "properties": {
+        "sideEffect": {
+          "type": "integer",
+          "description": "Order for side-effect imports (e.g., import './styles.css')",
+          "default": 0
+        },
+        "default": {
+          "type": "integer",
+          "description": "Order for default imports (e.g., import React from 'react')",
+          "default": 1
+        },
+        "named": {
+          "type": "integer",
+          "description": "Order for named imports (e.g., import { useState } from 'react')",
+          "default": 2
+        },
+        "typeOnly": {
+          "type": "integer",
+          "description": "Order for type-only imports (e.g., import type { FC } from 'react')",
+          "default": 3
+        }
+      },
+      "additionalProperties": false
+    },
+    "format": {
+      "type": "object",
+      "description": "Formatting options",
+      "properties": {
+        "indent": {
+          "type": "integer",
+          "description": "Number of spaces for indentation",
+          "minimum": 0,
+          "default": 4
+        },
+        "removeUnusedImports": {
+          "type": "boolean",
+          "description": "Remove imports that are not used in the code",
+          "default": false
+        },
+        "removeMissingModules": {
+          "type": "boolean",
+          "description": "Remove imports from modules that cannot be resolved",
+          "default": false
+        },
+        "singleQuote": {
+          "type": "boolean",
+          "description": "Use single quotes for import paths",
+          "default": true
+        },
+        "bracketSpacing": {
+          "type": "boolean",
+          "description": "Add spaces inside import brackets",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "pathResolution": {
+      "type": "object",
+      "description": "Path resolution options",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable path resolution",
+          "default": false
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["relative", "absolute"],
+          "description": "Resolution mode",
+          "default": "relative"
+        },
+        "preferredAliases": {
+          "type": "array",
+          "description": "Preferred path aliases",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "excludedFolders": {
+      "type": "array",
+      "description": "Folders to exclude from formatting",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "additionalProperties": false
+}
