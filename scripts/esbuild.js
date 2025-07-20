@@ -1,5 +1,6 @@
 const process = require("node:process");
 const console = require("node:console");
+const lodashPlugin = require("esbuild-plugin-lodash");
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
 
@@ -19,17 +20,22 @@ async function main() {
 		metafile: !production,
 		platform: 'node',
 		outfile: 'dist/extension.js',
-		external: ['vscode'],
+		external: ['vscode', 'typescript'],
 		logLevel: 'silent',
+		legalComments: 'none',
     plugins: [
-			/* add to the end of plugins array */
+			lodashPlugin(),
 			esbuildProblemMatcherPlugin,
 		],
   });
   if (watch) {
     await ctx.watch();
   } else {
-    await ctx.rebuild();
+    const result = await ctx.rebuild();
+    if (result.metafile) {
+      require('fs').writeFileSync('dist/meta.json', JSON.stringify(result.metafile, null, 2));
+      console.log('Metafile written to dist/meta.json');
+    }
     await ctx.dispose();
   }
 }
