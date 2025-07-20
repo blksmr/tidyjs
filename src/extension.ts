@@ -344,7 +344,6 @@ export function activate(context: ExtensionContext): void {
             const config = configManager.getParserConfig();
             parser = new ImportParser(config);
             lastConfigString = JSON.stringify(config);
-            logDebug('Extension activated with valid configuration');
         } else {
             showMessage.error(
                 `TidyJS extension disabled due to configuration errors:\n${validation.errors.join(
@@ -416,10 +415,10 @@ export function activate(context: ExtensionContext): void {
         
         context.subscriptions.push(formatCommand, formattingProvider, configChangeDisposable);
 
-        logDebug('Extension activated successfully with config:', JSON.stringify(configManager.getConfig(), null, 2));
+        logDebug('Extension activated successfully with config:', configManager.getConfig());
 
         if (validation.isValid) {
-            logDebug('TidyJS extension is ready to use as a Document Formatting Provider!');
+            logDebug('TidyJS extension is ready !');
         }
     } catch (error) {
         logError('Error activating extension:', error);
