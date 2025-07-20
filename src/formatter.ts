@@ -135,7 +135,7 @@ function alignMultilineFromKeyword(line: string, fromIndex: number, maxFromIndex
     return lines.join('\n');
 }
 
-function alignImportsInGroup(importLines: string[]): string[] {
+function alignImportsInGroup(importLines: string[], config: Config): string[] {
     if (importLines.length === 0) {
         return importLines;
     }
@@ -164,7 +164,8 @@ function alignImportsInGroup(importLines: string[]): string[] {
             const maxLength = longestLine ? longestLine.trim().replace(/,$/, '').trim().length : 0;
             const maxIndex = longestLine ? middleLines.indexOf(longestLine) : -1;
 
-            info.idealFromPosition = 4 + maxLength + (maxIndex !== lines.length - 3 && maxIndex !== -1 ? 2 : 1);
+            const indent = config.format?.indent || 4;
+            info.idealFromPosition = indent + maxLength + (maxIndex !== lines.length - 3 && maxIndex !== -1 ? 2 : 1);
             const lastLine = lines[lines.length - 1];
             const fromMatch = lastLine.match(fromKeywordRegex);
             info.fromIndex = fromMatch && fromMatch.index !== undefined ? fromMatch.index : -1;
@@ -251,30 +252,36 @@ function cleanUpLines(lines: string[]): string[] {
     return withoutTrailingEmpty;
 }
 
-function formatImportLine(importItem: ParsedImport): string {
+function formatImportLine(importItem: ParsedImport, config: Config): string {
     const { type, source, specifiers } = importItem;
+    
+    // Get formatting options with defaults
+    const quote = config.format?.singleQuote !== false ? "'" : '"';
+    const bracketSpace = config.format?.bracketSpacing !== false ? ' ' : '';
+    const indent = config.format?.indent || 4;
+    const indentStr = ' '.repeat(indent);
 
     if (type === ImportType.SIDE_EFFECT || specifiers.length === 0) {
-        return `import '${source}';`;
+        return `import ${quote}${source}${quote};`;
     }
 
     if (type === ImportType.DEFAULT && specifiers.length === 1) {
         const spec = specifiers[0];
         const specStr = typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`;
-        return `import ${specStr} from '${source}';`;
+        return `import ${specStr} from ${quote}${source}${quote};`;
     }
 
     if (type === ImportType.TYPE_DEFAULT && specifiers.length === 1) {
         const spec = specifiers[0];
         const specStr = typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`;
-        return `import type ${specStr} from '${source}';`;
+        return `import type ${specStr} from ${quote}${source}${quote};`;
     }
 
     if ((type === ImportType.NAMED || type === ImportType.TYPE_NAMED) && specifiers.length === 1) {
         const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
         const spec = specifiers[0];
         const specStr = typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`;
-        return `import ${typePrefix}{ ${specStr} } from '${source}';`;
+        return `import ${typePrefix}{${bracketSpace}${specStr}${bracketSpace}} from ${quote}${source}${quote};`;
     }
 
     if ((type === ImportType.NAMED || type === ImportType.TYPE_NAMED) && specifiers.length > 1) {
@@ -287,20 +294,21 @@ function formatImportLine(importItem: ParsedImport): string {
         const specifiersSet = new Set(formattedSpecs);
         const sortedSpecifiers = Array.from(specifiersSet).sort((a, b) => a.length - b.length);
 
-        const parts = [`import ${typePrefix}{`, `    ${sortedSpecifiers.join(',\n    ')}`, `} from '${source}';`];
+        const parts = [`import ${typePrefix}{`, `${indentStr}${sortedSpecifiers.join(',\n' + indentStr)}`, `} from ${quote}${source}${quote};`];
         return parts.join('\n');
     }
 
     const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
     const formattedSpecs = specifiers.map((spec) => (typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`));
     const specifiersStr = formattedSpecs.join(', ');
-    return `import ${typePrefix}{ ${specifiersStr} } from '${source}';`;
+    return `import ${typePrefix}{${bracketSpace}${specifiersStr}${bracketSpace}} from ${quote}${source}${quote};`;
 }
 
 function formatImportsFromParser(
     sourceText: string,
     importRange: { start: number; end: number },
-    parserResult: ParserResult
+    parserResult: ParserResult,
+    config: Config
 ): string {
     if (importRange.start === importRange.end) {
         return sourceText;
@@ -405,7 +413,7 @@ function formatImportsFromParser(
             // Imports are already sorted by the parser
             const orderedImports = consolidatedImports;
 
-            groupResult.importLines.push(...orderedImports.map(formatImportLine));
+            groupResult.importLines.push(...orderedImports.map(imp => formatImportLine(imp, config)));
 
             if (groupResult.importLines.length > 0) {
                 formattedGroups.push(groupResult);
@@ -428,7 +436,7 @@ function formatImportsFromParser(
                 processedGroupNames.add(group.groupName);
             }
 
-            const alignedImports = alignImportsInGroup(group.importLines);
+            const alignedImports = alignImportsInGroup(group.importLines, config);
             formattedLines.push(...alignedImports);
         }
 
@@ -465,7 +473,7 @@ async function formatImports(sourceText: string, config: Config, parserResult?: 
     }
 
     try {
-        const formattedText = formatImportsFromParser(sourceText, importRange, parserResult);
+        const formattedText = formatImportsFromParser(sourceText, importRange, parserResult, config);
 
         return { text: formattedText };
     } catch (error: unknown) {

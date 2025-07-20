@@ -8,16 +8,16 @@ TidyJS is a VS Code extension that automatically organizes and formats import de
 
 ## Build/Test/Lint Commands
 
--   Build: `npm run compile`
--   Watch mode: `npm run watch`
--   Production build: `npm run build-prod`
--   Run all tests: `npm run test:unit`
--   Run specific test: `jest test/parser/file-name.test.ts -t "test description"`
--   Type check: `npm run check-types`
--   Lint: `npm run lint`
--   Fix lint issues: `npm run lint:fix`
--   Package extension: `npm run build` (creates .vsix file)
--   Version bump: `npm run bump:patch` / `bump:minor` / `bump:major`
+-   Development mode: `npm run dev` (runs both watch:esbuild and watch:tsc in parallel)
+-   Watch build: `npm run watch:esbuild` (watches and rebuilds with esbuild)
+-   Watch types: `npm run watch:tsc` (watches TypeScript types without emitting)
+-   Run all tests: `npm run test` (runs Jest tests)
+-   Run E2E tests: `npm run test:e2e` (builds and runs VS Code extension tests)
+-   Type check: `tsc --noEmit`
+-   Lint: `npm run lint` (runs ESLint on src, test/parser, and jest.config.js)
+-   Full check: `npm run check` (runs type check, lint, and tests)
+-   Package extension: `npm run build` (production build + creates .vsix file)
+-   Version bump: `npm run bump` (uses bump.sh script)
 
 ## Architecture
 
@@ -274,3 +274,36 @@ Final order assignment:
 - **Simplified Setup**: New groups can be added without calculating order numbers
 - **Team Collaboration**: Multiple developers can add groups without conflicts
 - **Future-Proof**: Configuration grows organically without manual maintenance
+
+## Configuration System
+
+TidyJS supports hierarchical configuration through:
+
+1. **VS Code Settings** (`settings.json`): Configure via VS Code's `tidyjs.*` settings
+2. **Project Config Files** (`tidyjs.json`): Place a `tidyjs.json` file in any directory
+
+### Configuration Priority (highest to lowest)
+1. `tidyjs.json` in the same directory as the file
+2. `tidyjs.json` in parent directories (closest first)
+3. VS Code workspace folder settings
+4. VS Code global settings
+5. Default configuration
+
+### Example `tidyjs.json` file
+```json
+{
+  "$schema": "./tidyjs.schema.json",
+  "groups": [
+    { "name": "React", "match": "^react", "order": 1 },
+    { "name": "External", "match": "^[^@.]", "order": 2 },
+    { "name": "Internal", "match": "^@/", "order": 3 },
+    { "name": "Relative", "match": "^\\.", "order": 4 }
+  ],
+  "format": {
+    "indent": 4,
+    "singleQuote": true,
+    "bracketSpacing": true,
+    "removeUnusedImports": false
+  }
+}
+```

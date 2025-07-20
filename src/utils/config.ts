@@ -3,6 +3,7 @@ import vscode from 'vscode';
 import { logDebug, logError } from './log';
 import { cloneDeepWith, uniq } from 'lodash';
 import { ConfigCache } from './config-cache';
+import { ConfigLoader } from './configLoader';
 
 const DEFAULT_CONFIG: Config = {
   debug: false,
@@ -37,6 +38,29 @@ const DEFAULT_CONFIG: Config = {
 class ConfigManager {
   private subfolders = new Map<string, Config['groups'][0]>();
   private configCache = new ConfigCache();
+  private documentConfigCache = new Map<string, Config>();
+
+  /**
+   * Initializes the ConfigManager with VS Code context
+   * Sets up configuration change listeners and initializes ConfigLoader
+   * @param context The VS Code extension context
+   */
+  public initialize(context: vscode.ExtensionContext): void {
+    // Initialize ConfigLoader with file watcher
+    ConfigLoader.initialize(context);
+    
+    // Listen for configuration changes
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('tidyjs')) {
+          this.clearDocumentCache();
+          logDebug('Configuration changed, clearing caches');
+        }
+      })
+    );
+    
+    logDebug('ConfigManager initialized');
+  }
 
 
   /**
@@ -129,7 +153,7 @@ class ConfigManager {
    * @param config The configuration to validate
    * @returns Object containing validation status and error messages
    */
-  private validateConfiguration(config: Config): { isValid: boolean; errors: string[] } {
+  public validateConfiguration(config: Config): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
     const defaultGroups = config.groups.filter(group => group.isDefault === true);
     
@@ -495,6 +519,130 @@ class ConfigManager {
       ...this.getConfig(),
       groups: this.getGroups(),
     };
+  }
+
+  /**
+   * Gets configuration for a specific document, considering all config sources
+   * @param document The VS Code text document
+   * @returns Configuration merged from all applicable sources
+   */
+  public async getConfigForDocument(document: vscode.TextDocument): Promise<Config> {
+    const cacheKey = document.uri.toString();
+    
+    // Check cache first
+    const cached = this.documentConfigCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // Get all config sources for this document
+    const sources = await ConfigLoader.getConfigForDocument(document.uri);
+    
+    if (sources.length === 0) {
+      // No specific config found, use default
+      const config = this.getConfig();
+      this.documentConfigCache.set(cacheKey, config);
+      return config;
+    }
+
+    // Start with default config
+    let mergedConfig = this.deepCloneConfig(DEFAULT_CONFIG);
+
+    logDebug(`Merging ${sources.length} config sources for document`);
+
+    // Apply configurations in reverse order (most general to most specific)
+    for (let i = sources.length - 1; i >= 0; i--) {
+      const source = sources[i];
+      logDebug(`Applying config source ${i}: ${source.type} from ${source.path}`, {
+        hasFormat: !!source.config.format,
+        formatConfig: source.config.format
+      });
+      mergedConfig = this.mergeConfigs(mergedConfig, source.config);
+    }
+
+    // Apply auto-order to the final merged groups
+    if (mergedConfig.groups) {
+      mergedConfig.groups = this.computeAutoOrder(mergedConfig.groups);
+    }
+
+    // Add dynamic subfolders
+    const allGroups = this.getAllGroupsForConfig(mergedConfig);
+    mergedConfig.groups = allGroups;
+
+    logDebug(`Config loaded for ${document.fileName} from ${sources.length} sources`);
+    logDebug(`Final merged config format:`, {
+      indent: mergedConfig.format?.indent,
+      singleQuote: mergedConfig.format?.singleQuote,
+      bracketSpacing: mergedConfig.format?.bracketSpacing,
+      removeUnusedImports: mergedConfig.format?.removeUnusedImports
+    });
+    
+    this.documentConfigCache.set(cacheKey, mergedConfig);
+    return mergedConfig;
+  }
+
+  /**
+   * Merges two configurations, with the second overriding the first
+   * @param base The base configuration
+   * @param override The configuration to merge on top
+   * @returns The merged configuration
+   */
+  private mergeConfigs(base: Config, override: Partial<Config>): Config {
+    const result = this.deepCloneConfig(base);
+
+    if (override.debug !== undefined) {
+      result.debug = override.debug;
+    }
+
+    if (override.groups !== undefined) {
+      result.groups = override.groups;
+    }
+
+    if (override.importOrder) {
+      result.importOrder = { ...result.importOrder, ...override.importOrder };
+    }
+
+    if (override.format) {
+      result.format = { ...result.format, ...override.format };
+    }
+
+    if (override.pathResolution) {
+      result.pathResolution = { ...result.pathResolution, ...override.pathResolution };
+    }
+
+    if (override.excludedFolders !== undefined) {
+      result.excludedFolders = override.excludedFolders;
+    }
+
+    return result;
+  }
+
+  /**
+   * Gets all groups including dynamic subfolders for a specific config
+   * @param config The base configuration
+   * @returns All groups including dynamic ones
+   */
+  private getAllGroupsForConfig(config: Config): Config['groups'] {
+    const allGroups = [...config.groups];
+    
+    // Add dynamic subfolder groups
+    this.subfolders.forEach((group) => {
+      if (!allGroups.some(g => g.name === group.name)) {
+        allGroups.push(group);
+      }
+    });
+
+    return allGroups;
+  }
+
+  /**
+   * Clears the document configuration cache
+   * Should be called when configuration changes
+   */
+  public clearDocumentCache(): void {
+    this.documentConfigCache.clear();
+    ConfigLoader.clearCache();
+    logDebug('Document configuration cache cleared');
   }
 
 }

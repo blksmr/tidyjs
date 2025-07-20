@@ -156,7 +156,13 @@
           }
         }
       }
-    }
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": "tidyjs.json",
+        "url": "./tidyjs.schema.json"
+      }
+    ]
   },
   "scripts": {
     "dev": "npm-run-all -p watch:*",

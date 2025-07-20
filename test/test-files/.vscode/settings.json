@@ -3,7 +3,7 @@
   "editor.formatOnSave": true,
   "tidyjs.debug": true,
   "tidyjs.format.removeUnusedImports": false,
-  "tidyjs.format.removeMissingModules": false,
+  "tidyjs.format.removeMissingModules": true,
   "tidyjs.excludedFolders": [
     "node_modules",
     "dist",
@@ -15,7 +15,7 @@
     ".vscode",
     "fixtures/input"
   ],
-  "tidyjs.pathResolution.enabled": true,
+  "tidyjs.pathResolution.enabled": false,
   "tidyjs.pathResolution.mode": "relative",
   "tidyjs.groups": [
     {
@@ -27,7 +27,6 @@
     },
     {
       "name": "DS",
-      // "isDefault": true,
       "order": 1,
       "match": "^ds$"
     },

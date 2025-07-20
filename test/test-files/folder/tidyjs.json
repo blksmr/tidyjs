@@ -1,0 +1,34 @@
+{
+    "groups": [
+        {
+            "name": "Core Libraries",
+            "match": "^core",
+            "order": 1
+        },
+        {
+            "name": "External",
+            "match": "^[^@.]",
+            "order": 2
+        },
+        {
+            "name": "Internal",
+            "match": "^@/",
+            "order": 3
+        },
+        {
+            "name": "Relative",
+            "match": "^\\.",
+            "order": 4
+        },
+        {
+            "name": "Others",
+            "order": 5,
+            "isDefault": true
+        }
+    ],
+    "format": {
+        "indent": 2,
+        "singleQuote": true,
+        "removeUnusedImports": false
+    }
+}
