@@ -79,7 +79,7 @@ describe('Log - UI Interruption Fix', () => {
     log.logDebug('Test with object', testObject);
 
     expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
-      expect.stringMatching(/\[DEBUG\] Test with object \{[\s\S]*"key": "value"[\s\S]*\}/)
+      expect.stringMatching(/\[DEBUG\] Test with object\n\{[\s\S]*"key": "value"[\s\S]*\}/)
     );
   });
 
