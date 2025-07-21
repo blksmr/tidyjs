@@ -20,7 +20,7 @@ async function main() {
 		metafile: !production,
 		platform: 'node',
 		outfile: 'dist/extension.js',
-		external: ['vscode', 'typescript'],
+		external: ['vscode'],
 		logLevel: 'silent',
 		legalComments: 'none',
     plugins: [
