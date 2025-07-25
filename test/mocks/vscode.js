@@ -66,9 +66,58 @@ module.exports = {
         Hint: 3
     },
     workspace: {
-        getConfiguration: () => ({
-            get: () => ({})
-        })
+        getConfiguration: (section) => {
+            const mockConfig = {
+                get: (key, defaultValue) => {
+                    if (section === 'tidyjs' && key === 'debug') {
+                        return false; // Default debug to false in tests
+                    }
+                    return defaultValue !== undefined ? defaultValue : {};
+                },
+                has: (key) => {
+                    // Mock has method
+                    return false; // Return false for all keys in tests
+                }
+            };
+            return mockConfig;
+        },
+        getWorkspaceFolder: (uri) => {
+            if (!uri) return undefined;
+            // Return a mock workspace folder
+            return {
+                uri: {
+                    fsPath: '/workspace',
+                    path: '/workspace',
+                    scheme: 'file'
+                },
+                name: 'workspace',
+                index: 0
+            };
+        }
+    },
+    Uri: class Uri {
+        constructor(scheme, authority, path, query, fragment) {
+            this.scheme = scheme || 'file';
+            this.authority = authority || '';
+            this.path = path || '';
+            this.query = query || '';
+            this.fragment = fragment || '';
+            this.fsPath = path || '';
+        }
+        
+        static file(path) {
+            const uri = new Uri('file', '', path);
+            uri.fsPath = path;
+            return uri;
+        }
+        
+        static parse(str) {
+            return new Uri('file', '', str);
+        }
+        
+        toString() {
+            return `${this.scheme}://${this.path}`;
+        }
     },
     EventEmitter
 };
