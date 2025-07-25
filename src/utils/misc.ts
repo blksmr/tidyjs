@@ -11,6 +11,7 @@ import {
     Uri,
     window,
     languages,
+    Diagnostic,
     DiagnosticSeverity
 }                      from 'vscode';
 
@@ -20,12 +21,12 @@ const MODULE_NOT_FOUND_CODES = ['2307', '2318']; // Cannot find module
 /**
  * Helper function to extract diagnostic code as string, handling both ESLint object codes and TypeScript string codes
  */
-function getDiagnosticCode(diagnostic: any): string {
+function getDiagnosticCode(diagnostic: Diagnostic): string {
     if (typeof diagnostic.code === 'string') {
         return diagnostic.code;
     }
-    if (diagnostic.code && typeof diagnostic.code === 'object' && diagnostic.code.value) {
-        return diagnostic.code.value;
+    if (diagnostic.code && typeof diagnostic.code === 'object' && 'value' in diagnostic.code) {
+        return String((diagnostic.code as { value: string | number }).value);
     }
     return String(diagnostic.code);
 }
