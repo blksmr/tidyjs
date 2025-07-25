@@ -1,26 +1,68 @@
 import { describe, expect, test, beforeEach, afterEach, jest } from '@jest/globals';
 import { ConfigLoader } from '../../src/utils/configLoader';
-import { configManager } from '../../src/utils/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-jest.mock('fs');
+jest.mock('fs', () => ({
+    promises: {
+        access: jest.fn(),
+        readFile: jest.fn(),
+    },
+    constants: {
+        R_OK: 4
+    }
+}));
 jest.mock('../../src/utils/log');
+jest.mock('vscode', () => {
+    const originalModule = jest.requireActual('../../test/mocks/vscode') as any;
+    return {
+        ...originalModule,
+        workspace: {
+            ...originalModule.workspace,
+            getWorkspaceFolder: jest.fn()
+        }
+    };
+});
 
 describe('ConfigLoader - excludedFolders interaction', () => {
-    const mockFs = fs as jest.Mocked<typeof fs>;
-    const mockFsPromises = fs.promises as jest.Mocked<typeof fs.promises>;
+    const mockAccess = fs.promises.access as jest.MockedFunction<typeof fs.promises.access>;
+    const mockReadFile = fs.promises.readFile as jest.MockedFunction<typeof fs.promises.readFile>;
+
+    // Track which files exist and their content
+    let mockFileSystem: Map<string, string>;
 
     beforeEach(() => {
         jest.clearAllMocks();
         ConfigLoader['configCache'].clear();
         
-        mockFsPromises.access = jest.fn().mockImplementation((filePath: string) => {
-            if (filePath.includes('tidyjs.json')) {
+        // Initialize empty file system
+        mockFileSystem = new Map();
+        
+        // Mock fs.promises.access to check if file exists in our mock file system
+        mockAccess.mockImplementation((filePath: fs.PathLike) => {
+            const pathStr = String(filePath);
+            if (mockFileSystem.has(pathStr)) {
                 return Promise.resolve();
             }
-            return Promise.reject(new Error('File not found'));
+            return Promise.reject(new Error('ENOENT: no such file or directory'));
+        });
+
+        // Mock fs.promises.readFile to return content from our mock file system
+        mockReadFile.mockImplementation((filePath: any) => {
+            const pathStr = String(filePath);
+            const content = mockFileSystem.get(pathStr);
+            if (content !== undefined) {
+                return Promise.resolve(content as any);
+            }
+            return Promise.reject(new Error('ENOENT: no such file or directory'));
+        });
+
+        // Mock vscode workspace folder
+        (vscode.workspace.getWorkspaceFolder as jest.Mock).mockReturnValue({
+            uri: { fsPath: '/project' },
+            name: 'test',
+            index: 0
         });
     });
 
@@ -41,7 +83,8 @@ describe('ConfigLoader - excludedFolders interaction', () => {
                 excludedFolders: ['node_modules']
             };
 
-            mockFsPromises.readFile = jest.fn().mockResolvedValue(JSON.stringify(configContent));
+            // Add file to mock file system
+            mockFileSystem.set(configPath, JSON.stringify(configContent));
 
             const nearestConfig = await ConfigLoader.findNearestConfigFile(documentUri);
             expect(nearestConfig).toBe(configPath);
@@ -70,7 +113,8 @@ describe('ConfigLoader - excludedFolders interaction', () => {
                 }
             };
 
-            mockFsPromises.readFile = jest.fn().mockResolvedValue(JSON.stringify(localConfig));
+            // Add file to mock file system
+            mockFileSystem.set(configPath, JSON.stringify(localConfig));
 
             const sources = await ConfigLoader.getConfigForDocument(documentUri);
             const fileSource = sources.find(s => s.type === 'file');
@@ -102,21 +146,9 @@ describe('ConfigLoader - excludedFolders interaction', () => {
                 ]
             };
 
-            mockFsPromises.access = jest.fn().mockImplementation((filePath: string) => {
-                if (filePath === rootConfigPath || filePath === nestedConfigPath) {
-                    return Promise.resolve();
-                }
-                return Promise.reject(new Error('File not found'));
-            });
-
-            mockFsPromises.readFile = jest.fn().mockImplementation((filePath: string) => {
-                if (filePath === rootConfigPath) {
-                    return Promise.resolve(JSON.stringify(rootConfig));
-                } else if (filePath === nestedConfigPath) {
-                    return Promise.resolve(JSON.stringify(nestedConfig));
-                }
-                return Promise.reject(new Error('File not found'));
-            });
+            // Add files to mock file system
+            mockFileSystem.set(rootConfigPath, JSON.stringify(rootConfig));
+            mockFileSystem.set(nestedConfigPath, JSON.stringify(nestedConfig));
 
             const nearestConfig = await ConfigLoader.findNearestConfigFile(documentUri);
             expect(nearestConfig).toBe(nestedConfigPath);
@@ -150,21 +182,9 @@ describe('ConfigLoader - excludedFolders interaction', () => {
                 ]
             };
 
-            mockFsPromises.access = jest.fn().mockImplementation((filePath: string) => {
-                if (filePath === parentConfigPath || filePath === childConfigPath) {
-                    return Promise.resolve();
-                }
-                return Promise.reject(new Error('File not found'));
-            });
-
-            mockFsPromises.readFile = jest.fn().mockImplementation((filePath: string) => {
-                if (filePath === parentConfigPath) {
-                    return Promise.resolve(JSON.stringify(parentConfig));
-                } else if (filePath === childConfigPath) {
-                    return Promise.resolve(JSON.stringify(childConfig));
-                }
-                return Promise.reject(new Error('File not found'));
-            });
+            // Add files to mock file system
+            mockFileSystem.set(parentConfigPath, JSON.stringify(parentConfig));
+            mockFileSystem.set(childConfigPath, JSON.stringify(childConfig));
 
             const sources = await ConfigLoader.getConfigForDocument(documentUri);
             const fileSource = sources.find(s => s.type === 'file');
@@ -195,21 +215,9 @@ describe('ConfigLoader - excludedFolders interaction', () => {
                 ]
             };
 
-            mockFsPromises.access = jest.fn().mockImplementation((filePath: string) => {
-                if (filePath === parentConfigPath || filePath === childConfigPath) {
-                    return Promise.resolve();
-                }
-                return Promise.reject(new Error('File not found'));
-            });
-
-            mockFsPromises.readFile = jest.fn().mockImplementation((filePath: string) => {
-                if (filePath === parentConfigPath) {
-                    return Promise.resolve(JSON.stringify(parentConfig));
-                } else if (filePath === childConfigPath) {
-                    return Promise.resolve(JSON.stringify(childConfig));
-                }
-                return Promise.reject(new Error('File not found'));
-            });
+            // Add files to mock file system
+            mockFileSystem.set(parentConfigPath, JSON.stringify(parentConfig));
+            mockFileSystem.set(childConfigPath, JSON.stringify(childConfig));
 
             const sources = await ConfigLoader.getConfigForDocument(documentUri);
             const fileSource = sources.find(s => s.type === 'file');

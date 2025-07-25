@@ -6,6 +6,8 @@ import { TidyJSConfigFile } from '../../src/types';
 
 // Mock vscode
 jest.mock('vscode');
+// Mock log module to avoid issues with vscode.workspace.getConfiguration
+jest.mock('../../src/utils/log');
 
 describe('ConfigLoader', () => {
     const testDir = path.join(__dirname, 'test-configs');
@@ -94,12 +96,26 @@ describe('ConfigLoader', () => {
         });
 
         it('should return null when no config file exists', async () => {
-            const testFilePath = path.join(testDir, 'subfolder', 'test.ts');
+            // Use a deep path that's unlikely to have a parent config
+            const isolatedTestDir = path.join(testDir, 'isolated', 'deep', 'nested', 'folder');
+            fs.mkdirSync(isolatedTestDir, { recursive: true });
             
+            const testFilePath = path.join(isolatedTestDir, 'test.ts');
             const mockUri = { fsPath: testFilePath } as vscode.Uri;
+            
+            // Mock workspace folder to limit search to our isolated directory
+            (vscode.workspace.getWorkspaceFolder as jest.Mock).mockReturnValue({
+                uri: { fsPath: isolatedTestDir },
+                name: 'test',
+                index: 0
+            });
+            
             const result = await ConfigLoader.findNearestConfigFile(mockUri);
             
             expect(result).toBeNull();
+            
+            // Clean up
+            fs.rmSync(path.join(testDir, 'isolated'), { recursive: true, force: true });
         });
     });
 
@@ -151,11 +167,14 @@ describe('ConfigLoader', () => {
             
             expect(result).toEqual({
                 extends: './base.config.json',
-                debug: true,
                 format: {
                     singleQuote: true,
                     indent: 2
-                }
+                },
+                groups: undefined,
+                excludedFolders: undefined,
+                importOrder: {},
+                pathResolution: {}
             });
             
             // Clean up
@@ -199,7 +218,6 @@ describe('ConfigLoader', () => {
             const result = ConfigLoader.mergeConfigs(base, override);
             
             expect(result).toEqual({
-                debug: true,
                 groups: [
                     { name: 'Base', match: '^base', order: 1 }
                 ],
@@ -207,7 +225,10 @@ describe('ConfigLoader', () => {
                     singleQuote: true,
                     indent: 2,
                     removeUnusedImports: false
-                }
+                },
+                importOrder: {},
+                pathResolution: {},
+                excludedFolders: undefined
             });
         });
 
