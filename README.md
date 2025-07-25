@@ -110,10 +110,9 @@ After installation, TidyJS works immediately with sensible defaults. For custom 
 
 ### Methods to Format Imports
 
-1. **Keyboard Shortcut**: `Ctrl+Alt+I` (Windows/Linux) / `Cmd+Alt+I` (macOS)
-2. **Command Palette**: `Ctrl+Shift+P` → "Format Imports"
-3. **Format on Save**: Enable `editor.formatOnSave` in VS Code settings
-4. **Right-click Context Menu**: Available in supported file types
+1. **Command Palette**: `Ctrl+Shift+P` → "Format Imports"
+2. **Format on Save**: Enable `editor.formatOnSave` in VS Code settings
+3. **Right-click Context Menu**: Available in supported file types
 
 ### Supported File Types
 - **TypeScript**: `.ts`, `.tsx`
@@ -534,27 +533,6 @@ import { formatDate } from '@utils/date';
 
 ---
 
-## 🚀 Performance & Scalability
-
-### Benchmarks
-
-TidyJS is built for performance and scales linearly:
-
-- **Small files** (~20 imports): ~2ms processing time
-- **Medium files** (~100 imports): ~8ms processing time  
-- **Large files** (300+ imports): ~25ms processing time
-- **Enterprise codebases**: Tested with 1000+ imports per file
-
-### Optimization Features
-
-- **Smart Caching**: Advanced caching system with RegExp serialization
-- **AST Parsing**: Single-pass parsing for maximum efficiency
-- **Lazy Loading**: Configuration loaded only when needed
-- **Memory Management**: Automatic cleanup and disposal
-- **Error Recovery**: Fast error handling without performance impact
-
----
-
 ## 🛡️ Error Handling & Validation
 
 ### Robust Configuration Validation
@@ -601,9 +579,9 @@ Enable comprehensive logging for troubleshooting:
 
 ### Available Commands
 
-| Command | Keybinding | Description |
-|---------|------------|-------------|
-| `TidyJS: Format Imports` | `Ctrl+Alt+I` / `Cmd+Alt+I` | Format imports in active file |
+| Command | Description |
+|---------|-------------|
+| `TidyJS: Format Imports` | Format imports in active file |
 
 ### Custom Keybindings
 
@@ -656,16 +634,6 @@ Share configuration across your team using `.tidyjsrc`:
     "singleQuote": true
   }
 }
-```
-
-### CI/CD Integration
-
-Validate import organization in your build pipeline:
-
-```bash
-# Check if imports are properly organized
-npx tidyjs --check src/
-```
 
 ---
 
@@ -699,26 +667,6 @@ Check the VS Code Output panel (View → Output → TidyJS) for validation messa
 2. **Check Output Panel**: View → Output → Select "TidyJS"
 3. **Review Configuration**: Validate your `.tidyjsrc` or settings
 4. **GitHub Issues**: Report bugs at [github.com/asmirbe/tidyjs](https://github.com/asmirbe/tidyjs)
-
----
-
-## 📈 Changelog
-
-### Recent Updates
-
-**v1.5.4** - Latest Release
-- ✅ Fixed mixed import separation bug
-- ✅ Enhanced auto-order resolution system  
-- ✅ Improved RegExp cache serialization
-- ✅ Non-intrusive debug logging
-- ✅ Better TypeScript type support
-
-**v1.5.3** 
-- ✅ Added comprehensive import type support
-- ✅ Enhanced configuration validation
-- ✅ Performance optimizations
-
-See [CHANGELOG.md](CHANGELOG.md) for complete release history.
 
 ---
 
