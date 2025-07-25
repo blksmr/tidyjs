@@ -4,6 +4,11 @@ import {
     useState,
     useEffect
 }                from 'react';
+import {
+    uniq,
+    sort,
+    uniqBy
+} from 'lodash';
 
 export function MyComponent() {
   const [count, setCount] = useState(0);

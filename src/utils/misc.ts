@@ -14,8 +14,21 @@ import {
     DiagnosticSeverity
 }                      from 'vscode';
 
-const UNUSED_IMPORT_CODES = ['unused-import', 'import-not-used', '6192', '6133', '6196'];
+const UNUSED_IMPORT_CODES = ['unused-import', 'import-not-used', '6192', '6133', '6196', '@typescript-eslint/no-unused-vars'];
 const MODULE_NOT_FOUND_CODES = ['2307', '2318']; // Cannot find module
+
+/**
+ * Helper function to extract diagnostic code as string, handling both ESLint object codes and TypeScript string codes
+ */
+function getDiagnosticCode(diagnostic: any): string {
+    if (typeof diagnostic.code === 'string') {
+        return diagnostic.code;
+    }
+    if (diagnostic.code && typeof diagnostic.code === 'object' && diagnostic.code.value) {
+        return diagnostic.code.value;
+    }
+    return String(diagnostic.code);
+}
 
 /**
  * Vérifie si une ligne est vide (ne contient que des espaces)
@@ -94,8 +107,8 @@ export function getMissingAndUnusedImports(
 
         // First pass: collect missing modules
         for (const diagnostic of cachedDiagnostics) {
-            logDebug(`Diagnostic: severity=${diagnostic.severity}, code=${diagnostic.code}, message="${diagnostic.message}"`);
-            if (diagnostic.severity === DiagnosticSeverity.Error && MODULE_NOT_FOUND_CODES.includes(String(diagnostic.code))) {
+            logDebug(`Diagnostic: severity=${diagnostic.severity}, code=${getDiagnosticCode(diagnostic)}, message="${diagnostic.message}"`);
+            if (diagnostic.severity === DiagnosticSeverity.Error && MODULE_NOT_FOUND_CODES.includes(getDiagnosticCode(diagnostic))) {
                 const message = diagnostic.message;
                 const moduleMatch = message.match(/Cannot find module ['"]([^'"]+)['"]/);
 
@@ -109,13 +122,13 @@ export function getMissingAndUnusedImports(
         // Second pass: collect unused variables
         for (const diagnostic of cachedDiagnostics) {
             if (
-                (diagnostic.severity === DiagnosticSeverity.Warning || diagnostic.severity === DiagnosticSeverity.Hint) &&
-                UNUSED_IMPORT_CODES.includes(String(diagnostic.code))
+                (diagnostic.severity === DiagnosticSeverity.Error || diagnostic.severity === DiagnosticSeverity.Warning || diagnostic.severity === DiagnosticSeverity.Hint) &&
+                UNUSED_IMPORT_CODES.includes(getDiagnosticCode(diagnostic))
             ) {
                 try {
                     // Extract variable name from message instead of range
                     // because the range might cover the entire import line
-                    const match = diagnostic.message.match(/'([^']+)' is declared but (?:its value is )?never (?:read|used)\.?/);
+                    const match = diagnostic.message.match(/'([^']+)' is (?:declared|defined) but (?:its value is )?never (?:read|used)\.?/);
                     if (match && match[1]) {
                         unusedVariables.add(match[1]);
                         logDebug(`Unused variable detected: ${match[1]}`);
@@ -193,14 +206,15 @@ export function getUnusedImports(
 
         for (const group of parserResult.groups) {
             for (const imp of group.imports) {
-                // Add default imports
-                if (imp.defaultImport) {
+                // For default imports, only use the defaultImport field to avoid duplication
+                if (imp.defaultImport && imp.type === ImportType.DEFAULT) {
                     allImportedNames.push(imp.defaultImport);
-                }
-                // Add named imports
-                for (const spec of imp.specifiers) {
-                    const specName = typeof spec === 'string' ? spec : spec.local;
-                    allImportedNames.push(specName);
+                } else {
+                    // For other import types (named, type, etc.), use specifiers
+                    for (const spec of imp.specifiers) {
+                        const specName = typeof spec === 'string' ? spec : spec.local;
+                        allImportedNames.push(specName);
+                    }
                 }
             }
         }
@@ -215,15 +229,15 @@ export function getUnusedImports(
         // Get unused import specifiers
         const unusedDiagnostics = cachedDiagnostics.filter((diagnostic) => {
             return (
-                (diagnostic.severity === DiagnosticSeverity.Warning || diagnostic.severity === DiagnosticSeverity.Hint) &&
-                UNUSED_IMPORT_CODES.includes(String(diagnostic.code))
+                (diagnostic.severity === DiagnosticSeverity.Error || diagnostic.severity === DiagnosticSeverity.Warning || diagnostic.severity === DiagnosticSeverity.Hint) &&
+                UNUSED_IMPORT_CODES.includes(getDiagnosticCode(diagnostic))
             );
         });
 
         for (const diagnostic of unusedDiagnostics) {
             try {
                 // Try to extract the variable name from the diagnostic message
-                const match = diagnostic.message.match(/'([^']+)' is declared but (?:its value is )?never (?:read|used)\.?/);
+                const match = diagnostic.message.match(/'([^']+)' is (?:declared|defined) but (?:its value is )?never (?:read|used)\.?/);
                 if (match && match[1]) {
                     const unusedName = match[1];
                     // Check if this name is in our imported names
@@ -263,7 +277,7 @@ export function getUnusedImports(
                 // If removeMissingModules is true AND a diagnostic shows "All imports in import declaration are unused"
                 // then we can safely remove all imports from that missing module
                 const allUnusedImportDiagnostics = cachedDiagnostics.filter(
-                    (d) => d.code === '6192' || d.code === 6192 // "All imports in import declaration are unused"
+                    (d) => getDiagnosticCode(d) === '6192' // "All imports in import declaration are unused"
                 );
 
                 for (const diagnostic of allUnusedImportDiagnostics) {
@@ -423,10 +437,10 @@ export function analyzeImports(
 
         // Single pass through diagnostics to collect all information
         for (const diagnostic of cachedDiagnostics) {
-            logDebug(`Diagnostic: severity=${diagnostic.severity}, code=${diagnostic.code}, message="${diagnostic.message}"`);
+            logDebug(`Diagnostic: severity=${diagnostic.severity}, code=${getDiagnosticCode(diagnostic)}, message="${diagnostic.message}"`);
 
             // Check for missing modules
-            if (diagnostic.severity === DiagnosticSeverity.Error && MODULE_NOT_FOUND_CODES.includes(String(diagnostic.code))) {
+            if (diagnostic.severity === DiagnosticSeverity.Error && MODULE_NOT_FOUND_CODES.includes(getDiagnosticCode(diagnostic))) {
                 const message = diagnostic.message;
                 const moduleMatch = message.match(/Cannot find module ['"]([^'"]+)['"]/);
 
@@ -438,10 +452,10 @@ export function analyzeImports(
 
             // Check for unused variables
             if (
-                (diagnostic.severity === DiagnosticSeverity.Warning || diagnostic.severity === DiagnosticSeverity.Hint) &&
-                UNUSED_IMPORT_CODES.includes(String(diagnostic.code))
+                (diagnostic.severity === DiagnosticSeverity.Error || diagnostic.severity === DiagnosticSeverity.Warning || diagnostic.severity === DiagnosticSeverity.Hint) &&
+                UNUSED_IMPORT_CODES.includes(getDiagnosticCode(diagnostic))
             ) {
-                const match = diagnostic.message.match(/'([^']+)' is declared but (?:its value is )?never (?:read|used)\.?/);
+                const match = diagnostic.message.match(/'([^']+)' is (?:declared|defined) but (?:its value is )?never (?:read|used)\.?/);
                 if (match && match[1]) {
                     unusedVariables.add(match[1]);
                     logDebug(`Unused variable detected: ${match[1]}`);
@@ -453,12 +467,15 @@ export function analyzeImports(
         const allImportedNames: string[] = [];
         for (const group of parserResult.groups) {
             for (const imp of group.imports) {
-                if (imp.defaultImport) {
+                // For default imports, only use the defaultImport field to avoid duplication
+                if (imp.defaultImport && imp.type === ImportType.DEFAULT) {
                     allImportedNames.push(imp.defaultImport);
-                }
-                for (const spec of imp.specifiers) {
-                    const specName = typeof spec === 'string' ? spec : spec.local;
-                    allImportedNames.push(specName);
+                } else {
+                    // For other import types (named, type, etc.), use specifiers
+                    for (const spec of imp.specifiers) {
+                        const specName = typeof spec === 'string' ? spec : spec.local;
+                        allImportedNames.push(specName);
+                    }
                 }
             }
         }
