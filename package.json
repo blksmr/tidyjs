@@ -173,8 +173,7 @@
     "lint": "eslint --config eslint.config.mjs src test/parser jest.config.js",
     "check": "tsc --noEmit && npm run lint && npm run test",
     "build": "node scripts/esbuild.js --production && vsce package",
-    "bump": "sh ./scripts/bump.sh",
-    "vscode:prepublish": "node scripts/esbuild.js --production"
+    "bump": "sh ./scripts/bump.sh"
   },
   "devDependencies": {
     "@babel/parser": "^7.26.10",
