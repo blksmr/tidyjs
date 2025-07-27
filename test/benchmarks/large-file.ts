@@ -1,4 +1,4 @@
-// Misc
+// Other
 import * as array                 from './utils/array';
 import * as dom                   from './utils/dom';
 import * as formatters            from './utils/formatters';

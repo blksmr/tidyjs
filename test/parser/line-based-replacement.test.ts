@@ -16,11 +16,17 @@ const mockConfig: Config = {
             isDefault: false,
         },
         {
-            name: 'Misc',
+            name: 'Other',
             order: 999,
             isDefault: true,
         },
     ],
+    importOrder: {
+        default: 1,
+        named: 2,
+        typeOnly: 3,
+        sideEffect: 4,
+    },
     format: {
         removeUnusedImports: true,
         removeMissingModules: true,
@@ -198,7 +204,7 @@ export function App() {
         
         // Should have clean formatted imports
         expect(result.text).toContain('// React');
-        expect(result.text).toContain('// Misc');
+        expect(result.text).toContain('// Other');
         expect(result.text).toContain("import React        from 'react';");
         expect(result.text).toContain("import { useState } from 'react';");
         expect(result.text).toContain("import { helper } from './utils';"); // Exact alignment may vary

@@ -144,7 +144,7 @@ describe('TidyJS Specific Scenarios E2E Tests', () => {
                         { name: 'React', match: '^react', order: 0 },
                         { name: 'External', match: '^[^@./]', order: 1 },
                         { name: 'Internal', match: '^[@./]', order: 2 },
-                        { name: 'Misc', order: 3, isDefault: true }
+                        { name: 'Other', order: 3, isDefault: true }
                     ]
                 }
             },

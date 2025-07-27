@@ -38,7 +38,7 @@
   "tidyjs.debug": true,
   "tidyjs.groups": [
     {
-      "name": "Misc",
+      "name": "Other",
       "order": 0,
       "isDefault": true
     },

@@ -51,7 +51,7 @@ describe('ImportParser', () => {
       const result = parser.parse('import React from "react";');
       
       expect(result.groups).toHaveLength(1);
-      expect(result.groups[0].name).toBe('Misc');
+      expect(result.groups[0].name).toBe('Other');
     });
   });
 

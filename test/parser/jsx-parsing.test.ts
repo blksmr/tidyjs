@@ -8,7 +8,7 @@ describe('JSX Parsing Integration', () => {
     const config: ExtensionGlobalConfig = {
       groups: [
         { name: 'React', order: 0, match: /^react/, isDefault: false },
-        { name: 'Misc', order: 999, isDefault: true }
+        { name: 'Other', order: 999, isDefault: true }
       ],
       importOrder: { default: 0, named: 1, typeOnly: 2, sideEffect: 3 },
       format: { singleQuote: true, indent: 2, removeUnusedImports: false },
@@ -54,7 +54,7 @@ export default function BasicComponent() {
     
     // Check that we parsed the imports correctly
     const reactGroup = result.groups.find(g => g.name === 'React');
-    const miscGroup = result.groups.find(g => g.name === 'Misc');
+    const miscGroup = result.groups.find(g => g.name === 'Other');
     
     expect(reactGroup).toBeDefined();
     expect(reactGroup!.imports).toHaveLength(2); // React default + named import

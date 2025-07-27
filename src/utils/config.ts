@@ -9,7 +9,7 @@ const DEFAULT_CONFIG: Config = {
   debug: false,
   groups: [
     {
-      name: 'Misc',
+      name: 'Other',
       order: 0,
       isDefault: true,
     }
@@ -343,7 +343,7 @@ class ConfigManager {
    * @example
    * ```typescript
    * const groups = configManager.getGroups();
-   * // groups might include: [External, Internal, @app/auth, @app/utils, Misc]
+   * // groups might include: [External, Internal, @app/auth, @app/utils, Other]
    * groups.forEach(group => {
    *   console.log(`${group.name}: order ${group.order}, default: ${group.isDefault}`);
    * });

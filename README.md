@@ -149,7 +149,7 @@ TidyJS uses a sophisticated configuration system with clear precedence:
   "tidyjs.debug": false,
   "tidyjs.groups": [
     {
-      "name": "Misc",
+      "name": "Other",
       "order": 0,
       "isDefault": true
     }
@@ -204,7 +204,7 @@ TidyJS uses a sophisticated configuration system with clear precedence:
       "order": 4
     },
     {
-      "name": "Misc",
+      "name": "Other",
       "order": 5,
       "isDefault": true
     }
@@ -370,7 +370,7 @@ Create a `.tidyjsrc` file in your project root:
       "order": 4
     },
     {
-      "name": "Misc",
+      "name": "Other",
       "order": 999,
       "isDefault": true
     }

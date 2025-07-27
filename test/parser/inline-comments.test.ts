@@ -12,7 +12,7 @@ describe('Inline multiline comments handling', () => {
                 match: /^react$/
             },
             {
-                name: 'Misc',
+                name: 'Other',
                 order: 99,
                 isDefault: true
             }

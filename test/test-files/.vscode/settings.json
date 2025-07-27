@@ -19,7 +19,7 @@
   "tidyjs.pathResolution.mode": "relative",
   "tidyjs.groups": [
     {
-      "name": "Misc",
+      "name": "Other",
       "order": 0,
       "priority": 999,
       "isDefault": true,

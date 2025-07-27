@@ -255,7 +255,7 @@ describe('Unused Imports Detection and Removal', () => {
 
     test('should remove unused React default import from real-world example', () => {
       const sourceCode = `
-// Misc
+// Other
 import React       from 'react';
 import type { FC } from 'react';
 

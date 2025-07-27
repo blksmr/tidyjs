@@ -1,5 +1,4 @@
 {
-  "$schema": "./tidyjs.schema.json",
   "groups": [
     {
       "name": "React",
@@ -23,7 +22,7 @@
       "order": 4
     },
     {
-      "name": "Misc",
+      "name": "Other",
       "order": 5,
       "isDefault": true
     }
