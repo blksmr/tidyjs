@@ -15,7 +15,7 @@ describe('Parser - Multiline Comment at Start', () => {
                 order: 2,
             },
             {
-                name: 'Misc',
+                name: 'Other',
                 order: 999,
                 isDefault: true,
             },

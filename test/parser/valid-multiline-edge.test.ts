@@ -6,7 +6,7 @@ describe('Valid multiline import edge cases', () => {
     const config: Config = {
         groups: [
             {
-                name: 'Misc',
+                name: 'Other',
                 order: 1,
                 isDefault: true
             }

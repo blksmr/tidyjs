@@ -66,7 +66,7 @@ export default MyComponent;`;
  * properly formatted
  */
 
-// Misc
+// Other
 import React, { FC, useState } from 'react';
 
 // @app
@@ -103,8 +103,8 @@ export default MyComponent;`;
 
         // Verify imports are organized correctly
         assert.ok(
-            formattedContent.includes('// Misc\nimport React'),
-            'Misc imports should be grouped correctly'
+            formattedContent.includes('// Other\nimport React'),
+            'Other imports should be grouped correctly'
         );
 
         // Clean up
@@ -130,7 +130,7 @@ import React from 'react';`;
  * File header comment
  */
 
-// Misc
+// Other
 import React, { FC } from 'react';`;
 
         // Write test file
@@ -151,7 +151,7 @@ import React, { FC } from 'react';`;
         );
         
         assert.ok(
-            formattedContent.includes('// Misc'),
+            formattedContent.includes('// Other'),
             'Import group comment should be added'
         );
 

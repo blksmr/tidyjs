@@ -1,4 +1,4 @@
-// Misc
+// Other
 import { ImportType } from './parser';
 import { maxBy, padEnd, dropRightWhile } from 'lodash';
 import type { ParsedImport, ParserResult } from './parser';

@@ -1,4 +1,4 @@
-// Misc
+// Other
 import { union } from 'lodash';
 import {
     useState,

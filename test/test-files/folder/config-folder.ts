@@ -1,23 +1,19 @@
-// Core Libraries
-import coreLibrary  from 'core';
-import { coreUtil } from 'core/utils';
-
-// External
-import express         from 'express';
-import lodash          from 'lodash';
-import mongoose        from 'mongoose';
-import React           from 'react';
-import { useState }    from 'react';
-import type { Schema } from 'mongoose';
-import type { FC }     from 'react';
-
-// Internal
-import '@/components/Button';
-
-// Relative
+// Other
+import coreLibrary       from 'core';
+import express           from 'express';
+import lodash            from 'lodash';
+import mongoose          from 'mongoose';
 import { localFunction } from './local';
 import { helper }        from './utils';
+import { coreUtil }      from 'core/utils';
+import type { Schema }   from 'mongoose';
 import './styles.css';
+import '@/components/Button';
+
+// React
+import React        from 'react';
+import { useState } from 'react';
+import type { FC }  from 'react';
 
 // This file uses the config from folder/tidyjs.json
 // Expected order after formatting:

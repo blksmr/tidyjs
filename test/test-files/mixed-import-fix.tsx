@@ -1,4 +1,4 @@
-// Misc
+// Other
 import React    from 'react';
 import {
     useMemo,

@@ -192,7 +192,7 @@ describe('ImportParser - Group Matching Logic', () => {
     const result = emptyParser.parse(sourceCode);
     
     expect(result.groups).toHaveLength(1);
-    expect(result.groups[0].name).toBe('Misc');
+    expect(result.groups[0].name).toBe('Other');
   });
 
   test('should prefer first matching non-default group', () => {

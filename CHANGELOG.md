@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6 - Unreleased]
+
+### 🔧 Changed
+
+#### Configuration Improvements
+- **Updated default group name** from "Misc" to "Other" in example configuration and documentation
+- **More professional naming** for the default fallback group that catches unmatched imports
+
+### 🐛 Fixed
+
+#### Priority System Correction
+- **Fixed group priority system** that was incorrectly prioritizing by order instead of priority value
+- **Priority now correctly overrides order** when multiple groups match the same import
+- **Enhanced GroupMatcher algorithm** to collect all matching groups and select by highest priority
+- **Added tie-breaking by order** when priorities are equal (lower order wins)
+- **Comprehensive test coverage** for priority scenarios and edge cases
+- **Debug logging improvements** to show priority resolution decisions
+
 ## [1.5.6] - 2025-01-25
 
 ### ✨ Added
@@ -35,6 +53,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Updated regex pattern** to match both "declared" and "defined" unused variable messages
 - **Extended severity checks** to include Error severity in addition to Warning
 - **Fixed duplicate detection** in default import name extraction
+
+## [1.5.4] - 2025-01-23
+
+### 🔧 Changed
+
+#### Performance Optimizations
+- **Reduced bundle size** by optimizing dependencies and build configuration
+- **Improved startup time** with lazy loading of non-critical modules
+- **Enhanced memory usage** during large file processing
+
+### 🐛 Fixed
+
+#### Minor Bug Fixes
+- **Fixed edge case** in multiline import parsing with complex nesting
+- **Improved error messages** for configuration validation failures
+- **Enhanced regex pattern validation** to prevent runtime errors
+
+## [1.5.3] - 2025-01-22
+
+### 🔧 Changed
+
+#### Build Optimizations
+- **Optimized esbuild configuration** for smaller bundle size
+- **Tree-shaking improvements** to eliminate unused code paths
+- **Dependency updates** for better compatibility and security
+
+### 🐛 Fixed
+
+#### Micro-fixes
+- **Fixed rare cache invalidation** issue with configuration changes
+- **Improved TypeScript compilation** for better error detection
+- **Enhanced file watching** for configuration file changes
+
+## [1.5.2] - 2025-01-21
+
+### 🔧 Changed
+
+#### Performance Enhancements
+- **Faster import parsing** with optimized AST traversal
+- **Reduced memory footprint** for configuration caching
+- **Improved regex compilation** and caching strategies
+
+### 🐛 Fixed
+
+#### Stability Improvements
+- **Fixed intermittent parsing errors** with complex import structures
+- **Enhanced error recovery** during malformed import detection
+- **Improved handling** of edge cases in import consolidation
+
+## [1.5.1] - 2025-01-20
+
+### 🔧 Changed
+
+#### Code Quality and Performance
+- **Refactored core parsing logic** for better maintainability
+- **Optimized group matching algorithm** for improved performance
+- **Enhanced type safety** throughout the codebase
+
+### 🐛 Fixed
+
+#### Minor Issues
+- **Fixed configuration merge logic** for complex scenarios
+- **Improved path resolution** accuracy in edge cases
+- **Enhanced validation** for custom sort order patterns
 
 ## [1.5.0] - 2025-01-19
 

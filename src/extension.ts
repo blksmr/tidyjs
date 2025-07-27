@@ -1,4 +1,4 @@
-// Misc
+// Other
 import { formatImports } from './formatter';
 import { ImportParser, ParserResult, InvalidImport, ParsedImport, ImportSource } from './parser';
 

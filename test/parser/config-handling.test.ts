@@ -118,9 +118,9 @@ describe('ImportParser - Configuration Handling', () => {
     const sourceCode = 'import React from "react";';
     const result = parser.parse(sourceCode);
     
-    // Should create a default "Misc" group
+    // Should create a default "Other" group
     expect(result.groups).toHaveLength(1);
-    expect(result.groups[0].name).toBe('Misc');
+    expect(result.groups[0].name).toBe('Other');
   });
 
   test('should handle groups with isDefault flag correctly', () => {
