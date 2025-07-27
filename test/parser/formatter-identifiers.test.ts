@@ -12,7 +12,7 @@ describe('Formatter - JavaScript Identifier Preservation', () => {
                 match: /^[a-zA-Z]/
             },
             {
-                name: 'Misc',
+                name: 'Other',
                 order: 99,
                 isDefault: true
             }

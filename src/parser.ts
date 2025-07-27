@@ -1,4 +1,4 @@
-// Misc
+// Other
 import { parse } from '@typescript-eslint/parser';
 import { TSESTree } from '@typescript-eslint/types';
 
@@ -600,7 +600,7 @@ export class ImportParser {
             }
         }
 
-        const UNCONFIGURED_DEFAULT_FALLBACK_NAME = 'Misc';
+        const UNCONFIGURED_DEFAULT_FALLBACK_NAME = 'Other';
         let effectiveDefaultGroupName: string;
 
         if (configuredDefaultGroupName) {

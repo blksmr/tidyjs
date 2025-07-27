@@ -129,7 +129,7 @@ import styles from './styles.css';
       "order": 8
     },
     {
-      "name": "Misc",
+      "name": "Other",
       "order": 9,
       "isDefault": true
     }
@@ -216,7 +216,7 @@ The auto-order system operates in two phases:
     { "name": "Utils", "match": "^@/utils", "order": 1 },    // Collision!
     { "name": "Lodash", "match": "^lodash" },                // Missing order
     { "name": "Components", "match": "^@/components" },      // Missing order  
-    { "name": "Misc", "order": 0, "isDefault": true }
+    { "name": "Other", "order": 0, "isDefault": true }
   ]
 }
 ```
@@ -224,7 +224,7 @@ The auto-order system operates in two phases:
 **Auto-Resolution Result:**
 ```
 Final order assignment:
-- Misc: 0 (kept original, default group)
+- Other: 0 (kept original, default group)
 - Lodash: 1 (auto-assigned) 
 - Components: 2 (auto-assigned)
 - React: 1 → 3 (kept original)

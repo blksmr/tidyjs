@@ -1,4 +1,4 @@
-// Misc
+// Other
 import { isWithinInterval }            from 'date-fns';
 import {
     find,

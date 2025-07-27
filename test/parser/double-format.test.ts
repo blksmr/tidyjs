@@ -5,7 +5,7 @@ describe('Double Format Test', () => {
   const config: Config = {
     groups: [
       {
-        name: 'Misc',
+        name: 'Other',
         order: 0,
         isDefault: true
       }
