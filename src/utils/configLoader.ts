@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Config, TidyJSConfigFile, ImportGroupFile, ConfigSource } from '../types';
-import { logDebug as debugLog } from './log';
+import { logDebug as debugLog, logError } from './log';
 import { configManager } from './config';
 
 const CONFIG_FILE_NAMES = ['.tidyjsrc', 'tidyjs.json'];
@@ -119,21 +119,22 @@ export class ConfigLoader {
         if (fileConfig.groups) {
             config.groups = fileConfig.groups.map((group: ImportGroupFile) => {
                 // Check for deprecated isDefault property in file config
-                if (group.isDefault !== undefined) {
-                    console.warn(`DEPRECATION WARNING: Group "${group.name}" in config file uses deprecated property "isDefault". Please use "default" instead. The "isDefault" property will be removed in a future version.`);
+                if ('isDefault' in group && group.isDefault !== undefined) {
+                    debugLog(`Detected isDefault property on group in config file: ${JSON.stringify(group)}`);
+                    logError(`DEPRECATION WARNING: Group "${group.name}" in config file uses deprecated property "isDefault". Please use "default" instead. The "isDefault" property will be removed in a future version.`);
                     
                     // If both are specified, default takes precedence
                     if (group.default === undefined) {
                         debugLog(`Auto-migrating "isDefault" to "default" for group "${group.name}" in config file`);
                     } else {
-                        console.warn(`Group "${group.name}" in config file has both "isDefault" and "default" properties. Using "default" value and ignoring "isDefault".`);
+                        logError(`Group "${group.name}" in config file has both "isDefault" and "default" properties. Using "default" value and ignoring "isDefault".`);
                     }
                 }
 
                 return {
                     ...group,
                     order: group.order ?? 999,
-                    default: group.default !== undefined ? group.default : group.isDefault, // Fallback to isDefault if default is not set
+                    default: group.default !== undefined ? group.default : ('isDefault' in group ? group.isDefault : false), // Fallback to isDefault if default is not set
                     match: group.match ? new RegExp(group.match) : undefined,
                 };
             });
