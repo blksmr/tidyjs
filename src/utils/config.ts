@@ -436,7 +436,8 @@ class ConfigManager {
       if (customGroupsSetting !== undefined) {
         const rawGroups = customGroupsSetting.map(group => {
           // Check for deprecated isDefault property
-          if (group.isDefault !== undefined) {
+          if ('isDefault' in group && group.isDefault !== undefined) {
+            logDebug(`Detected isDefault property on group: ${JSON.stringify(group)}`);
             logError(`DEPRECATION WARNING: Group "${group.name}" uses deprecated property "isDefault". Please use "default" instead. The "isDefault" property will be removed in a future version.`);
             
             // If both are specified, default takes precedence
@@ -451,7 +452,7 @@ class ConfigManager {
             name: group.name,
             match: group.match ? this.parseRegexString(group.match) : undefined,
             order: group.order,
-            default: group.default !== undefined ? !!group.default : !!group.isDefault, // Fallback to isDefault if default is not set
+            default: group.default !== undefined ? !!group.default : ('isDefault' in group ? !!group.isDefault : false), // Fallback to isDefault if default is not set
             sortOrder: group.sortOrder,
             originalMatchString: group.match, // Keep original string for validation
           };

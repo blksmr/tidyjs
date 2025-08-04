@@ -4,6 +4,7 @@
             "name": "React",
             "match": "^react",
             "order": 1,
+            "isDefault": true,
             "sortOrder": "alphabetic"
         },
         {

@@ -21,11 +21,11 @@
             "order": 4
         },
         {
-            "name": "Others",
+            "name": "Misc",
             "order": 5,
             "priority": 10,
             "match": "^lodash$",
-            "default": true
+            "isDefault": true
         }
     ],
     "format": {
