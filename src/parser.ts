@@ -4,6 +4,7 @@ import { TSESTree } from '@typescript-eslint/types';
 
 // Utils
 import { GroupMatcher } from './utils/group-matcher';
+import { logDebug } from './utils/log';
 
 // Types
 import { Config as ExtensionGlobalConfig } from './types';
@@ -165,28 +166,38 @@ export class ImportParser {
         this.sourceCode = '';
     }
 
-    public parse(sourceCode: string, missingModules?: Set<string>, unusedImports?: string[]): ParserResult {
+    public parse(sourceCode: string, missingModules?: Set<string>, unusedImports?: string[], fileName?: string): ParserResult {
         this.sourceCode = sourceCode;
         this.invalidImports = [];
 
+        logDebug('Parser.parse called with source length:', sourceCode.length, 'fileName:', fileName);
+
+        // Determine if JSX should be enabled based on file extension
+        const shouldEnableJSX = fileName ? /\.(jsx|tsx)$/.test(fileName) : true;
+        logDebug('JSX enabled:', shouldEnableJSX);
 
         try {
             this.ast = parse(sourceCode, {
-                ecmaVersion: 2020,
+                ecmaVersion: 'latest',
                 sourceType: 'module',
-                jsx: true,
+                jsx: shouldEnableJSX,
                 errorOnUnknownASTType: false,
                 errorOnTypeScriptSyntacticAndSemanticIssues: false,
+                loc: true,
+                range: true,
             });
 
             // Extract all imports first
             const allImports = this.extractAllImports();
+            logDebug('Extracted imports:', allImports.length);
 
             // Apply filters to produce clean AST
             const filteredImports = this.applyFilters(allImports, missingModules, unusedImports);
+            logDebug('Filtered imports:', filteredImports.length);
 
             // Organize the clean imports into groups
             const groups = this.organizeImportsIntoGroups(filteredImports);
+            logDebug('Organized groups:', groups.length);
 
             // Calculate import range based on filtered imports
             const importRange = this.calculateFilteredImportRange(filteredImports);
@@ -198,6 +209,44 @@ export class ImportParser {
                 importRange,
             };
         } catch (error) {
+            logDebug('Parser error:', error);
+            logDebug('Error details:', {
+                message: error instanceof Error ? error.message : 'Unknown',
+                stack: error instanceof Error ? error.stack : undefined,
+                type: typeof error,
+            });
+            
+            // Try to extract line information from error
+            const errorLine = sourceCode.split('\n')[97]; // Line 98 (0-indexed)
+            logDebug('Line 98 content:', errorLine);
+            
+            // Fallback: Try parsing with regex to at least format imports
+            logDebug('Attempting fallback regex-based import extraction');
+            const fallbackImports = this.extractImportsWithRegex(sourceCode);
+            
+            if (fallbackImports.length > 0) {
+                logDebug(`Fallback extracted ${fallbackImports.length} imports`);
+                
+                // Apply filters to the fallback imports
+                const filteredImports = this.applyFilters(fallbackImports, missingModules, unusedImports);
+                
+                // Organize the imports into groups
+                const groups = this.organizeImportsIntoGroups(filteredImports);
+                
+                // Calculate import range
+                const importRange = this.calculateFilteredImportRange(filteredImports);
+                
+                return {
+                    groups,
+                    originalImports: filteredImports.map((imp) => imp.raw),
+                    invalidImports: [{
+                        raw: '',
+                        error: `AST parsing failed (${error instanceof Error ? error.message : 'Unknown error'}), using fallback parser`,
+                    }],
+                    importRange,
+                };
+            }
+            
             this.invalidImports.push({
                 raw: sourceCode,
                 error: error instanceof Error ? `Syntax error during parsing: ${error.message}` : 'Unknown parsing error',
@@ -839,9 +888,132 @@ export class ImportParser {
         this.sourceCode = '';
         this.invalidImports = [];
     }
+
+    /**
+     * Fallback regex-based import extraction for when AST parsing fails
+     */
+    private extractImportsWithRegex(sourceCode: string): ParsedImport[] {
+        const imports: ParsedImport[] = [];
+        const lines = sourceCode.split('\n');
+        
+        // Regex patterns for different import types
+        const importRegex = /^import\s+(?:type\s+)?(?:(\*\s+as\s+\w+)|(\w+)|([\w,\s{}]+))\s+from\s+['"]([^'"]+)['"]/;
+        const sideEffectRegex = /^import\s+['"]([^'"]+)['"]/;
+        const typeImportRegex = /^import\s+type\s+/;
+        
+        let currentImport = '';
+        let importStartLine = -1;
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const trimmedLine = line.trim();
+            
+            // Skip comments and empty lines
+            if (trimmedLine.startsWith('//') || trimmedLine === '') {
+                continue;
+            }
+            
+            // Check if this is the start of an import
+            if (trimmedLine.startsWith('import ')) {
+                currentImport = trimmedLine;
+                importStartLine = i;
+                
+                // Check if import continues on next lines
+                if (!trimmedLine.includes(' from ') || !trimmedLine.match(/['"].*['"]/)) {
+                    continue; // Multi-line import, continue collecting
+                }
+            } else if (currentImport) {
+                // Continue collecting multi-line import
+                currentImport += ' ' + trimmedLine;
+                
+                // Check if this line completes the import
+                if (!trimmedLine.includes(' from ') && !trimmedLine.match(/['"].*['"]/)) {
+                    continue;
+                }
+            } else {
+                // Not an import line, skip
+                continue;
+            }
+            
+            // Process complete import
+            if (currentImport) {
+                const isTypeImport = typeImportRegex.test(currentImport);
+                const cleanedImport = currentImport.replace(/\s+/g, ' ').trim();
+                
+                // Check for side-effect import
+                const sideEffectMatch = cleanedImport.match(sideEffectRegex);
+                if (sideEffectMatch) {
+                    const source = sideEffectMatch[1];
+                    const { groupName, isPriority } = this.determineGroup(source);
+                    imports.push({
+                        type: ImportType.SIDE_EFFECT,
+                        source,
+                        specifiers: [],
+                        raw: cleanedImport,
+                        groupName,
+                        isPriority,
+                        sourceIndex: imports.length,
+                    });
+                } else {
+                    // Regular import
+                    const match = cleanedImport.match(importRegex);
+                    if (match) {
+                        const [, namespace, defaultImport, namedImports, source] = match;
+                        const { groupName, isPriority } = this.determineGroup(source);
+                        
+                        if (namespace) {
+                            // Namespace import
+                            imports.push({
+                                type: isTypeImport ? ImportType.TYPE_DEFAULT : ImportType.DEFAULT,
+                                source,
+                                specifiers: [],
+                                defaultImport: namespace.replace('* as ', '').trim(),
+                                raw: cleanedImport,
+                                groupName,
+                                isPriority,
+                                sourceIndex: imports.length,
+                            });
+                        } else if (defaultImport) {
+                            // Default import
+                            imports.push({
+                                type: isTypeImport ? ImportType.TYPE_DEFAULT : ImportType.DEFAULT,
+                                source,
+                                specifiers: [],
+                                defaultImport,
+                                raw: cleanedImport,
+                                groupName,
+                                isPriority,
+                                sourceIndex: imports.length,
+                            });
+                        } else if (namedImports) {
+                            // Named imports
+                            const cleanedNamed = namedImports.replace(/[{}]/g, '').trim();
+                            const specifiers = cleanedNamed.split(',').map(s => s.trim()).filter(s => s);
+                            
+                            imports.push({
+                                type: isTypeImport ? ImportType.TYPE_NAMED : ImportType.NAMED,
+                                source,
+                                specifiers,
+                                raw: cleanedImport,
+                                groupName,
+                                isPriority,
+                                sourceIndex: imports.length,
+                            });
+                        }
+                    }
+                }
+                
+                // Reset for next import
+                currentImport = '';
+                importStartLine = -1;
+            }
+        }
+        
+        return imports;
+    }
 }
 
-export function parseImports(sourceCode: string, config: ExtensionGlobalConfig): ParserResult {
+export function parseImports(sourceCode: string, config: ExtensionGlobalConfig, fileName?: string): ParserResult {
     const parser = new ImportParser(config);
-    return parser.parse(sourceCode);
+    return parser.parse(sourceCode, undefined, undefined, fileName);
 }

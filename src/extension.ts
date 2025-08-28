@@ -96,7 +96,7 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                     });
 
                     // Parse once to get initial import info for filtering
-                    const initialParserResult = perfMonitor.measureSync('initial_parser_parse', () => parser!.parse(documentText) as ParserResult, {
+                    const initialParserResult = perfMonitor.measureSync('initial_parser_parse', () => parser!.parse(documentText, undefined, undefined, document.fileName) as ParserResult, {
                         documentLength: documentText.length,
                     });
 
@@ -157,7 +157,7 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             // Parse document with filtering - parser now handles all filtering logic
             let parserResult = perfMonitor.measureSync(
                 'parser_parse',
-                () => parser!.parse(documentText, missingModules, unusedImportsList) as ParserResult,
+                () => parser!.parse(documentText, missingModules, unusedImportsList, document.fileName) as ParserResult,
                 { documentLength: documentText.length }
             );
 
