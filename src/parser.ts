@@ -902,10 +902,8 @@ export class ImportParser {
         const typeImportRegex = /^import\s+type\s+/;
         
         let currentImport = '';
-        let importStartLine = -1;
         
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
+        for (const line of lines) {
             const trimmedLine = line.trim();
             
             // Skip comments and empty lines
@@ -916,7 +914,6 @@ export class ImportParser {
             // Check if this is the start of an import
             if (trimmedLine.startsWith('import ')) {
                 currentImport = trimmedLine;
-                importStartLine = i;
                 
                 // Check if import continues on next lines
                 if (!trimmedLine.includes(' from ') || !trimmedLine.match(/['"].*['"]/)) {
@@ -1005,7 +1002,6 @@ export class ImportParser {
                 
                 // Reset for next import
                 currentImport = '';
-                importStartLine = -1;
             }
         }
         
