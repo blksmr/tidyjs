@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🐛 Fixed
+
+#### Path Resolution for Aliases Without Special Prefix
+- **Fixed pathResolution ignoring aliases without @ or ~ prefix** - imports like `"utils"` are now correctly recognized and converted when configured as aliases in tsconfig.json/vite.config.js
+- **Path resolver now checks alias mappings before rejecting** - the early rejection of imports not starting with `.`, `@`, or `~` has been moved after checking if they match configured aliases
+- **Comprehensive test coverage** for alias pattern matching and edge cases
+- **Enhanced logic** to properly distinguish between actual external modules (react, lodash) and configured path aliases (utils, lib, etc.)
+
+#### TypeScript baseUrl Support
+- **Fixed tsConfigLoader ignoring baseUrl when paths is not defined** - when tsconfig.json has `"baseUrl": "src"` without explicit `paths`, TidyJS now creates a wildcard mapping to resolve all non-relative imports
+- **Added file existence validation** - path resolver now checks if the resolved file exists before converting, preventing false conversions of npm packages (e.g., `react` won't be converted to `../../react` if `src/react` doesn't exist)
+- **Smart filtering for node_modules** - paths resolving to `node_modules` are automatically skipped
+- **Comprehensive test suite** - 9 new tests covering baseUrl scenarios, including monorepo configurations and edge cases
+- **Enhanced mock VS Code Uri.joinPath** - improved test infrastructure for better path resolution testing
+
+#### Path Resolution Regrouping (Critical Fix)
+- **Fixed imports requiring double format to be correctly grouped** - path resolution now happens BEFORE import grouping, ensuring converted imports are immediately placed in the correct group
+- **Single format operation** - imports like `"utils"` → `"../../utils"` are now converted AND correctly grouped in one operation instead of two
+- **Unified path resolution logic** - both "absolute" and "relative" modes now use the same `applyPathResolutionWithRegrouping` function
+- **Correct group assignment** - converted imports are re-evaluated with `determineGroup()` to ensure proper placement
+- **Example:** Previously, `import { x } from 'utils'` in group "Misc" → first format converts to `'../../utils'` but stays in "Misc" → second format moves to "DS". Now: single format converts AND moves to "DS" immediately
+
+#### Path Resolution Critical Bugs (Security & Correctness)
+- **[High] Fixed multiple wildcards in alias patterns (resolveAliasToPathWithFallbacks)** - patterns like `@shop/*/widgets/*` now correctly capture and replace each wildcard separately instead of using the first capture for all wildcards. Changed from greedy `(.*)` to non-greedy `(.*?)` matching and sequential replacement with proper capture index tracking
+- **[High] Fixed multiple wildcards in convertToAbsolute** - when converting relative paths to aliases (mode: "absolute"), patterns with multiple wildcards like `@shop/*/widgets/*` now correctly replace each wildcard with its corresponding capture. Previously `../../shop/products/widgets/inventory` → `@shop/products/widgets/products` ❌, now → `@shop/products/widgets/inventory` ✅
+- **[High] Fixed file extensions in relative→alias conversion** - when converting relative paths to aliases (mode: "absolute"), file extensions (`.ts`, `.tsx`, `.js`, `.jsx`, `.d.ts`) are now properly stripped from the resulting alias path. Previously `../../components/Button.ts` → `@app/components/Button.ts` ❌, now → `@app/components/Button` ✅. This ensures generated import statements match TypeScript/ES module conventions
+- **[Medium] Fixed path fallback support** - when `tsconfig.json` defines multiple fallback paths (e.g., `["src/types/*", "generated/types/*", "@types/*"]`), all paths are now tried in order instead of only the first one, returning the first path that actually exists on disk
+- **[Low] Fixed type-only alias directories** - added `/index.d.ts` to file existence checks, allowing purely type-level alias directories to be correctly resolved (previously skipped because only `.d.ts` was checked, not `/index.d.ts`)
+- **New function `resolveAliasToPathWithFallbacks`** - replaces the old `resolveAliasToPath` with proper fallback iteration and existence checking
+- **27 new tests** covering multiple wildcards (both directions), fallback scenarios, type-only packages, and extension stripping in alias conversion
+
 ## [1.5.7] - 2025-01-29
 
 ### 🔧 Changed

@@ -175,63 +175,19 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                         preferredAliases: currentConfig.pathResolution.preferredAliases || []
                     });
                     
-                    logDebug('Applying path resolution with mode:', currentConfig.pathResolution.mode);
-                    
-                    // If converting relative to absolute, we need to resolve paths BEFORE grouping
-                    // to ensure correct group assignment
-                    if (currentConfig.pathResolution.mode === 'absolute') {
-                        // We need to re-parse with path resolution
-                        const enhancedParserResult = await enhanceParserResultWithResolvedPaths(
-                            parserResult,
-                            pathResolver,
-                            document,
-                            parser!
-                        );
-                        
-                        if (enhancedParserResult) {
-                            parserResult = enhancedParserResult;
-                        }
-                    } else {
-                        // For absolute to relative, we can convert after grouping
-                        let totalImports = 0;
-                        let convertedImports = 0;
-                        
-                        // Convert paths in all import groups - create new groups with converted imports
-                        const convertedGroups = await Promise.all(
-                            parserResult.groups.map(async group => ({
-                                ...group,
-                                imports: await Promise.all(
-                                    group.imports.map(async importInfo => {
-                                        totalImports++;
-                                        const resolvedPath = await pathResolver.convertImportPath(
-                                            importInfo.source,
-                                            document
-                                        );
-                                        
-                                        if (resolvedPath && resolvedPath !== importInfo.source) {
-                                            logDebug(`Path resolved: ${importInfo.source} -> ${resolvedPath}`);
-                                            convertedImports++;
-                                            // Return a new import object with the converted path
-                                            return {
-                                                ...importInfo,
-                                                source: resolvedPath as ImportSource
-                                            };
-                                        }
-                                        
-                                        // Return unchanged import
-                                        return importInfo;
-                                    })
-                                )
-                            }))
-                        );
-                        
-                        // Update parserResult with converted groups
-                        parserResult = {
-                            ...parserResult,
-                            groups: convertedGroups
-                        };
-                        
-                        logDebug(`Path resolution summary: ${convertedImports}/${totalImports} imports converted`);
+                    const resolutionMode = currentConfig.pathResolution.mode || 'relative';
+                    logDebug('Applying path resolution with mode:', resolutionMode);
+
+                    const enhancedParserResult = await applyPathResolutionWithRegrouping(
+                        parserResult,
+                        pathResolver,
+                        document,
+                        parser!,
+                        resolutionMode
+                    );
+
+                    if (enhancedParserResult) {
+                        parserResult = enhancedParserResult;
                     }
                 } catch (error) {
                     logError('Error during path resolution:', error);
@@ -300,7 +256,6 @@ function isDocumentInExcludedFolder(document: import('vscode').TextDocument, con
         return false;
     }
 
-    // const documentPath = document.uri.fsPath; // Non utilisé
     const workspaceFolder = workspace.getWorkspaceFolder(document.uri);
 
     if (!workspaceFolder) {
@@ -527,80 +482,64 @@ function formatImportError(invalidImport: InvalidImport): string {
 }
 
 /**
- * Called when the extension is deactivated
+ * Apply path resolution and re-group imports based on converted paths
+ * Works for both absolute and relative modes
  */
-async function enhanceParserResultWithResolvedPaths(
+async function applyPathResolutionWithRegrouping(
     originalResult: ParserResult,
     pathResolver: PathResolver,
     document: TextDocument,
-    parserInstance: ImportParser
+    parserInstance: ImportParser,
+    _mode: 'absolute' | 'relative'
 ): Promise<ParserResult | null> {
     try {
-        // Extract all imports from groups
         const allImports: ParsedImport[] = [];
         for (const group of originalResult.groups) {
             allImports.push(...group.imports);
         }
-        
-        // Create temporary imports with resolved paths for grouping
-        const tempImports: ParsedImport[] = [];
-        const pathMapping = new Map<ParsedImport, string>(); // Track temp import -> original relative path
+
+        const convertedImports: ParsedImport[] = [];
         let hasChanges = false;
-        
+        let convertedCount = 0;
+
         for (const importInfo of allImports) {
-            if (importInfo.source.startsWith('.')) {
-                const resolvedPath = await pathResolver.convertImportPath(
-                    importInfo.source,
-                    document
-                );
-                
-                if (resolvedPath && resolvedPath !== importInfo.source) {
-                    // Create temporary import with resolved path for grouping
-                    // We need to recalculate the groupName based on the resolved path
-                    const { groupName, isPriority } = parserInstance.determineGroup(resolvedPath);
-                    const tempImport = {
-                        ...importInfo,
-                        source: resolvedPath as ImportSource,
-                        groupName: groupName,
-                        isPriority: isPriority
-                    };
-                    tempImports.push(tempImport);
-                    pathMapping.set(tempImport, importInfo.source); // Store the original relative path
-                    hasChanges = true;
-                    logDebug(`Will regroup import: ${importInfo.source} -> ${resolvedPath} (group: ${groupName})`);
-                } else {
-                    tempImports.push(importInfo);
-                }
+            const resolvedPath = await pathResolver.convertImportPath(
+                importInfo.source,
+                document
+            );
+
+            if (resolvedPath && resolvedPath !== importInfo.source) {
+                const { groupName, isPriority } = parserInstance.determineGroup(resolvedPath);
+                const convertedImport = {
+                    ...importInfo,
+                    source: resolvedPath as ImportSource,
+                    groupName: groupName,
+                    isPriority: isPriority
+                };
+                convertedImports.push(convertedImport);
+                hasChanges = true;
+                convertedCount++;
+                logDebug(`Path resolved and regrouped: ${importInfo.source} -> ${resolvedPath} (group: ${groupName})`);
             } else {
-                tempImports.push(importInfo);
+                convertedImports.push(importInfo);
             }
         }
-        
+
         if (!hasChanges) {
-            return null; // No changes needed
+            logDebug('Path resolution: no changes needed');
+            return null;
         }
-        
-        // Re-organize imports with resolved paths for correct grouping
-        const enhancedGroups = parserInstance.organizeImportsIntoGroups(tempImports);
-        
-        // Now update the imports in the groups to use the resolved absolute paths
-        for (const group of enhancedGroups) {
-            for (const importInfo of group.imports) {
-                const originalRelativePath = pathMapping.get(importInfo);
-                if (originalRelativePath) {
-                    // Keep the resolved absolute path (importInfo.source already has it)
-                    // The import was correctly grouped using the absolute path
-                    logDebug(`Import correctly grouped: ${originalRelativePath} -> ${importInfo.source}`);
-                }
-            }
-        }
-        
+
+        logDebug(`Path resolution summary: ${convertedCount}/${allImports.length} imports converted and regrouped`);
+
+        const regroupedGroups = parserInstance.organizeImportsIntoGroups(convertedImports);
+
         return {
             ...originalResult,
-            groups: enhancedGroups
+            groups: regroupedGroups
         };
     } catch (error) {
-        logError('Error enhancing parser result:', error);
+        logError('Error applying path resolution with regrouping:', error);
         return null;
     }
 }

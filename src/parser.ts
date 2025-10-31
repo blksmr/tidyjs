@@ -101,10 +101,13 @@ export class ImportParser {
     private sourceCode = '';
     private invalidImports: InvalidImport[] = [];
     private groupMatcher: GroupMatcher;
+    private groupPriorityMap: Map<string, boolean>;
 
     constructor(extensionConfig: ExtensionGlobalConfig) {
-        // Initialize GroupMatcher with the groups configuration
         this.groupMatcher = new GroupMatcher(extensionConfig.groups);
+        this.groupPriorityMap = new Map(
+            extensionConfig.groups.map(g => [g.name, !!g.priority])
+        );
 
         const importGroups: ConfigImportGroup[] = extensionConfig.groups.map((g): ConfigImportGroup => {
             if (g.default) {
@@ -401,7 +404,7 @@ export class ImportParser {
                     const raw = this.sourceCode.substring(node.range?.[0] || 0, node.range?.[1] || 0);
                     this.invalidImports.push({
                         raw,
-                        error: error instanceof Error ? error.message : "Erreur lors du parsing de l'import",
+                        error: error instanceof Error ? error.message : 'Error parsing import',
                     });
                 }
             }
@@ -472,13 +475,8 @@ export class ImportParser {
     }
 
     public determineGroup(source: string): { groupName: string | null; isPriority: boolean } {
-        // Use cached GroupMatcher for O(1) lookups after first match
         const groupName = this.groupMatcher.getGroup(source);
-
-        // Find the group to get its priority setting
-        const group = this.internalConfig.importGroups.find((g) => g.name === groupName);
-        const isPriority = group ? !!group.priority : false;
-
+        const isPriority = this.groupPriorityMap.get(groupName) ?? false;
         return { groupName, isPriority };
     }
 

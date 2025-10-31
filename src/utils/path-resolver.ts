@@ -69,21 +69,25 @@ export class PathResolver {
         importPath: string,
         document: TextDocument
     ): Promise<string | null> {
-        // Skip external modules
-        if (!importPath.startsWith('.') && !importPath.startsWith('@') && !importPath.startsWith('~')) {
-            return null;
-        }
-
         const mappings = await this.loadPathMappings(document);
         if (mappings.length === 0) {
             logDebug(`No path mappings found for ${importPath}`);
             return null;
         }
 
+        const isRelativePath = importPath.startsWith('.');
+        const isPotentialAlias = importPath.startsWith('@') || importPath.startsWith('~');
+
+        const matchesAlias = mappings.some(mapping => this.matchesPattern(importPath, mapping.pattern));
+
+        if (!isRelativePath && !isPotentialAlias && !matchesAlias) {
+            return null;
+        }
+
         if (this.config.mode === 'absolute') {
             return this.convertToAbsolute(importPath, document, mappings);
         } else {
-            return this.convertToRelative(importPath, document, mappings);
+            return await this.convertToRelative(importPath, document, mappings);
         }
     }
 
@@ -107,17 +111,23 @@ export class PathResolver {
             const documentDir = Uri.joinPath(document.uri, '..');
             const absoluteUri = Uri.joinPath(documentDir, importPath);
             const absolutePath = absoluteUri.fsPath;
-            
+
             // Try to match against path mappings
             for (const mapping of mappings) {
                 for (const mappedPath of mapping.paths) {
-                    const mappedPattern = mappedPath.replace(/\*/g, '(.*)');
+                    const mappedPattern = mappedPath
+                        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+                        .replace(/\*/g, '(.*?)');
                     const regex = new RegExp(`^${mappedPattern}$`);
                     const match = absolutePath.match(regex);
-                    
+
                     if (match) {
-                        // Found a matching alias
-                        const aliasPath = mapping.pattern.replace(/\*/g, match[1] || '');
+                        let captureIndex = 1;
+                        const aliasPath = mapping.pattern.replace(/\*/g, () => {
+                            const captured = match[captureIndex++] || '';
+                            return captured.replace(/(\.d\.(?:cts|mts|ts)|\.(?:tsx?|jsx?))$/, '');
+                        });
+                        logDebug(`Converted relative to alias: ${importPath} → ${aliasPath}`);
                         return aliasPath;
                     }
                 }
@@ -130,32 +140,30 @@ export class PathResolver {
     /**
      * Convert absolute (aliased) path to relative
      */
-    private convertToRelative(
+    private async convertToRelative(
         importPath: string,
         document: TextDocument,
         mappings: PathMapping[]
-    ): string | null {
-        
-        // Check if it's using an alias
+    ): Promise<string | null> {
+
         for (const mapping of mappings) {
             if (this.matchesPattern(importPath, mapping.pattern)) {
                 logDebug(`Import ${importPath} matches pattern ${mapping.pattern}`);
-                
-                // Resolve the alias to an absolute path
-                const resolvedPath = this.resolveAliasToPath(importPath, mapping);
+
+                const resolvedPath = await this.resolveAliasToPathWithFallbacks(importPath, mapping);
                 if (resolvedPath) {
-                    // Convert to relative path
+                    if (resolvedPath.includes('node_modules')) {
+                        logDebug(`Skipping ${importPath}: resolves to node_modules`);
+                        continue;
+                    }
+
                     const documentDir = Uri.joinPath(document.uri, '..');
-                    const resolvedUri = Uri.file(resolvedPath);
-                    
-                    // Calculate relative path
-                    let relativePath = this.getRelativePath(documentDir, resolvedUri);
-                    
-                    // Ensure it starts with ./ or ../
+                    let relativePath = this.getRelativePath(documentDir, Uri.file(resolvedPath));
+
                     if (!relativePath.startsWith('.')) {
                         relativePath = './' + relativePath;
                     }
-                    
+
                     return relativePath;
                 }
             }
@@ -176,26 +184,68 @@ export class PathResolver {
     }
 
     /**
+     * Resolve an aliased import to an absolute file path with fallback support
+     * Tries all paths in mapping.paths and returns the first that exists
+     */
+    private async resolveAliasToPathWithFallbacks(importPath: string, mapping: PathMapping): Promise<string | null> {
+        const pattern = mapping.pattern;
+        const regexPattern = pattern
+            .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+            .replace(/\*/g, '(.*?)');
+        const regex = new RegExp(`^${regexPattern}$`);
+        const match = importPath.match(regex);
+
+        if (match && mapping.paths.length > 0) {
+            for (const pathTemplate of mapping.paths) {
+                let resolvedPath = pathTemplate;
+                let captureIndex = 1;
+
+                resolvedPath = resolvedPath.replace(/\*/g, () => {
+                    return match[captureIndex++] || '';
+                });
+
+                const pathWithoutExt = resolvedPath.replace(/(\.d\.(?:cts|mts|ts)|\.(?:tsx?|jsx?))$/, '');
+
+                const fileExists = await this.checkFileExists(Uri.file(pathWithoutExt));
+                if (fileExists) {
+                    logDebug(`Resolved ${importPath} to ${pathWithoutExt} (tried ${mapping.paths.indexOf(pathTemplate) + 1}/${mapping.paths.length} paths)`);
+                    return pathWithoutExt;
+                }
+
+                logDebug(`Path does not exist: ${pathWithoutExt}, trying next fallback...`);
+            }
+
+            logDebug(`All ${mapping.paths.length} fallback paths failed for ${importPath}`);
+        }
+
+        return null;
+    }
+
+    /**
+     * DEPRECATED: Use resolveAliasToPathWithFallbacks instead
      * Resolve an aliased import to an absolute file path
      */
     private resolveAliasToPath(importPath: string, mapping: PathMapping): string | null {
         const pattern = mapping.pattern;
         const regexPattern = pattern
             .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-            .replace(/\*/g, '(.*)');
+            .replace(/\*/g, '(.*?)');
         const regex = new RegExp(`^${regexPattern}$`);
         const match = importPath.match(regex);
 
         if (match && mapping.paths.length > 0) {
-            // Use the first path mapping
-            const resolvedPath = mapping.paths[0].replace(/\*/g, match[1] || '');
-            
-            
-            // Remove file extensions for TypeScript/JavaScript imports
-            // Import paths should not include .ts, .tsx, .js, .jsx extensions
-            const pathWithoutExt = resolvedPath.replace(/\.(tsx?|jsx?)$/, '');
-            
-            return pathWithoutExt;
+            for (const pathTemplate of mapping.paths) {
+                let resolvedPath = pathTemplate;
+                let captureIndex = 1;
+
+                resolvedPath = resolvedPath.replace(/\*/g, () => {
+                    return match[captureIndex++] || '';
+                });
+
+                const pathWithoutExt = resolvedPath.replace(/(\.d\.(?:cts|mts|ts)|\.(?:tsx?|jsx?))$/, '');
+
+                return pathWithoutExt;
+            }
         }
 
         return null;
@@ -231,6 +281,41 @@ export class PathResolver {
         const result = parts.join('/') || '.';
         
         return result;
+    }
+
+    /**
+     * Check if a file or directory exists
+     */
+    private async checkFileExists(uri: Uri): Promise<boolean> {
+        const possibleExtensions = [
+            '',
+            '.ts',
+            '.tsx',
+            '.js',
+            '.jsx',
+            '.d.ts',
+            '.d.cts',
+            '.d.mts',
+            '/index.ts',
+            '/index.tsx',
+            '/index.js',
+            '/index.jsx',
+            '/index.d.ts',
+            '/index.d.cts',
+            '/index.d.mts'
+        ];
+
+        for (const ext of possibleExtensions) {
+            try {
+                const testUri = Uri.file(uri.fsPath + ext);
+                await workspace.fs.stat(testUri);
+                return true;
+            } catch {
+                // File doesn't exist with this extension, try next
+            }
+        }
+
+        return false;
     }
 
     /**

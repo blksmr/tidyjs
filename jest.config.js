@@ -3,7 +3,8 @@ module.exports = {
     testMatch: [
         "**/unit/**/*.ts",
         "**/parser/**/*.ts",
-        "**/configLoader/**/*.ts"
+        "**/configLoader/**/*.ts",
+        "**/path-resolver/**/*.ts"
     ],
     moduleNameMapper: {
         "^vscode$": "<rootDir>/test/mocks/vscode.js"
