@@ -253,14 +253,14 @@ describe('ImportParser - Performance Tests', () => {
     const times: number[] = [];
 
     sizes.forEach(size => {
-      const imports = Array.from({ length: size }, (_, i) => 
+      const imports = Array.from({ length: size }, (_, i) =>
         `import module${i} from "lib${i}";`
       ).join('\n');
 
       const startTime = performance.now();
       parser.parse(imports);
       const endTime = performance.now();
-      
+
       times.push(endTime - startTime);
     });
 
@@ -273,5 +273,31 @@ describe('ImportParser - Performance Tests', () => {
     expect(timeRatio43).toBeLessThan(70); // Allow more variance for CI environments
     expect(timeRatio32).toBeLessThan(70); // Allow more variance for CI environments
     expect(timeRatio21).toBeLessThan(100); // Allow more variance for small inputs in CI
+  });
+
+  test('determineGroup should use O(1) priority lookup instead of find()', () => {
+    const config: Config = {
+      groups: [
+        { name: 'React', order: 1, default: false, match: /^react$/, priority: 1 },
+        { name: 'Lib', order: 2, default: false, match: /^lib/, priority: 0 },
+        { name: 'Other', order: 3, default: true }
+      ],
+      importOrder: { default: 1, named: 2, typeOnly: 3, sideEffect: 0 }
+    };
+
+    const testParser = new ImportParser(config);
+    const iterations = 10000;
+
+    const startTime = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      testParser.determineGroup('react');
+      testParser.determineGroup('lib-test');
+      testParser.determineGroup('./local');
+    }
+    const endTime = performance.now();
+    const totalTime = endTime - startTime;
+    const avgTime = totalTime / (iterations * 3);
+
+    expect(avgTime).toBeLessThan(0.01);
   });
 });

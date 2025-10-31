@@ -104,17 +104,23 @@ module.exports = {
             this.fragment = fragment || '';
             this.fsPath = path || '';
         }
-        
+
         static file(path) {
             const uri = new Uri('file', '', path);
             uri.fsPath = path;
             return uri;
         }
-        
+
         static parse(str) {
             return new Uri('file', '', str);
         }
-        
+
+        static joinPath(base, ...pathSegments) {
+            const path = require('path');
+            const joined = path.join(base.fsPath, ...pathSegments);
+            return Uri.file(joined);
+        }
+
         toString() {
             return `${this.scheme}://${this.path}`;
         }
