@@ -17,22 +17,30 @@ export const tsConfigLoader: ConfigLoader = {
     
     extractAliases(configPath: string, config: unknown): PathMapping[] {
         const mappings: PathMapping[] = [];
-        
+
         const tsConfig = config as { compilerOptions?: { baseUrl?: string; paths?: Record<string, string[]> } };
-        if (!tsConfig.compilerOptions?.paths) {return mappings;}
-        
+        if (!tsConfig.compilerOptions) {return mappings;}
+
         const baseUrl = tsConfig.compilerOptions.baseUrl || '.';
         const configUri = Uri.file(configPath);
         const configDir = Uri.joinPath(configUri, '..');
         const absoluteBaseUrl = Uri.joinPath(configDir, baseUrl);
-        
-        for (const [pattern, paths] of Object.entries(tsConfig.compilerOptions.paths)) {
+
+        if (tsConfig.compilerOptions.paths) {
+            for (const [pattern, paths] of Object.entries(tsConfig.compilerOptions.paths)) {
+                mappings.push({
+                    pattern,
+                    paths: paths.map(p => Uri.joinPath(absoluteBaseUrl, p).fsPath)
+                });
+            }
+        } else if (tsConfig.compilerOptions.baseUrl) {
             mappings.push({
-                pattern,
-                paths: paths.map(p => Uri.joinPath(absoluteBaseUrl, p).fsPath)
+                pattern: '*',
+                paths: [Uri.joinPath(absoluteBaseUrl, '*').fsPath]
             });
+            logDebug(`Using baseUrl fallback mapping: * -> ${absoluteBaseUrl.fsPath}/*`);
         }
-        
+
         return mappings;
     }
 };
