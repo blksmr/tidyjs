@@ -1,4 +1,5 @@
 // Other
+import { sortDestructuring } from './destructuring-sorter';
 import { formatImports } from './formatter';
 import { ImportParser, ParserResult, InvalidImport, ParsedImport, ImportSource } from './parser';
 
@@ -224,6 +225,13 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 return undefined;
             }
 
+            // Post-processing: sort code patterns if any sorting feature is enabled
+            let finalText = formattedDocument.text;
+            if (currentConfig.format?.sortDestructuring ||
+                currentConfig.format?.sortEnumMembers ||
+                currentConfig.format?.sortExports) {
+                finalText = sortDestructuring(finalText, currentConfig);
+            }
 
             // Créer et retourner les éditions
             const fullRange = new Range(document.positionAt(0), document.positionAt(documentText.length));
@@ -235,7 +243,7 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 perfMonitor.logSummary();
             }
 
-            return [TextEdit.replace(fullRange, formattedDocument.text)];
+            return [TextEdit.replace(fullRange, finalText)];
         } catch (error) {
             logError('Error in provideDocumentFormattingEdits:', error);
             return undefined;

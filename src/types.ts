@@ -23,6 +23,9 @@ export interface Config {
     removeMissingModules?: boolean;
     singleQuote?: boolean;
     bracketSpacing?: boolean;
+    sortDestructuring?: boolean;
+    sortEnumMembers?: boolean;
+    sortExports?: boolean;
   };
 
   pathResolution?: {
@@ -61,6 +64,9 @@ export interface TidyJSConfigFile {
     removeMissingModules?: boolean;
     singleQuote?: boolean;
     bracketSpacing?: boolean;
+    sortDestructuring?: boolean;
+    sortEnumMembers?: boolean;
+    sortExports?: boolean;
   };
   pathResolution?: {
     enabled?: boolean;
