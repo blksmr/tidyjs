@@ -120,6 +120,21 @@
           "default": false,
           "description": "Remove imports for modules that are not installed"
         },
+        "tidyjs.format.sortDestructuring": {
+          "type": "boolean",
+          "default": false,
+          "description": "Sort destructured properties by name length (shortest first)"
+        },
+        "tidyjs.format.sortEnumMembers": {
+          "type": "boolean",
+          "default": false,
+          "description": "Sort enum members by name length (shortest first)"
+        },
+        "tidyjs.format.sortExports": {
+          "type": "boolean",
+          "default": false,
+          "description": "Sort export specifiers by name length (shortest first)"
+        },
         "tidyjs.excludedFolders": {
           "type": "array",
           "default": [],

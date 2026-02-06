@@ -467,6 +467,9 @@ class ConfigManager {
         removeMissingModules: vsConfig.get<boolean>('format.removeMissingModules'),
         singleQuote: vsConfig.get<boolean>('format.singleQuote'),
         bracketSpacing: vsConfig.get<boolean>('format.bracketSpacing'),
+        sortDestructuring: vsConfig.get<boolean>('format.sortDestructuring'),
+        sortEnumMembers: vsConfig.get<boolean>('format.sortEnumMembers'),
+        sortExports: vsConfig.get<boolean>('format.sortExports'),
       };
 
       for (const [key, value] of Object.entries(formatSettings)) {
