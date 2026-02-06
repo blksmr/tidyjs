@@ -4,7 +4,8 @@ module.exports = {
         "**/unit/**/*.ts",
         "**/parser/**/*.ts",
         "**/configLoader/**/*.ts",
-        "**/path-resolver/**/*.ts"
+        "**/path-resolver/**/*.ts",
+        "**/test/ir/**/*.ts"
     ],
     moduleNameMapper: {
         "^vscode$": "<rootDir>/test/mocks/vscode.js"

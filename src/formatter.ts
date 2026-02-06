@@ -1,18 +1,11 @@
-// Other
-import { ImportType } from './parser';
-import { maxBy, padEnd, dropRightWhile } from 'lodash';
 import type { ParsedImport, ParserResult } from './parser';
 
-// Utils
 import { logDebug, logError } from './utils/log';
-import { isEmptyLine, showMessage } from './utils/misc';
+import { showMessage } from './utils/misc';
+import { buildDocument } from './ir/builders';
+import { printDocument } from './ir/printer';
 
-// Types
-import { Config, FormattedImportGroup } from './types';
-
-const fromKeywordRegex = /\bfrom\b/;
-const multilineCommentStartRegex = /\/\*/;
-const multilineCommentEndRegex = /\*\//;
+import type { Config } from './types';
 
 function replaceImportLines(sourceText: string, importRange: { start: number; end: number }, formattedImports: string): string {
     const lines = sourceText.split('\n');
@@ -83,227 +76,6 @@ function replaceImportLines(sourceText: string, importRange: { start: number; en
     return [...beforeLines, ...newImportLines, ...afterLines].join('\n');
 }
 
-function alignFromKeyword(line: string, fromIndex: number, maxFromIndex: number): string {
-    if (fromIndex <= 0 || !fromKeywordRegex.test(line) || maxFromIndex <= 0) {
-        return line;
-    }
-    if (fromIndex >= line.length) {
-        return line;
-    }
-
-    const prefix = line.substring(0, fromIndex);
-    const suffix = line.substring(fromIndex);
-    const targetPadding = Math.max(maxFromIndex, prefix.length);
-    const paddedPrefix = prefix.padEnd(targetPadding);
-    const result = paddedPrefix + suffix;
-
-    return result;
-}
-
-function alignMultilineFromKeyword(line: string, fromIndex: number, maxFromIndex: number): string {
-    const lines = line.split('\n');
-    if (lines.length < 2) {
-        return line;
-    }
-
-    const lastLineIndex = lines.length - 1;
-    const lastLine = lines[lastLineIndex];
-
-    const fromMatch = lastLine.match(fromKeywordRegex);
-    if (!fromMatch || fromMatch.index === undefined) {
-        return line;
-    }
-
-    const closeBraceIndex = lastLine.indexOf('}');
-    let newLastLine: string;
-
-    if (closeBraceIndex === -1) {
-        // No closing brace found - apply basic alignment from start of line
-        const beforeFrom = lastLine.substring(0, fromMatch.index);
-        const fromAndAfter = lastLine.substring(fromMatch.index);
-        const targetLength = Math.max(beforeFrom.length + 1, maxFromIndex);
-        newLastLine = padEnd(beforeFrom, targetLength) + fromAndAfter;
-    } else {
-        // Normal case with closing brace
-        const beforeContent = lastLine.substring(0, closeBraceIndex + 1);
-        const fromAndAfter = lastLine.substring(fromMatch.index);
-        const targetLength = Math.max(beforeContent.length + 1, maxFromIndex);
-        newLastLine = padEnd(beforeContent, targetLength) + fromAndAfter;
-    }
-    lines[lastLineIndex] = newLastLine;
-
-    return lines.join('\n');
-}
-
-function alignImportsInGroup(importLines: string[], config: Config): string[] {
-    if (importLines.length === 0) {
-        return importLines;
-    }
-
-    interface LineInfo {
-        fromIndex: number;
-        isMultiline: boolean;
-        idealFromPosition: number;
-    }
-
-    const lineInfos: LineInfo[] = importLines.map((line) => {
-        const info: LineInfo = {
-            fromIndex: -1,
-            isMultiline: false,
-            idealFromPosition: 0,
-        };
-
-        if (line.includes('\n')) {
-            info.isMultiline = true;
-            const lines = line.split('\n');
-            const middleLines = lines.slice(1, -1);
-
-            // Use maxBy to find the longest line instead of manual reduce
-            const longestLine = maxBy(middleLines, (curr) => curr.trim().replace(/,$/, '').trim().length);
-
-            const maxLength = longestLine ? longestLine.trim().replace(/,$/, '').trim().length : 0;
-            const maxIndex = longestLine ? middleLines.indexOf(longestLine) : -1;
-
-            const indent = config.format?.indent || 4;
-            info.idealFromPosition = indent + maxLength + (maxIndex !== lines.length - 3 && maxIndex !== -1 ? 2 : 1);
-            const lastLine = lines[lines.length - 1];
-            const fromMatch = lastLine.match(fromKeywordRegex);
-            info.fromIndex = fromMatch && fromMatch.index !== undefined ? fromMatch.index : -1;
-        } else {
-            const fromMatch = line.match(fromKeywordRegex);
-            if (fromMatch && fromMatch.index !== undefined) {
-                info.fromIndex = fromMatch.index;
-                info.idealFromPosition = line.substring(0, fromMatch.index).trim().length + 1;
-            }
-        }
-
-        return info;
-    });
-
-    // Use maxBy to find the maximum ideal position instead of manual Math.max
-    const maxPositionInfo = maxBy(lineInfos, (info) => info.idealFromPosition);
-    const globalMaxFromPosition = maxPositionInfo?.idealFromPosition || 0;
-
-    return importLines.map((line, i) => {
-        const info = lineInfos[i];
-        if (info.fromIndex === -1) {
-            return line;
-        }
-
-        return info.isMultiline
-            ? alignMultilineFromKeyword(line, info.fromIndex, globalMaxFromPosition)
-            : alignFromKeyword(line, info.fromIndex, globalMaxFromPosition);
-    });
-}
-
-function cleanUpLines(lines: string[]): string[] {
-    const processedLines: string[] = [];
-    let consecutiveEmptyLines = 0;
-    let inMultilineComment = false;
-
-    const isInlineMultilineComment = (normalizedLine: string): boolean => {
-        return multilineCommentStartRegex.test(normalizedLine) && multilineCommentEndRegex.test(normalizedLine);
-    };
-
-    for (const line of lines) {
-        const normalizedLine = line.trim();
-
-        if (normalizedLine.startsWith('//')) {
-            processedLines.push(line);
-            continue;
-        }
-
-        if (multilineCommentStartRegex.test(normalizedLine)) {
-            if (isInlineMultilineComment(normalizedLine)) {
-                // Don't skip the line, there might be code after the comment
-                processedLines.push(line);
-                consecutiveEmptyLines = 0;
-                continue;
-            }
-            inMultilineComment = true;
-        }
-
-        if (inMultilineComment) {
-            if (multilineCommentEndRegex.test(normalizedLine)) {
-                inMultilineComment = false;
-            }
-            continue;
-        }
-
-        if (isEmptyLine(line)) {
-            if (consecutiveEmptyLines < 1) {
-                processedLines.push(line);
-                consecutiveEmptyLines++;
-            }
-        } else {
-            processedLines.push(line);
-            consecutiveEmptyLines = 0;
-        }
-    }
-
-    // Remove trailing empty lines using dropRightWhile
-    const withoutTrailingEmpty = dropRightWhile(processedLines, isEmptyLine);
-
-    // Ensure exactly one empty line at the end
-    if (withoutTrailingEmpty.length === 0 || !isEmptyLine(withoutTrailingEmpty[withoutTrailingEmpty.length - 1])) {
-        withoutTrailingEmpty.push('');
-    }
-
-    return withoutTrailingEmpty;
-}
-
-function formatImportLine(importItem: ParsedImport, config: Config): string {
-    const { type, source, specifiers } = importItem;
-    
-    // Get formatting options with defaults
-    const quote = config.format?.singleQuote !== false ? "'" : '"';
-    const bracketSpace = config.format?.bracketSpacing !== false ? ' ' : '';
-    const indent = config.format?.indent || 4;
-    const indentStr = ' '.repeat(indent);
-
-    if (type === ImportType.SIDE_EFFECT || specifiers.length === 0) {
-        return `import ${quote}${source}${quote};`;
-    }
-
-    if (type === ImportType.DEFAULT && specifiers.length === 1) {
-        const spec = specifiers[0];
-        const specStr = typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`;
-        return `import ${specStr} from ${quote}${source}${quote};`;
-    }
-
-    if (type === ImportType.TYPE_DEFAULT && specifiers.length === 1) {
-        const spec = specifiers[0];
-        const specStr = typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`;
-        return `import type ${specStr} from ${quote}${source}${quote};`;
-    }
-
-    if ((type === ImportType.NAMED || type === ImportType.TYPE_NAMED) && specifiers.length === 1) {
-        const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
-        const spec = specifiers[0];
-        const specStr = typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`;
-        return `import ${typePrefix}{${bracketSpace}${specStr}${bracketSpace}} from ${quote}${source}${quote};`;
-    }
-
-    if ((type === ImportType.NAMED || type === ImportType.TYPE_NAMED) && specifiers.length > 1) {
-        const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
-
-        // Convert specifiers to strings for formatting
-        const formattedSpecs = specifiers.map((spec) => (typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`));
-
-        // Remove duplicates and sort
-        const specifiersSet = new Set(formattedSpecs);
-        const sortedSpecifiers = Array.from(specifiersSet).sort((a, b) => a.length - b.length);
-
-        const parts = [`import ${typePrefix}{`, `${indentStr}${sortedSpecifiers.join(',\n' + indentStr)}`, `} from ${quote}${source}${quote};`];
-        return parts.join('\n');
-    }
-
-    const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
-    const formattedSpecs = specifiers.map((spec) => (typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`));
-    const specifiersStr = formattedSpecs.join(', ');
-    return `import ${typePrefix}{${bracketSpace}${specifiersStr}${bracketSpace}} from ${quote}${source}${quote};`;
-}
-
 function formatImportsFromParser(
     sourceText: string,
     importRange: { start: number; end: number },
@@ -329,61 +101,8 @@ function formatImportsFromParser(
             throw new Error('Dynamic imports detected in the static imports section');
         }
 
-        const sectionCommentRegex = /^\s*\/\/\s*[A-Za-z@]+.*$/;
-
-        const currentLines = currentImportText.split('\n');
-        const importsOnly: string[] = [];
-        let inMultilineComment = false;
-
-        for (const line of currentLines) {
-            const trimmedLine = line.trim();
-
-            const startCommentIndex = trimmedLine.indexOf('/*');
-            const endCommentIndex = trimmedLine.indexOf('*/');
-            const importIndex = trimmedLine.indexOf('import');
-
-            if (startCommentIndex !== -1 && endCommentIndex !== -1 && importIndex !== -1) {
-                if (importIndex > endCommentIndex) {
-                    importsOnly.push(line.substring(line.indexOf('import')));
-                    continue;
-                }
-            }
-
-            if (startCommentIndex !== -1) {
-                inMultilineComment = true;
-                if (endCommentIndex !== -1) {
-                    inMultilineComment = false;
-                    continue;
-                }
-            }
-
-            if (inMultilineComment) {
-                if (endCommentIndex !== -1) {
-                    inMultilineComment = false;
-                }
-                continue;
-            }
-
-            if (trimmedLine.startsWith('//')) {
-                if (!sectionCommentRegex.test(line)) {
-                    continue;
-                }
-                importsOnly.push(line);
-                continue;
-            }
-
-            importsOnly.push(line);
-        }
-
-        type GroupedImports = Record<
-            string,
-            {
-                order: number;
-                imports: ParsedImport[];
-            }
-        >;
-
-        const importsByGroup: GroupedImports = {};
+        // Build sorted group list from parser result
+        const importsByGroup: Record<string, { order: number; imports: ParsedImport[] }> = {};
 
         parserResult.groups.forEach((group) => {
             if (group.imports?.length) {
@@ -394,57 +113,14 @@ function formatImportsFromParser(
             }
         });
 
-        const importGroupEntries = Array.from(Object.entries(importsByGroup));
+        const importGroupEntries = Object.entries(importsByGroup);
         importGroupEntries.sort(([, a], [, b]) => a.order - b.order);
 
-        const formattedGroups: FormattedImportGroup[] = [];
+        const groups = importGroupEntries.map(([name, { imports }]) => ({ name, imports }));
 
-        for (const [groupName, { imports }] of importGroupEntries) {
-            // Imports are already consolidated by the parser
-            const consolidatedImports = imports;
-
-            const formattedGroupName = groupName;
-            const groupResult: FormattedImportGroup = {
-                groupName,
-                commentLine: `// ${formattedGroupName}`,
-                importLines: [],
-            };
-
-            // Imports are already sorted by the parser
-            const orderedImports = consolidatedImports;
-
-            groupResult.importLines.push(...orderedImports.map(imp => formatImportLine(imp, config)));
-
-            if (groupResult.importLines.length > 0) {
-                formattedGroups.push(groupResult);
-            }
-        }
-
-        const formattedLines: string[] = [];
-        const processedGroupNames = new Set<string>();
-
-        for (let groupIndex = 0; groupIndex < formattedGroups.length; groupIndex++) {
-            const group = formattedGroups[groupIndex];
-
-            // Add blank line before group (except for the first group)
-            if (groupIndex > 0) {
-                formattedLines.push('');
-            }
-
-            if (!processedGroupNames.has(group.groupName)) {
-                formattedLines.push(group.commentLine);
-                processedGroupNames.add(group.groupName);
-            }
-
-            const alignedImports = alignImportsInGroup(group.importLines, config);
-            formattedLines.push(...alignedImports);
-        }
-
-        // Don't add empty line here - let cleanUpLines handle it
-        // formattedLines.push('');
-
-        const cleanedLines = cleanUpLines(formattedLines);
-        const formattedText = cleanedLines.join('\n');
+        // Build IR document and print
+        const irDocument = buildDocument(groups, config);
+        const formattedText = printDocument(irDocument);
 
         return replaceImportLines(sourceText, importRange, formattedText);
     } catch (error: unknown) {

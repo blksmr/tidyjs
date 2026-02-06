@@ -76,8 +76,3 @@ export interface ConfigSource {
   config: Partial<Config>;
 }
 
-export interface FormattedImportGroup {
-  groupName: string;
-  commentLine: string;
-  importLines: string[];
-}
