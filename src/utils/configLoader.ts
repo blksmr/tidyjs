@@ -7,7 +7,6 @@ import { configManager } from './config';
 
 const CONFIG_FILE_NAMES = ['.tidyjsrc', 'tidyjs.json'];
 
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class ConfigLoader {
     private static configCache = new Map<string, ConfigSource | null>();
     private static fileWatcher: vscode.FileSystemWatcher | undefined;

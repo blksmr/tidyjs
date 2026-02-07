@@ -38,11 +38,12 @@ describe('Comprehensive Import Types Test', () => {
       groupName: string | null;
     }[];
     count: number;
+    invalidImports?: { raw: string; error: string }[];
   } {
     const parser = new ImportParser(baseConfig);
     const result = parser.parse(sourceCode);
     const allImports = result.groups.flatMap(g => g.imports);
-    
+
     return {
       imports: allImports.map(imp => ({
         type: imp.type,
@@ -50,7 +51,8 @@ describe('Comprehensive Import Types Test', () => {
         source: imp.source,
         groupName: imp.groupName
       })),
-      count: allImports.length
+      count: allImports.length,
+      invalidImports: result.invalidImports,
     };
   }
 
@@ -231,28 +233,22 @@ describe('Comprehensive Import Types Test', () => {
   });
 
   describe('Type Declaration Imports', () => {
-    test('type default + type named mixed', () => {
+    test('type default + type named mixed (invalid TS syntax)', () => {
+      // `import type React, { FC } from 'react'` is invalid TypeScript syntax.
+      // OXC correctly rejects it. The parser should return no imports and flag it as invalid.
       const result = parseAndAnalyze(`import type React, { FC } from 'react';`);
-      
-      expect(result.count).toBe(2);
-      
-      const typeDefaultImport = result.imports.find(imp => imp.type === 'typeDefault');
-      const typeNamedImport = result.imports.find(imp => imp.type === 'typeNamed');
-      
-      expect(typeDefaultImport?.specifiers).toEqual(['React']);
-      expect(typeNamedImport?.specifiers).toEqual(['FC']);
+
+      expect(result.count).toBe(0);
+      expect(result.invalidImports).toBeDefined();
     });
 
-    test('type default + type namespace mixed', () => {
+    test('type default + type namespace mixed (invalid TS syntax)', () => {
+      // `import type React, * as Types from 'react'` is invalid TypeScript syntax.
+      // OXC correctly rejects it. The parser should return no imports and flag it as invalid.
       const result = parseAndAnalyze(`import type React, * as Types from 'react';`);
-      
-      expect(result.count).toBe(2);
-      
-      const typeDefaultImport = result.imports.find(imp => imp.type === 'typeDefault' && imp.specifiers.includes('React'));
-      const typeNamespaceImport = result.imports.find(imp => imp.type === 'typeDefault' && imp.specifiers.includes('* as Types'));
-      
-      expect(typeDefaultImport?.specifiers).toEqual(['React']);
-      expect(typeNamespaceImport?.specifiers).toEqual(['* as Types']);
+
+      expect(result.count).toBe(0);
+      expect(result.invalidImports).toBeDefined();
     });
   });
 

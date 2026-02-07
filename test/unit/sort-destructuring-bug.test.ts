@@ -1,5 +1,5 @@
 import { sortDestructuring } from '../../src/destructuring-sorter';
-import { parse } from '@typescript-eslint/parser';
+import { parseSource } from '../../src/utils/oxc-parse';
 import type { Config } from '../../src/types';
 
 const config: Config = {
@@ -51,7 +51,7 @@ const table = useTable({
 
         // Must still be valid TypeScript
         expect(() => {
-            parse(result, { range: true, loc: true, jsx: true });
+            parseSource(result);
         }).not.toThrow();
     });
 
@@ -85,7 +85,7 @@ const {
         expect(nomIdx).toBeLessThan(telIdx);
 
         expect(() => {
-            parse(result, { range: true, loc: true, jsx: true });
+            parseSource(result);
         }).not.toThrow();
     });
 

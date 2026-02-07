@@ -20,7 +20,7 @@ async function main() {
 		metafile: !production,
 		platform: 'node',
 		outfile: 'dist/extension.js',
-		external: ['vscode'],
+		external: ['vscode', 'oxc-parser'],
 		logLevel: 'silent',
 		legalComments: 'none',
     plugins: [

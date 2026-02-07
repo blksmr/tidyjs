@@ -8,7 +8,8 @@ module.exports = {
         "**/test/ir/**/*.ts"
     ],
     moduleNameMapper: {
-        "^vscode$": "<rootDir>/test/mocks/vscode.js"
+        "^vscode$": "<rootDir>/test/mocks/vscode.js",
+        "^oxc-parser$": "<rootDir>/test/mocks/oxc-parser.js"
     },
     transform: {
         "^.+\\.tsx?$": "ts-jest"

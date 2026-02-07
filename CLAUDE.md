@@ -15,8 +15,8 @@ VS Code extension that organizes and formats TypeScript/JavaScript import declar
 
 ## Architecture
 
-- **Parser (`src/parser.ts`)**: AST-based import analysis (@typescript-eslint/parser). Separates mixed imports (e.g. `import React, { useState, type FC } from 'react'` → 3 imports). Categorizes: sideEffect, default, named, typeDefault, typeNamed. Groups via regex patterns. Consolidates same-type/same-source imports.
-- **Formatter (`src/formatter.ts`)**: IR-based formatting pipeline. Uses @babel/parser. Aligns `from` keywords, handles multiline, preserves comments. Pipeline: `ParsedImport[] → IR Builder → IRDocument → Two-Pass Printer → String`. IR files: `src/ir/types.ts`, `src/ir/builders.ts`, `src/ir/printer.ts`.
+- **Parser (`src/parser.ts`)**: AST-based import analysis (oxc-parser). Separates mixed imports (e.g. `import React, { useState, type FC } from 'react'` → 3 imports). Categorizes: sideEffect, default, named, typeDefault, typeNamed. Groups via regex patterns. Consolidates same-type/same-source imports. Wrapper: `src/utils/oxc-parse.ts`. Types: `src/types/ast.ts`.
+- **Formatter (`src/formatter.ts`)**: IR-based formatting pipeline. Aligns `from` keywords, handles multiline, preserves comments. Pipeline: `ParsedImport[] → IR Builder → IRDocument → Two-Pass Printer → String`. IR files: `src/ir/types.ts`, `src/ir/builders.ts`, `src/ir/printer.ts`.
 - **Extension (`src/extension.ts`)**: VS Code integration — commands, keybindings, format-on-save, config updates, non-intrusive debug logging.
 - **Configuration (`src/utils/config.ts`)**: ConfigManager with RegExp-aware cache, validation (duplicate orders/names), regex group patterns, @app subfolder detection.
 

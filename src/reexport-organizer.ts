@@ -1,5 +1,5 @@
-import { parse } from '@typescript-eslint/parser';
-import type { TSESTree } from '@typescript-eslint/types';
+import { parseSource } from './utils/oxc-parse';
+import type * as AST from './types/ast';
 
 import { ImportType } from './parser';
 import { GroupMatcher } from './utils/group-matcher';
@@ -11,7 +11,7 @@ import type { Config } from './types';
 
 interface ReExportBlock {
     range: [number, number];
-    nodes: TSESTree.ExportNamedDeclaration[];
+    nodes: AST.ExportNamedDeclaration[];
 }
 
 /**
@@ -22,17 +22,9 @@ interface ReExportBlock {
  * Returns the original text unchanged on parse errors or when no re-exports are found.
  */
 export function organizeReExports(sourceText: string, config: Config): string {
-    let ast: TSESTree.Program;
+    let ast: AST.Program;
     try {
-        ast = parse(sourceText, {
-            ecmaVersion: 'latest',
-            sourceType: 'module',
-            jsx: true,
-            errorOnUnknownASTType: false,
-            errorOnTypeScriptSyntacticAndSemanticIssues: false,
-            loc: true,
-            range: true,
-        });
+        ast = parseSource(sourceText, { jsx: true });
     } catch {
         return sourceText;
     }
@@ -61,13 +53,13 @@ export function organizeReExports(sourceText: string, config: Config): string {
  * Find contiguous blocks of re-export statements in the AST.
  * A block is broken by any non-re-export statement.
  */
-function findReExportBlocks(ast: TSESTree.Program, sourceText: string): ReExportBlock[] {
+function findReExportBlocks(ast: AST.Program, sourceText: string): ReExportBlock[] {
     const blocks: ReExportBlock[] = [];
-    let currentNodes: TSESTree.ExportNamedDeclaration[] = [];
+    let currentNodes: AST.ExportNamedDeclaration[] = [];
 
     for (const node of ast.body) {
         if (isReExportNode(node)) {
-            currentNodes.push(node as TSESTree.ExportNamedDeclaration);
+            currentNodes.push(node as AST.ExportNamedDeclaration);
         } else {
             if (currentNodes.length > 1) {
                 blocks.push(buildBlock(currentNodes, sourceText));
@@ -84,15 +76,15 @@ function findReExportBlocks(ast: TSESTree.Program, sourceText: string): ReExport
     return blocks;
 }
 
-function isReExportNode(node: TSESTree.ProgramStatement): boolean {
+function isReExportNode(node: AST.ASTNode): boolean {
     return (
         node.type === 'ExportNamedDeclaration' &&
-        (node as TSESTree.ExportNamedDeclaration).source !== null &&
-        (node as TSESTree.ExportNamedDeclaration).specifiers.length > 0
+        (node as AST.ExportNamedDeclaration).source !== null &&
+        (node as AST.ExportNamedDeclaration).specifiers.length > 0
     );
 }
 
-function buildBlock(nodes: TSESTree.ExportNamedDeclaration[], sourceText: string): ReExportBlock {
+function buildBlock(nodes: AST.ExportNamedDeclaration[], sourceText: string): ReExportBlock {
     const first = nodes[0];
     const last = nodes[nodes.length - 1];
 
@@ -140,7 +132,7 @@ function formatReExportBlock(
  * Convert AST ExportNamedDeclaration nodes into ParsedImport structures.
  */
 function extractReExports(
-    nodes: TSESTree.ExportNamedDeclaration[],
+    nodes: AST.ExportNamedDeclaration[],
     groupMatcher: GroupMatcher
 ): ParsedImport[] {
     const result: ParsedImport[] = [];
@@ -151,10 +143,10 @@ function extractReExports(
         const isTypeExport = node.exportKind === 'type';
 
         const specifiers = node.specifiers
-            .filter((s): s is TSESTree.ExportSpecifier => s.type === 'ExportSpecifier')
+            .filter((s): s is AST.ExportSpecifier => s.type === 'ExportSpecifier')
             .map((s) => {
-                const exported = s.exported.type === 'Identifier' ? s.exported.name : s.exported.value;
-                const local = s.local.type === 'Identifier' ? s.local.name : s.local.value;
+                const exported = (s.exported.type === 'Identifier' ? s.exported.name : s.exported.value) ?? '';
+                const local = (s.local.type === 'Identifier' ? s.local.name : s.local.value) ?? '';
                 if (exported !== local) {
                     return { imported: local, local: exported } as const;
                 }
