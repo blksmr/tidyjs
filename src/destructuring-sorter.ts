@@ -1,5 +1,5 @@
-import { parse } from '@typescript-eslint/parser';
-import type { TSESTree } from '@typescript-eslint/types';
+import { parseSource } from './utils/oxc-parse';
+import type * as AST from './types/ast';
 import type { Config } from './types';
 
 interface PropertyInfo {
@@ -20,45 +20,45 @@ interface Replacement {
     newText: string;
 }
 
-function getPropertyName(node: TSESTree.Node): string | null {
+function getPropertyName(node: AST.ASTNode): string | null {
     switch (node.type) {
         case 'Property': {
-            const prop = node as TSESTree.Property;
+            const prop = node as AST.Property;
             if (prop.computed) {return null;}
-            if (prop.key.type === 'Identifier') {return prop.key.name;}
+            if (prop.key.type === 'Identifier') {return prop.key.name ?? null;}
             if (prop.key.type === 'Literal') {return String(prop.key.value);}
             return null;
         }
         case 'RestElement':
             return null;
         case 'TSPropertySignature': {
-            const sig = node as TSESTree.TSPropertySignature;
+            const sig = node as AST.TSPropertySignature;
             if (sig.computed) {return null;}
-            if (sig.key.type === 'Identifier') {return sig.key.name;}
+            if (sig.key.type === 'Identifier') {return sig.key.name ?? null;}
             if (sig.key.type === 'Literal') {return String(sig.key.value);}
             return null;
         }
         case 'TSMethodSignature': {
-            const method = node as TSESTree.TSMethodSignature;
+            const method = node as AST.TSMethodSignature;
             if (method.computed) {return null;}
-            if (method.key.type === 'Identifier') {return method.key.name;}
+            if (method.key.type === 'Identifier') {return method.key.name ?? null;}
             return null;
         }
         case 'TSEnumMember': {
-            const member = node as TSESTree.TSEnumMember;
-            if (member.id.type === 'Identifier') {return member.id.name;}
+            const member = node as AST.TSEnumMember;
+            if (member.id.type === 'Identifier') {return member.id.name ?? null;}
             if (member.id.type === 'Literal') {return String(member.id.value);}
             return null;
         }
         case 'ExportSpecifier': {
-            const spec = node as TSESTree.ExportSpecifier;
-            if (spec.exported.type === 'Identifier') {return spec.exported.name;}
+            const spec = node as AST.ExportSpecifier;
+            if (spec.exported.type === 'Identifier') {return spec.exported.name ?? null;}
             return null;
         }
         case 'PropertyDefinition': {
-            const propDef = node as TSESTree.PropertyDefinition;
+            const propDef = node as AST.PropertyDefinition;
             if (propDef.computed) {return null;}
-            if (propDef.key.type === 'Identifier') {return propDef.key.name;}
+            if (propDef.key.type === 'Identifier') {return propDef.key.name ?? null;}
             if (propDef.key.type === 'Literal') {return String(propDef.key.value);}
             return null;
         }
@@ -69,7 +69,7 @@ function getPropertyName(node: TSESTree.Node): string | null {
     }
 }
 
-function isRestNode(node: TSESTree.Node): boolean {
+function isRestNode(node: AST.ASTNode): boolean {
     return node.type === 'RestElement' || node.type === 'SpreadElement';
 }
 
@@ -84,7 +84,7 @@ function hasInternalComments(sourceText: string, range: [number, number]): boole
 }
 
 function extractProperties(
-    nodes: TSESTree.Node[],
+    nodes: AST.ASTNode[],
     sourceText: string
 ): PropertyInfo[] | null {
     const properties: PropertyInfo[] = [];
@@ -120,20 +120,20 @@ function findBraceRange(
 }
 
 function findSortablePatterns(
-    ast: TSESTree.Program,
+    ast: AST.Program,
     sourceText: string,
     config?: Config
 ): SortablePattern[] {
     const patterns: SortablePattern[] = [];
 
-    function walk(node: TSESTree.Node): void {
+    function walk(node: AST.ASTNode): void {
         if (!node || typeof node !== 'object') {return;}
 
         if (config?.format?.sortDestructuring && node.type === 'ObjectPattern' && node.range) {
             const range = node.range as [number, number];
             if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
                 const props = extractProperties(
-                    node.properties as TSESTree.Node[],
+                    node.properties as AST.ASTNode[],
                     sourceText
                 );
                 if (props && props.length >= 2) {
@@ -146,7 +146,7 @@ function findSortablePatterns(
             const range = node.range as [number, number];
             if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
                 const props = extractProperties(
-                    node.body as TSESTree.Node[],
+                    node.body as AST.ASTNode[],
                     sourceText
                 );
                 if (props && props.length >= 2) {
@@ -159,7 +159,7 @@ function findSortablePatterns(
             const range = node.range as [number, number];
             if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
                 const props = extractProperties(
-                    node.members as TSESTree.Node[],
+                    node.members as AST.ASTNode[],
                     sourceText
                 );
                 if (props && props.length >= 2) {
@@ -169,13 +169,13 @@ function findSortablePatterns(
         }
 
         if (config?.format?.sortEnumMembers && node.type === 'TSEnumDeclaration' && node.range) {
-            const enumNode = node as TSESTree.TSEnumDeclaration;
+            const enumNode = node as AST.TSEnumDeclaration;
             const members = enumNode.body?.members ?? enumNode.members;
-            if (members.length >= 2) {
+            if (members && members.length >= 2) {
                 const braceRange = findBraceRange(node.range as [number, number], sourceText);
                 if (braceRange && isMultiline(sourceText, braceRange) && !hasInternalComments(sourceText, braceRange)) {
                     const props = extractProperties(
-                        members as TSESTree.Node[],
+                        members as AST.ASTNode[],
                         sourceText
                     );
                     if (props && props.length >= 2) {
@@ -186,12 +186,12 @@ function findSortablePatterns(
         }
 
         if (config?.format?.sortExports && node.type === 'ExportNamedDeclaration' && node.range) {
-            const exportNode = node as TSESTree.ExportNamedDeclaration;
+            const exportNode = node as AST.ExportNamedDeclaration;
             if (exportNode.specifiers.length >= 2) {
                 const braceRange = findBraceRange(node.range as [number, number], sourceText);
                 if (braceRange && isMultiline(sourceText, braceRange) && !hasInternalComments(sourceText, braceRange)) {
                     const props = extractProperties(
-                        exportNode.specifiers as TSESTree.Node[],
+                        exportNode.specifiers as AST.ASTNode[],
                         sourceText
                     );
                     if (props && props.length >= 2) {
@@ -202,9 +202,9 @@ function findSortablePatterns(
         }
 
         if (config?.format?.sortClassProperties && node.type === 'ClassBody' && node.range) {
-            const classBody = node as TSESTree.ClassBody;
+            const classBody = node as AST.ClassBody;
             // Find contiguous runs of PropertyDefinition nodes
-            let currentRun: TSESTree.PropertyDefinition[] = [];
+            let currentRun: AST.PropertyDefinition[] = [];
 
             const flushRun = (): void => {
                 if (currentRun.length >= 2) {
@@ -219,7 +219,7 @@ function findSortablePatterns(
                     const runRange: [number, number] = [runStart, last.range![1]];
 
                     if (!hasInternalComments(sourceText, runRange)) {
-                        const props = extractProperties(currentRun as TSESTree.Node[], sourceText);
+                        const props = extractProperties(currentRun as AST.ASTNode[], sourceText);
                         if (props && props.length >= 2) {
                             patterns.push({ kind: 'classBody', range: runRange, properties: props });
                         }
@@ -229,8 +229,8 @@ function findSortablePatterns(
             };
 
             for (const member of classBody.body) {
-                if (member.type === 'PropertyDefinition' && !member.static) {
-                    currentRun.push(member);
+                if (member.type === 'PropertyDefinition' && !(member as AST.PropertyDefinition).static) {
+                    currentRun.push(member as AST.PropertyDefinition);
                 } else {
                     flushRun();
                 }
@@ -244,11 +244,11 @@ function findSortablePatterns(
             if (Array.isArray(value)) {
                 for (const item of value) {
                     if (item && typeof item === 'object' && 'type' in item) {
-                        walk(item as TSESTree.Node);
+                        walk(item as AST.ASTNode);
                     }
                 }
             } else if (value && typeof value === 'object' && 'type' in value) {
-                walk(value as TSESTree.Node);
+                walk(value as AST.ASTNode);
             }
         }
     }
@@ -373,13 +373,9 @@ export function sortDestructuring(sourceText: string, config?: Config): string {
 
     // Iterate to handle nested sortable patterns (outer sort invalidates inner ranges)
     for (let iteration = 0; iteration < 10; iteration++) {
-        let ast: TSESTree.Program;
+        let ast: AST.Program;
         try {
-            ast = parse(current, {
-                range: true,
-                loc: true,
-                jsx: true,
-            }) as TSESTree.Program;
+            ast = parseSource(current, { jsx: true });
         } catch {
             return current;
         }

@@ -1,20 +1,18 @@
 {
   "compilerOptions": {
-		"module": "Node16",
-		"target": "ES2022",
-		"lib": [
-			"ES2022"
-		],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "esnext",
+    "lib": ["esnext"],
     "sourceMap": true,
     "rootDir": "src",
-    "checkJs": true,
-    "strict": true /* enable all strict type-checking options */,
+    "strict": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    /* Additional Checks */
-    "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
-    "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
+    "noEmit": true,
     "baseUrl": ".",
     "paths": {
       "@app/*": ["src/@app/*"],
