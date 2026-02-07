@@ -75,6 +75,7 @@ export interface ParsedImport {
     isPriority: boolean;
     sourceIndex: number;
     originalSource?: ImportSource; // Keep track of original source for grouping
+    isReExport?: boolean;
 }
 
 export interface ImportGroup {

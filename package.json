@@ -135,6 +135,16 @@
           "default": false,
           "description": "Sort export specifiers by name length (shortest first)"
         },
+        "tidyjs.format.sortClassProperties": {
+          "type": "boolean",
+          "default": false,
+          "description": "Sort class properties by name length (shortest first)"
+        },
+        "tidyjs.format.organizeReExports": {
+          "type": "boolean",
+          "default": false,
+          "description": "Organize and format re-export statements (export { ... } from '...')"
+        },
         "tidyjs.excludedFolders": {
           "type": "array",
           "default": [],

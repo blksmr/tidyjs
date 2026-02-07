@@ -10,7 +10,7 @@ interface PropertyInfo {
 }
 
 interface SortablePattern {
-    kind: 'objectPattern' | 'interfaceBody' | 'typeLiteral' | 'enumBody' | 'exportBlock';
+    kind: 'objectPattern' | 'interfaceBody' | 'typeLiteral' | 'enumBody' | 'exportBlock' | 'classBody';
     range: [number, number];
     properties: PropertyInfo[];
 }
@@ -55,6 +55,13 @@ function getPropertyName(node: TSESTree.Node): string | null {
             if (spec.exported.type === 'Identifier') {return spec.exported.name;}
             return null;
         }
+        case 'PropertyDefinition': {
+            const propDef = node as TSESTree.PropertyDefinition;
+            if (propDef.computed) {return null;}
+            if (propDef.key.type === 'Identifier') {return propDef.key.name;}
+            if (propDef.key.type === 'Literal') {return String(propDef.key.value);}
+            return null;
+        }
         case 'TSIndexSignature':
             return null;
         default:
@@ -63,7 +70,7 @@ function getPropertyName(node: TSESTree.Node): string | null {
 }
 
 function isRestNode(node: TSESTree.Node): boolean {
-    return node.type === 'RestElement';
+    return node.type === 'RestElement' || node.type === 'SpreadElement';
 }
 
 function isMultiline(sourceText: string, range: [number, number]): boolean {
@@ -122,7 +129,7 @@ function findSortablePatterns(
     function walk(node: TSESTree.Node): void {
         if (!node || typeof node !== 'object') {return;}
 
-        if (node.type === 'ObjectPattern' && node.range) {
+        if (config?.format?.sortDestructuring && node.type === 'ObjectPattern' && node.range) {
             const range = node.range as [number, number];
             if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
                 const props = extractProperties(
@@ -135,7 +142,20 @@ function findSortablePatterns(
             }
         }
 
-        if (node.type === 'TSInterfaceBody' && node.range) {
+        if (config?.format?.sortDestructuring && node.type === 'ObjectExpression' && node.range) {
+            const range = node.range as [number, number];
+            if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
+                const props = extractProperties(
+                    (node as TSESTree.ObjectExpression).properties as TSESTree.Node[],
+                    sourceText
+                );
+                if (props && props.length >= 2) {
+                    patterns.push({ kind: 'objectPattern', range, properties: props });
+                }
+            }
+        }
+
+        if (config?.format?.sortDestructuring && node.type === 'TSInterfaceBody' && node.range) {
             const range = node.range as [number, number];
             if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
                 const props = extractProperties(
@@ -148,7 +168,7 @@ function findSortablePatterns(
             }
         }
 
-        if (node.type === 'TSTypeLiteral' && node.range) {
+        if (config?.format?.sortDestructuring && node.type === 'TSTypeLiteral' && node.range) {
             const range = node.range as [number, number];
             if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
                 const props = extractProperties(
@@ -192,6 +212,43 @@ function findSortablePatterns(
                     }
                 }
             }
+        }
+
+        if (config?.format?.sortClassProperties && node.type === 'ClassBody' && node.range) {
+            const classBody = node as TSESTree.ClassBody;
+            // Find contiguous runs of PropertyDefinition nodes
+            let currentRun: TSESTree.PropertyDefinition[] = [];
+
+            const flushRun = (): void => {
+                if (currentRun.length >= 2) {
+                    const first = currentRun[0];
+                    const last = currentRun[currentRun.length - 1];
+
+                    // Expand to line boundaries so indent detection works correctly
+                    let runStart = first.range![0];
+                    while (runStart > 0 && sourceText[runStart - 1] !== '\n') {
+                        runStart--;
+                    }
+                    const runRange: [number, number] = [runStart, last.range![1]];
+
+                    if (!hasInternalComments(sourceText, runRange)) {
+                        const props = extractProperties(currentRun as TSESTree.Node[], sourceText);
+                        if (props && props.length >= 2) {
+                            patterns.push({ kind: 'classBody', range: runRange, properties: props });
+                        }
+                    }
+                }
+                currentRun = [];
+            };
+
+            for (const member of classBody.body) {
+                if (member.type === 'PropertyDefinition' && !member.static) {
+                    currentRun.push(member);
+                } else {
+                    flushRun();
+                }
+            }
+            flushRun();
         }
 
         for (const key of Object.keys(node)) {
@@ -247,9 +304,9 @@ function sortProperties(
         }
     }
 
-    // For interfaces/types, the separator (;) is included in the AST range of each property.
+    // For interfaces/types/classes, the separator (;) is included in the AST range of each property.
     // For destructuring, commas are OUTSIDE the AST range — we must add them ourselves.
-    const separatorIncluded = pattern.kind === 'interfaceBody' || pattern.kind === 'typeLiteral';
+    const separatorIncluded = pattern.kind === 'interfaceBody' || pattern.kind === 'typeLiteral' || pattern.kind === 'classBody';
 
     if (separatorIncluded) {
         // Properties already contain their separator — just reorder them
@@ -258,6 +315,12 @@ function sortProperties(
         for (const prop of allSorted) {
             newLines.push(`${indent}${prop.text}`);
         }
+
+        if (pattern.kind === 'classBody') {
+            // No surrounding braces — range covers only the properties themselves
+            return { range, newText: newLines.join('\n') };
+        }
+
         const openingLine = lines[0];
         const closingLine = lines[lines.length - 1];
         return { range, newText: [openingLine, ...newLines, closingLine].join('\n') };
