@@ -135,6 +135,16 @@
           "type": "boolean",
           "description": "Sort export specifiers by name length (shortest first)",
           "default": false
+        },
+        "sortClassProperties": {
+          "type": "boolean",
+          "description": "Sort class properties by name length (shortest first)",
+          "default": false
+        },
+        "organizeReExports": {
+          "type": "boolean",
+          "description": "Organize and format re-export statements (export { ... } from '...')",
+          "default": false
         }
       },
       "additionalProperties": false

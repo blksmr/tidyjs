@@ -26,6 +26,8 @@ export interface Config {
     sortDestructuring?: boolean;
     sortEnumMembers?: boolean;
     sortExports?: boolean;
+    sortClassProperties?: boolean;
+    organizeReExports?: boolean;
   };
 
   pathResolution?: {
@@ -67,6 +69,8 @@ export interface TidyJSConfigFile {
     sortDestructuring?: boolean;
     sortEnumMembers?: boolean;
     sortExports?: boolean;
+    sortClassProperties?: boolean;
+    organizeReExports?: boolean;
   };
   pathResolution?: {
     enabled?: boolean;

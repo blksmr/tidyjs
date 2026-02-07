@@ -1,6 +1,7 @@
 // Other
 import { sortDestructuring } from './destructuring-sorter';
 import { formatImports } from './formatter';
+import { organizeReExports } from './reexport-organizer';
 import { ImportParser, ParserResult, InvalidImport, ParsedImport, ImportSource } from './parser';
 
 // VSCode
@@ -51,9 +52,11 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
 
             const documentText = document.getText();
 
-            // Vérification de sécurité pour éviter de formater des logs
-            // Supprimer cette vérification car elle est trop restrictive et empêche le formatage
-            // de fichiers légitimes qui pourraient contenir ces chaînes dans leur code
+            // Check for tidyjs-ignore pragma
+            if (hasIgnorePragma(documentText)) {
+                logDebug('Formatting skipped: tidyjs-ignore pragma found');
+                return undefined;
+            }
 
             // Create or update parser with document-specific configuration
             const configString = JSON.stringify(currentConfig);
@@ -163,9 +166,42 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             );
 
             // Check if parser returned any processable imports
+            const hasPostProcessing =
+                currentConfig.format?.sortDestructuring ||
+                currentConfig.format?.sortEnumMembers ||
+                currentConfig.format?.sortExports ||
+                currentConfig.format?.sortClassProperties ||
+                currentConfig.format?.organizeReExports;
+
             if (!parserResult.importRange && parserResult.groups.length === 0) {
-                logDebug('No imports to process in document');
-                return undefined;
+                if (!hasPostProcessing) {
+                    logDebug('No imports to process in document');
+                    return undefined;
+                }
+
+                // No imports but post-processing features are enabled — run them on the raw text
+                logDebug('No imports to process, but post-processing features are enabled');
+                let finalText = documentText;
+
+                if (currentConfig.format?.sortDestructuring ||
+                    currentConfig.format?.sortEnumMembers ||
+                    currentConfig.format?.sortExports ||
+                    currentConfig.format?.sortClassProperties) {
+                    finalText = sortDestructuring(finalText, currentConfig);
+                }
+                if (currentConfig.format?.organizeReExports) {
+                    finalText = organizeReExports(finalText, currentConfig);
+                }
+
+                if (finalText === documentText) {
+                    logDebug('Post-processing produced no changes');
+                    return undefined;
+                }
+
+                const fullRange = new Range(document.positionAt(0), document.positionAt(documentText.length));
+                const totalDuration = perfMonitor.end('total_format_operation');
+                logDebug(`Document formatting (post-processing only) completed in ${totalDuration.toFixed(2)}ms`);
+                return [TextEdit.replace(fullRange, finalText)];
             }
             
             // Apply path resolution if enabled
@@ -229,8 +265,14 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             let finalText = formattedDocument.text;
             if (currentConfig.format?.sortDestructuring ||
                 currentConfig.format?.sortEnumMembers ||
-                currentConfig.format?.sortExports) {
+                currentConfig.format?.sortExports ||
+                currentConfig.format?.sortClassProperties) {
                 finalText = sortDestructuring(finalText, currentConfig);
+            }
+
+            // Post-processing: organize re-exports if enabled
+            if (currentConfig.format?.organizeReExports) {
+                finalText = organizeReExports(finalText, currentConfig);
             }
 
             // Créer et retourner les éditions
@@ -251,6 +293,14 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             diagnosticsCache.clear();
         }
     }
+}
+
+/**
+ * Check if the document contains a tidyjs-ignore pragma comment.
+ * Matches `// tidyjs-ignore` on its own line (with optional surrounding whitespace).
+ */
+function hasIgnorePragma(text: string): boolean {
+    return /^\s*\/\/\s*tidyjs-ignore\s*$/m.test(text);
 }
 
 /**

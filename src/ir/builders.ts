@@ -59,6 +59,7 @@ function specToString(spec: string | { imported: string; local: string }): strin
 export function buildImportNode(imp: ParsedImport, config: Config, groupId: string): IRNode {
     const { type, source, specifiers } = imp;
 
+    const keyword = imp.isReExport ? 'export' : 'import';
     const quote = config.format?.singleQuote !== false ? "'" : '"';
     const bracketSpace = config.format?.bracketSpacing !== false ? ' ' : '';
     const indentSize = config.format?.indent || 4;
@@ -72,7 +73,7 @@ export function buildImportNode(imp: ParsedImport, config: Config, groupId: stri
     // Default import (single specifier)
     if (type === ImportType.DEFAULT && specifiers.length === 1) {
         const specStr = specToString(specifiers[0]);
-        const prefix = `import ${specStr} `;
+        const prefix = `${keyword} ${specStr} `;
         const suffix = `from ${quote}${source}${quote};`;
         return alignAnchor(groupId, text(prefix), text(suffix));
     }
@@ -80,7 +81,7 @@ export function buildImportNode(imp: ParsedImport, config: Config, groupId: stri
     // Type default import (single specifier)
     if (type === ImportType.TYPE_DEFAULT && specifiers.length === 1) {
         const specStr = specToString(specifiers[0]);
-        const prefix = `import type ${specStr} `;
+        const prefix = `${keyword} type ${specStr} `;
         const suffix = `from ${quote}${source}${quote};`;
         return alignAnchor(groupId, text(prefix), text(suffix));
     }
@@ -89,7 +90,7 @@ export function buildImportNode(imp: ParsedImport, config: Config, groupId: stri
     if ((type === ImportType.NAMED || type === ImportType.TYPE_NAMED) && specifiers.length === 1) {
         const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
         const specStr = specToString(specifiers[0]);
-        const prefix = `import ${typePrefix}{${bracketSpace}${specStr}${bracketSpace}} `;
+        const prefix = `${keyword} ${typePrefix}{${bracketSpace}${specStr}${bracketSpace}} `;
         const suffix = `from ${quote}${source}${quote};`;
         return alignAnchor(groupId, text(prefix), text(suffix));
     }
@@ -102,9 +103,8 @@ export function buildImportNode(imp: ParsedImport, config: Config, groupId: stri
         const specifiersSet = new Set(formattedSpecs);
         const sortedSpecifiers = Array.from(specifiersSet).sort((a, b) => a.length - b.length);
 
-        // Build the multiline import as IR
-        // Line 1: `import [type ]{`
-        const firstLine = `import ${typePrefix}{`;
+        // Build the multiline import/export as IR
+        const firstLine = `${keyword} ${typePrefix}{`;
 
         // Middle lines: `    specifier,`
         const middleLines = sortedSpecifiers.map((spec, i) => {
@@ -112,22 +112,11 @@ export function buildImportNode(imp: ParsedImport, config: Config, groupId: stri
             return `${indentStr}${spec}${comma}`;
         });
 
-        // Last line: `} from 'source';`
-        // This is the anchor suffix
-
         // Compute idealWidth for alignment:
-        // The ideal from-position is based on the longest middle line content
-        // Replicates the old alignImportsInGroup logic:
-        //   longestLine = max of middleLines trimmed without trailing comma
-        //   idealFromPosition = indent + maxLength + adjustment
         const middleLengths = sortedSpecifiers.map((spec) => spec.length);
         const maxSpecLength = Math.max(...middleLengths);
 
-        // Find which index has the longest specifier
         const maxIndex = middleLengths.indexOf(maxSpecLength);
-        // The adjustment is 2 if the longest line is NOT the last specifier and NOT -1, else 1
-        // In the old code: maxIndex !== lines.length - 3 && maxIndex !== -1 ? 2 : 1
-        // lines.length - 3 = middleLines.length - 1 (last middle line index)
         const isLastSpec = maxIndex === sortedSpecifiers.length - 1;
         const adjustment = !isLastSpec ? 2 : 1;
         const idealWidth = indentSize + maxSpecLength + adjustment;
@@ -140,11 +129,11 @@ export function buildImportNode(imp: ParsedImport, config: Config, groupId: stri
         return alignAnchor(groupId, text(prefixText), text(suffix), idealWidth);
     }
 
-    // Fallback: generic named import (shouldn't normally reach here)
+    // Fallback: generic named import/export (shouldn't normally reach here)
     const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
     const formattedSpecs = specifiers.map(specToString);
     const specifiersStr = formattedSpecs.join(', ');
-    const prefix = `import ${typePrefix}{${bracketSpace}${specifiersStr}${bracketSpace}} `;
+    const prefix = `${keyword} ${typePrefix}{${bracketSpace}${specifiersStr}${bracketSpace}} `;
     const suffix = `from ${quote}${source}${quote};`;
     return alignAnchor(groupId, text(prefix), text(suffix));
 }

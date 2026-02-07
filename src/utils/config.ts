@@ -26,6 +26,7 @@ const DEFAULT_CONFIG: Config = {
     removeMissingModules: false,
     singleQuote: true,
     bracketSpacing: true,
+    organizeReExports: false,
   },
   pathResolution: {
     enabled: false,
@@ -470,6 +471,8 @@ class ConfigManager {
         sortDestructuring: vsConfig.get<boolean>('format.sortDestructuring'),
         sortEnumMembers: vsConfig.get<boolean>('format.sortEnumMembers'),
         sortExports: vsConfig.get<boolean>('format.sortExports'),
+        sortClassProperties: vsConfig.get<boolean>('format.sortClassProperties'),
+        organizeReExports: vsConfig.get<boolean>('format.organizeReExports'),
       };
 
       for (const [key, value] of Object.entries(formatSettings)) {
