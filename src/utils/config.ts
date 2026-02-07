@@ -542,22 +542,22 @@ class ConfigManager {
   }
 
   /**
-   * Gets configuration for a specific document, considering all config sources
-   * @param document The VS Code text document
+   * Gets configuration for a specific URI, considering all config sources
+   * @param uri The VS Code URI
    * @returns Configuration merged from all applicable sources
    */
-  public async getConfigForDocument(document: vscode.TextDocument): Promise<Config> {
-    const cacheKey = document.uri.toString();
-    
+  public async getConfigForUri(uri: vscode.Uri): Promise<Config> {
+    const cacheKey = uri.toString();
+
     // Check cache first
     const cached = this.documentConfigCache.get(cacheKey);
     if (cached) {
       return cached;
     }
 
-    // Get all config sources for this document
-    const sources = await ConfigLoader.getConfigForDocument(document.uri);
-    
+    // Get all config sources for this URI
+    const sources = await ConfigLoader.getConfigForDocument(uri);
+
     if (sources.length === 0) {
       // No specific config found, use default
       const config = this.getConfig();
@@ -568,7 +568,7 @@ class ConfigManager {
     // Start with default config
     let mergedConfig = this.deepCloneConfig(DEFAULT_CONFIG);
 
-    logDebug(`Merging ${sources.length} config sources for document`);
+    logDebug(`Merging ${sources.length} config sources for URI`);
 
     // Apply configurations in reverse order (most general to most specific)
     for (let i = sources.length - 1; i >= 0; i--) {
@@ -589,16 +589,25 @@ class ConfigManager {
     const allGroups = this.getAllGroupsForConfig(mergedConfig);
     mergedConfig.groups = allGroups;
 
-    logDebug(`Config loaded for ${document.fileName} from ${sources.length} sources`);
+    logDebug(`Config loaded for ${uri.fsPath} from ${sources.length} sources`);
     logDebug(`Final merged config format:`, {
       indent: mergedConfig.format?.indent,
       singleQuote: mergedConfig.format?.singleQuote,
       bracketSpacing: mergedConfig.format?.bracketSpacing,
       removeUnusedImports: mergedConfig.format?.removeUnusedImports
     });
-    
+
     this.documentConfigCache.set(cacheKey, mergedConfig);
     return mergedConfig;
+  }
+
+  /**
+   * Gets configuration for a specific document, considering all config sources
+   * @param document The VS Code text document
+   * @returns Configuration merged from all applicable sources
+   */
+  public async getConfigForDocument(document: vscode.TextDocument): Promise<Config> {
+    return this.getConfigForUri(document.uri);
   }
 
   /**

@@ -2,10 +2,11 @@
 import { sortDestructuring } from './destructuring-sorter';
 import { formatImports } from './formatter';
 import { organizeReExports } from './reexport-organizer';
+import { formatFolder } from './batch-formatter';
 import { ImportParser, ParserResult, InvalidImport, ParsedImport, ImportSource } from './parser';
 
 // VSCode
-import { Range, window, commands, TextEdit, workspace, languages, CancellationTokenSource } from 'vscode';
+import { Range, window, commands, TextEdit, workspace, languages, CancellationTokenSource, ProgressLocation, Uri } from 'vscode';
 import type { TextDocument, ExtensionContext, FormattingOptions, CancellationToken, DocumentFormattingEditProvider } from 'vscode';
 
 // Utils
@@ -487,6 +488,74 @@ export function activate(context: ExtensionContext): void {
             }
         });
 
+        const formatFolderCommand = commands.registerCommand('tidyjs.formatFolder', async (folderUri?: Uri) => {
+            // If no URI provided (invoked from command palette), ask user to pick a folder
+            if (!folderUri) {
+                const selected = await window.showOpenDialog({
+                    canSelectFolders: true,
+                    canSelectFiles: false,
+                    canSelectMany: false,
+                    openLabel: 'Select Folder',
+                    title: 'Select folder to format',
+                });
+                if (!selected || selected.length === 0) {
+                    return;
+                }
+                folderUri = selected[0];
+            }
+
+            const workspaceFolder = workspace.getWorkspaceFolder(folderUri);
+            const workspaceRoot = workspaceFolder?.uri.fsPath;
+
+            await window.withProgress(
+                {
+                    location: ProgressLocation.Notification,
+                    title: 'TidyJS: Formatting folder...',
+                    cancellable: true,
+                },
+                async (progress, token) => {
+                    const result = await formatFolder(folderUri.fsPath, workspaceRoot, {
+                        onProgress: (current, total, filePath) => {
+                            const pct = Math.round((current / total) * 100);
+                            const fileName = filePath.split('/').pop() ?? filePath;
+                            progress.report({
+                                increment: (1 / total) * 100,
+                                message: `(${current}/${total}) ${fileName}`,
+                            });
+                            logDebug(`Batch format progress: ${pct}% — ${filePath}`);
+                        },
+                        isCancelled: () => token.isCancellationRequested,
+                        createUri: (filePath) => Uri.file(filePath),
+                    });
+
+                    if (token.isCancellationRequested) {
+                        showMessage.info(
+                            `Cancelled. ${result.formatted} file(s) formatted before cancellation.`
+                        );
+                        return;
+                    }
+
+                    if (result.errors.length > 0) {
+                        const showErrors = 'Show Errors';
+                        const choice = await showMessage.warning(
+                            `${result.formatted} file(s) formatted, ${result.skipped} skipped, ${result.errors.length} error(s).`,
+                            showErrors
+                        );
+                        if (choice === showErrors) {
+                            const errorDetails = result.errors
+                                .map((e) => `${e.filePath}: ${e.error}`)
+                                .join('\n');
+                            logError('Batch format errors:\n' + errorDetails);
+                        }
+                    } else {
+                        showMessage.info(
+                            `${result.formatted} file(s) formatted, ${result.skipped} skipped.`
+                        );
+                    }
+                }
+            );
+        });
+
         // Listen for configuration changes to invalidate parser cache
         const configChangeDisposable = workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration('tidyjs')) {
@@ -497,8 +566,8 @@ export function activate(context: ExtensionContext): void {
                 configManager.clearDocumentCache();
             }
         });
-        
-        context.subscriptions.push(formatCommand, createConfigCommand, formattingProvider, configChangeDisposable);
+
+        context.subscriptions.push(formatCommand, createConfigCommand, formatFolderCommand, formattingProvider, configChangeDisposable);
 
         logDebug('Extension activated successfully with config:', configManager.getConfig());
 

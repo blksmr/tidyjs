@@ -142,19 +142,6 @@ function findSortablePatterns(
             }
         }
 
-        if (config?.format?.sortDestructuring && node.type === 'ObjectExpression' && node.range) {
-            const range = node.range as [number, number];
-            if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
-                const props = extractProperties(
-                    (node as TSESTree.ObjectExpression).properties as TSESTree.Node[],
-                    sourceText
-                );
-                if (props && props.length >= 2) {
-                    patterns.push({ kind: 'objectPattern', range, properties: props });
-                }
-            }
-        }
-
         if (config?.format?.sortDestructuring && node.type === 'TSInterfaceBody' && node.range) {
             const range = node.range as [number, number];
             if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
@@ -270,6 +257,25 @@ function findSortablePatterns(
     return patterns;
 }
 
+function detectIndent(properties: PropertyInfo[], sourceText: string): string {
+    // Detect indentation from actual property positions in the source.
+    // Walk backward from each property's start to the previous newline.
+    for (const prop of properties) {
+        const propStart = prop.range[0];
+        let lineStart = propStart;
+        while (lineStart > 0 && sourceText[lineStart - 1] !== '\n') {
+            lineStart--;
+        }
+        if (lineStart < propStart) {
+            const leading = sourceText.slice(lineStart, propStart);
+            if (/^\s+$/.test(leading)) {
+                return leading;
+            }
+        }
+    }
+    return '    ';
+}
+
 function sortProperties(
     pattern: SortablePattern,
     sourceText: string
@@ -287,67 +293,52 @@ function sortProperties(
     const alreadySorted = sorted.every((p, i) => p.name === nonRestProps[i].name);
     if (alreadySorted) {return null;}
 
-    // Reconstruct the block content
-    const blockText = sourceText.slice(range[0], range[1]);
-    const lines = blockText.split('\n');
-
-    // Detect indentation from the first property line
-    let indent = '    ';
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed && trimmed !== '{' && trimmed !== '}') {
-            const match = line.match(/^(\s+)/);
-            if (match) {
-                indent = match[1];
-            }
-            break;
-        }
-    }
+    const indent = detectIndent(properties, sourceText);
 
     // For interfaces/types/classes, the separator (;) is included in the AST range of each property.
     // For destructuring, commas are OUTSIDE the AST range — we must add them ourselves.
     const separatorIncluded = pattern.kind === 'interfaceBody' || pattern.kind === 'typeLiteral' || pattern.kind === 'classBody';
 
+    const allSorted = [...sorted, ...restProps];
+
+    if (pattern.kind === 'classBody') {
+        // No surrounding braces — range covers only the properties themselves
+        const newLines = allSorted.map(p => `${indent}${p.text}`);
+        return { range, newText: newLines.join('\n') };
+    }
+
+    // Use range-based prefix/suffix instead of line-based to avoid corruption
+    // when properties share a line with opening/closing braces.
+    const firstProp = properties[0];
+    const lastProp = properties[properties.length - 1];
+    const prefix = sourceText.slice(range[0], firstProp.range[0]);
+    const suffix = sourceText.slice(lastProp.range[1], range[1]);
+
     if (separatorIncluded) {
-        // Properties already contain their separator — just reorder them
-        const allSorted = [...sorted, ...restProps];
-        const newLines: string[] = [];
-        for (const prop of allSorted) {
-            newLines.push(`${indent}${prop.text}`);
-        }
-
-        if (pattern.kind === 'classBody') {
-            // No surrounding braces — range covers only the properties themselves
-            return { range, newText: newLines.join('\n') };
-        }
-
-        const openingLine = lines[0];
-        const closingLine = lines[lines.length - 1];
-        return { range, newText: [openingLine, ...newLines, closingLine].join('\n') };
+        // First property: prefix already provides the lead-in whitespace
+        const newLines = allSorted.map((p, i) => i === 0 ? p.text : `${indent}${p.text}`);
+        return { range, newText: prefix + newLines.join('\n') + suffix };
     }
 
     // Destructuring: detect trailing comma from text between last property and closing brace
-    const lastProp = properties[properties.length - 1];
-    const textAfterLastProp = sourceText.slice(lastProp.range[1], range[1]);
-    const hasTrailingComma = /^\s*,/.test(textAfterLastProp);
+    const hasTrailingComma = /^\s*,/.test(suffix);
+    const cleanSuffix = suffix.replace(/^\s*,/, '');
 
-    const allSorted = [...sorted, ...restProps];
     const newLines: string[] = [];
-
     for (let i = 0; i < allSorted.length; i++) {
         const propText = allSorted[i].text;
         const isLast = i === allSorted.length - 1;
+        const comma = isLast ? (hasTrailingComma ? ',' : '') : ',';
 
-        if (isLast) {
-            newLines.push(`${indent}${propText}${hasTrailingComma ? ',' : ''}`);
+        // First property: prefix already provides the lead-in whitespace
+        if (i === 0) {
+            newLines.push(`${propText}${comma}`);
         } else {
-            newLines.push(`${indent}${propText},`);
+            newLines.push(`${indent}${propText}${comma}`);
         }
     }
 
-    const openingLine = lines[0];
-    const closingLine = lines[lines.length - 1];
-    return { range, newText: [openingLine, ...newLines, closingLine].join('\n') };
+    return { range, newText: prefix + newLines.join('\n') + cleanSuffix };
 }
 
 function applyReplacements(sourceText: string, replacements: Replacement[]): string {
@@ -360,30 +351,57 @@ function applyReplacements(sourceText: string, replacements: Replacement[]): str
     return result;
 }
 
-export function sortDestructuring(sourceText: string, config?: Config): string {
-    let ast: TSESTree.Program;
-    try {
-        ast = parse(sourceText, {
-            range: true,
-            loc: true,
-            jsx: true,
-        }) as TSESTree.Program;
-    } catch {
-        // If parsing fails, return original text unchanged
-        return sourceText;
-    }
-
-    const patterns = findSortablePatterns(ast, sourceText, config);
-    const replacements: Replacement[] = [];
-
-    for (const pattern of patterns) {
-        const replacement = sortProperties(pattern, sourceText);
-        if (replacement) {
-            replacements.push(replacement);
+function filterNonOverlapping(replacements: Replacement[]): Replacement[] {
+    // Sort by range start ascending, then by range length descending (outer first)
+    const sorted = [...replacements].sort((a, b) =>
+        a.range[0] - b.range[0] || (b.range[1] - b.range[0]) - (a.range[1] - a.range[0])
+    );
+    const result: Replacement[] = [];
+    let lastEnd = -1;
+    for (const rep of sorted) {
+        if (rep.range[0] >= lastEnd) {
+            result.push(rep);
+            lastEnd = rep.range[1];
         }
+        // else: nested within or overlapping — skip for this pass
+    }
+    return result;
+}
+
+export function sortDestructuring(sourceText: string, config?: Config): string {
+    let current = sourceText;
+
+    // Iterate to handle nested sortable patterns (outer sort invalidates inner ranges)
+    for (let iteration = 0; iteration < 10; iteration++) {
+        let ast: TSESTree.Program;
+        try {
+            ast = parse(current, {
+                range: true,
+                loc: true,
+                jsx: true,
+            }) as TSESTree.Program;
+        } catch {
+            return current;
+        }
+
+        const patterns = findSortablePatterns(ast, current, config);
+        const replacements: Replacement[] = [];
+
+        for (const pattern of patterns) {
+            const replacement = sortProperties(pattern, current);
+            if (replacement) {
+                replacements.push(replacement);
+            }
+        }
+
+        if (replacements.length === 0) {return current;}
+
+        const safe = filterNonOverlapping(replacements);
+        current = applyReplacements(current, safe);
+
+        // No overlaps were filtered out — all replacements applied in one pass
+        if (safe.length === replacements.length) {return current;}
     }
 
-    if (replacements.length === 0) {return sourceText;}
-
-    return applyReplacements(sourceText, replacements);
+    return current;
 }

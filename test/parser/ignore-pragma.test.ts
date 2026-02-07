@@ -64,11 +64,11 @@ describe('tidyjs-ignore pragma', () => {
     });
 
     describe('formatting still works without pragma', () => {
-        test('imports are organized when no pragma is present', () => {
+        test('imports are organized when no pragma is present', async () => {
             const source = `import { useState } from 'react';\nimport React from 'react';\n`;
             const parser = new ImportParser(baseConfig);
             const result = parser.parse(source);
-            const formatted = formatImports(source, baseConfig, result);
+            const formatted = await formatImports(source, baseConfig, result);
 
             expect(formatted.text).not.toBe(source);
         });
