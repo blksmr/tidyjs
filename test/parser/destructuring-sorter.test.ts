@@ -744,24 +744,20 @@ describe('class properties sorting', () => {
     });
 });
 
-describe('object literal sorting', () => {
-    it('should sort multiline object literal properties by name length', () => {
+describe('object literal sorting (ObjectExpression)', () => {
+    it('should NOT sort object literals — property order is semantically meaningful', () => {
         const input = `const obj = {
     telephone: '123',
     id: 1,
     nom: 'test',
 };`;
 
-        const expected = `const obj = {
-    id: 1,
-    nom: 'test',
-    telephone: '123',
-};`;
-
-        expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+        // Object literals are never sorted because property order can carry
+        // semantic meaning: tab order, spread override priority, render order, etc.
+        expect(sortDestructuring(input, destructuringConfig)).toBe(input);
     });
 
-    it('should sort object literal in constructor call', () => {
+    it('should NOT sort object literals in constructor calls', () => {
         const input = `const model = new SignataireModel({
     infos_complementaires: '',
     type: 'foo',
@@ -769,82 +765,16 @@ describe('object literal sorting', () => {
     email: '',
 });`;
 
-        const expected = `const model = new SignataireModel({
-    nom: '',
-    type: 'foo',
-    email: '',
-    infos_complementaires: '',
-});`;
-
-        expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
-    });
-
-    it('should not touch single-line object literals', () => {
-        const input = `const obj = { longName: 1, a: 2 };`;
         expect(sortDestructuring(input, destructuringConfig)).toBe(input);
     });
 
-    it('should skip object literals with comments', () => {
-        const input = `const obj = {
-    // important ordering
-    longName: 1,
-    a: 2,
-};`;
-
-        expect(sortDestructuring(input, destructuringConfig)).toBe(input);
-    });
-
-    it('should handle object literal in return statement', () => {
+    it('should NOT sort object literals in return statements', () => {
         const input = `return {
     telephone: '123',
     id: 1,
     nom: 'test',
 };`;
 
-        const expected = `return {
-    id: 1,
-    nom: 'test',
-    telephone: '123',
-};`;
-
-        expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
-    });
-
-    it('should handle object literal with spread operator at the end', () => {
-        const input = `const obj = {
-    longName: 'test',
-    a: 1,
-    ...defaults
-};`;
-
-        const expected = `const obj = {
-    a: 1,
-    longName: 'test',
-    ...defaults
-};`;
-
-        expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
-    });
-
-    it('should be idempotent', () => {
-        const input = `const obj = {
-    telephone: '123',
-    id: 1,
-    nom: 'test',
-};`;
-
-        const first = sortDestructuring(input, destructuringConfig);
-        const second = sortDestructuring(first, destructuringConfig);
-        expect(first).toBe(second);
-    });
-
-    it('should not sort object literals without config flag', () => {
-        const input = `const obj = {
-    telephone: '123',
-    id: 1,
-    nom: 'test',
-};`;
-
-        expect(sortDestructuring(input)).toBe(input);
+        expect(sortDestructuring(input, destructuringConfig)).toBe(input);
     });
 });

@@ -37,8 +37,22 @@
         "command": "tidyjs.createConfigFile",
         "title": "Create Configuration File",
         "category": "TidyJS"
+      },
+      {
+        "command": "tidyjs.formatFolder",
+        "title": "Format Folder",
+        "category": "TidyJS"
       }
     ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "tidyjs.formatFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "2_workspace"
+        }
+      ]
+    },
     "configuration": {
       "title": "TidyJS",
       "properties": {
