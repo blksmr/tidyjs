@@ -7,7 +7,7 @@ VS Code extension that organizes and formats TypeScript/JavaScript import declar
 - `npm run test` — Jest tests
 - `npm run test:e2e` — build + VS Code extension tests
 - `tsc --noEmit` — type check
-- `npm run lint` — ESLint (src, test/parser, jest.config.js)
+- `npm run lint` — ESLint (src, test/parser, jest.config.cjs)
 - `npm run check` — type check + lint + tests
 - `npm run dev` — watch (esbuild + tsc)
 - `npm run build` — production build + .vsix

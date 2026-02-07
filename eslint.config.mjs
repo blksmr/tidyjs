@@ -52,9 +52,9 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-assertion": "off",
     },
   },
-  // Configuration pour jest.config.js (CommonJS)
+  // Configuration pour jest.config.cjs (CommonJS)
   {
-    files: ["jest.config.js"],
+    files: ["jest.config.cjs"],
     languageOptions: {
       sourceType: "commonjs",
       globals: {
