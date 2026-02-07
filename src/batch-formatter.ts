@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import vscode from 'vscode';
+import * as vscode from 'vscode';
 
 import { formatImports } from './formatter';
 import { sortDestructuring } from './destructuring-sorter';

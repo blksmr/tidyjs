@@ -16,6 +16,7 @@
   "engines": {
     "vscode": "^1.90.0"
   },
+  "type": "module",
   "main": "./dist/extension.js",
   "categories": [
     "Formatters"
@@ -206,13 +207,13 @@
   },
   "scripts": {
     "dev": "npm-run-all -p watch:*",
-    "watch:esbuild": "node scripts/esbuild.js --watch",
+    "watch:esbuild": "node scripts/esbuild.mjs --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "test": "jest --config jest.config.js",
-    "test:e2e": "node scripts/esbuild.js --production && tsc -p ./test/e2e/tsconfig.json && node ./out/test/e2e/test/e2e/runTest",
-    "lint": "eslint --config eslint.config.mjs src test/parser jest.config.js",
+    "test": "jest --config jest.config.cjs",
+    "test:e2e": "node scripts/esbuild.mjs --production && tsc -p ./test/e2e/tsconfig.json && node ./out/test/e2e/test/e2e/runTest",
+    "lint": "eslint --config eslint.config.mjs src test/parser jest.config.cjs",
     "check": "tsc --noEmit && npm run lint && npm run test",
-    "build": "node scripts/esbuild.js --production && vsce package",
+    "build": "node scripts/esbuild.mjs --production && vsce package",
     "bump": "sh ./scripts/bump.sh"
   },
   "devDependencies": {

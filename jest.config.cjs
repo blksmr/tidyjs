@@ -8,13 +8,13 @@ module.exports = {
         "**/test/ir/**/*.ts"
     ],
     moduleNameMapper: {
-        "^vscode$": "<rootDir>/test/mocks/vscode.js",
-        "^oxc-parser$": "<rootDir>/test/mocks/oxc-parser.js"
+        "^vscode$": "<rootDir>/test/mocks/vscode.cjs",
+        "^oxc-parser$": "<rootDir>/test/mocks/oxc-parser.cjs"
     },
     transform: {
         "^.+\\.tsx?$": "ts-jest"
     },
-    moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
+    moduleFileExtensions: ["ts", "tsx", "js", "jsx", "cjs", "json", "node"],
     testPathIgnorePatterns: [
         "/node_modules/",
         "/.vscode-test/"
