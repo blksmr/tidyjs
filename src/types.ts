@@ -39,6 +39,7 @@ export interface Config {
     enabled?: boolean;
     mode?: 'relative' | 'absolute';
     preferredAliases?: string[];
+    aliases?: Record<string, string[]>;
   };
 
   excludedFolders?: string[];
@@ -86,6 +87,7 @@ export interface TidyJSConfigFile {
     enabled?: boolean;
     mode?: 'relative' | 'absolute';
     preferredAliases?: string[];
+    aliases?: Record<string, string[]>;
   };
   excludedFolders?: string[];
 }

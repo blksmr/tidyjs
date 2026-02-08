@@ -519,7 +519,13 @@ class ConfigManager {
         config.pathResolution = config.pathResolution || {};
         config.pathResolution.preferredAliases = [...pathResolutionAliases];
       }
-      
+
+      const customAliases = vsConfig.get<Record<string, string[]>>('pathResolution.aliases');
+      if (customAliases !== undefined && Object.keys(customAliases).length > 0) {
+        config.pathResolution = config.pathResolution || {};
+        config.pathResolution.aliases = customAliases;
+      }
+
       return config;
 
     } catch (error) {

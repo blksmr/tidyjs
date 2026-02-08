@@ -210,7 +210,8 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 try {
                     const pathResolver = new PathResolver({
                         mode: currentConfig.pathResolution.mode || 'relative',
-                        preferredAliases: currentConfig.pathResolution.preferredAliases || []
+                        preferredAliases: currentConfig.pathResolution.preferredAliases || [],
+                        aliases: currentConfig.pathResolution.aliases,
                     });
                     
                     const resolutionMode = currentConfig.pathResolution.mode || 'relative';
@@ -609,15 +610,16 @@ function formatImportError(invalidImport: InvalidImport): string {
 }
 
 /**
- * Apply path resolution and re-group imports based on converted paths
- * Works for both absolute and relative modes
+ * Apply path resolution and re-group imports based on converted paths.
+ * In absolute mode: re-determine group from the new alias path.
+ * In relative mode: keep the original group (the relative path won't match the regex pattern).
  */
 async function applyPathResolutionWithRegrouping(
     originalResult: ParserResult,
     pathResolver: PathResolver,
     document: TextDocument,
     parserInstance: ImportParser,
-    _mode: 'absolute' | 'relative'
+    mode: 'absolute' | 'relative'
 ): Promise<ParserResult | null> {
     try {
         const allImports: ParsedImport[] = [];
@@ -636,17 +638,27 @@ async function applyPathResolutionWithRegrouping(
             );
 
             if (resolvedPath && resolvedPath !== importInfo.source) {
-                const { groupName, isPriority } = parserInstance.determineGroup(resolvedPath);
+                let groupName = importInfo.groupName;
+                let isPriority = importInfo.isPriority;
+
+                // Only re-group in absolute mode — the new alias path may match a different group.
+                // In relative mode, keep the original group since relative paths won't match regex patterns.
+                if (mode === 'absolute') {
+                    const result = parserInstance.determineGroup(resolvedPath);
+                    groupName = result.groupName;
+                    isPriority = result.isPriority;
+                }
+
                 const convertedImport = {
                     ...importInfo,
                     source: resolvedPath as ImportSource,
-                    groupName: groupName,
-                    isPriority: isPriority
+                    groupName,
+                    isPriority
                 };
                 convertedImports.push(convertedImport);
                 hasChanges = true;
                 convertedCount++;
-                logDebug(`Path resolved and regrouped: ${importInfo.source} -> ${resolvedPath} (group: ${groupName})`);
+                logDebug(`Path resolved: ${importInfo.source} -> ${resolvedPath} (group: ${groupName})`);
             } else {
                 convertedImports.push(importInfo);
             }
@@ -657,7 +669,7 @@ async function applyPathResolutionWithRegrouping(
             return null;
         }
 
-        logDebug(`Path resolution summary: ${convertedCount}/${allImports.length} imports converted and regrouped`);
+        logDebug(`Path resolution summary: ${convertedCount}/${allImports.length} imports converted`);
 
         const regroupedGroups = parserInstance.organizeImportsIntoGroups(convertedImports);
 
