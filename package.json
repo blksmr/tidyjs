@@ -222,6 +222,17 @@
             "type": "string",
             "description": "Alias pattern (e.g., '@components', '@utils', '@/*')"
           }
+        },
+        "tidyjs.pathResolution.aliases": {
+          "type": "object",
+          "default": {},
+          "description": "Custom path aliases (tsconfig paths format). Override auto-detected tsconfig paths.",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       }
     },

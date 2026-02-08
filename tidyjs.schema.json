@@ -202,6 +202,16 @@
             "type": "string"
           },
           "default": []
+        },
+        "aliases": {
+          "type": "object",
+          "description": "Path aliases in tsconfig paths format. Keys are patterns (e.g. '@app/*'), values are arrays of relative paths (e.g. ['./src/app/*'])",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "additionalProperties": false

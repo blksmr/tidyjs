@@ -1,5 +1,4 @@
 import { workspace, Uri, TextDocument } from 'vscode';
-import { UnifiedConfigLoader } from './config-loaders';
 import { logDebug, logError } from './log';
 
 export interface PathMapping {
@@ -10,6 +9,7 @@ export interface PathMapping {
 export interface PathResolverConfig {
     mode: 'relative' | 'absolute';
     preferredAliases?: string[];
+    aliases?: Record<string, string[]>;
 }
 
 /**
@@ -33,50 +33,117 @@ function safeRegExp(pattern: string): RegExp | null {
     }
 }
 
+/**
+ * Extract path mappings from a parsed tsconfig/jsconfig JSON object.
+ */
+export function extractTsConfigPaths(configPath: string, config: unknown): PathMapping[] {
+    const mappings: PathMapping[] = [];
+
+    if (!config || typeof config !== 'object') { return mappings; }
+    const tsConfig = config as { compilerOptions?: { baseUrl?: string; paths?: Record<string, string[]> } };
+    if (!tsConfig.compilerOptions) { return mappings; }
+
+    const baseUrl = tsConfig.compilerOptions.baseUrl || '.';
+    const configUri = Uri.file(configPath);
+    const configDir = Uri.joinPath(configUri, '..');
+    const absoluteBaseUrl = Uri.joinPath(configDir, baseUrl);
+
+    if (tsConfig.compilerOptions.paths) {
+        for (const [pattern, paths] of Object.entries(tsConfig.compilerOptions.paths)) {
+            mappings.push({
+                pattern,
+                paths: paths.map(p => Uri.joinPath(absoluteBaseUrl, p).fsPath)
+            });
+        }
+    } else if (tsConfig.compilerOptions.baseUrl) {
+        mappings.push({
+            pattern: '*',
+            paths: [Uri.joinPath(absoluteBaseUrl, '*').fsPath]
+        });
+        logDebug(`Using baseUrl fallback mapping: * -> ${absoluteBaseUrl.fsPath}/*`);
+    }
+
+    return mappings;
+}
+
+/**
+ * Walk up from the document directory to the workspace root,
+ * looking for tsconfig.json / jsconfig.json and extracting path mappings.
+ */
+async function loadTsConfigMappings(document: TextDocument): Promise<PathMapping[]> {
+    const workspaceFolder = workspace.getWorkspaceFolder(document.uri);
+    if (!workspaceFolder) { return []; }
+
+    let currentUri = Uri.joinPath(document.uri, '..');
+    const rootUri = workspaceFolder.uri;
+
+    while (currentUri.fsPath.startsWith(rootUri.fsPath)) {
+        for (const name of ['tsconfig.json', 'jsconfig.json']) {
+            const configUri = Uri.joinPath(currentUri, name);
+            try {
+                const bytes = await workspace.fs.readFile(configUri);
+                const content = Buffer.from(bytes).toString('utf-8');
+                const json = JSON.parse(
+                    content.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').replace(/,(\s*[}\]])/g, '$1')
+                );
+                const mappings = extractTsConfigPaths(configUri.fsPath, json);
+                if (mappings.length > 0) { return mappings; }
+            } catch {
+                // File doesn't exist or JSON is invalid — continue searching
+            }
+        }
+        const parent = Uri.joinPath(currentUri, '..');
+        if (parent.fsPath === currentUri.fsPath) { break; }
+        currentUri = parent;
+    }
+    return [];
+}
+
 export class PathResolver {
-    private configCache = new Map<string, { mappings: PathMapping[]; configType: string }>();
-    private unifiedLoader = new UnifiedConfigLoader();
+    private configCache = new Map<string, PathMapping[]>();
 
     constructor(private config: PathResolverConfig) {}
 
     /**
-     * Load path mappings from any supported config file
+     * Load path mappings from .tidyjsrc aliases (priority) and tsconfig (fallback).
      */
     private async loadPathMappings(document: TextDocument): Promise<PathMapping[]> {
         const workspaceFolder = workspace.getWorkspaceFolder(document.uri);
-        if (!workspaceFolder) {return [];}
+        if (!workspaceFolder) { return []; }
 
         const cacheKey = workspaceFolder.uri.toString();
         const cached = this.configCache.get(cacheKey);
-        if (cached) {
-            return [...cached.mappings];
+        if (cached) { return [...cached]; }
+
+        const allMappings: PathMapping[] = [];
+
+        // 1. .tidyjsrc / VS Code settings aliases (high priority)
+        if (this.config.aliases) {
+            for (const [pattern, paths] of Object.entries(this.config.aliases)) {
+                allMappings.push({ pattern, paths });
+            }
         }
 
-        let result;
+        // 2. tsconfig.json / jsconfig.json (low priority)
         try {
-            result = await this.unifiedLoader.loadAliases(document);
+            const tsMappings = await loadTsConfigMappings(document);
+            const existing = new Set(allMappings.map(m => m.pattern));
+            for (const m of tsMappings) {
+                if (!existing.has(m.pattern)) { allMappings.push(m); }
+            }
         } catch (error) {
-            logError('Error loading path aliases:', error);
-            return [];
+            logError('Error loading tsconfig paths:', error);
         }
 
-        if (result) {
-            // Sort by specificity — most specific patterns first (defensive copy)
-            const sorted = [...result.mappings].sort((a, b) =>
-                patternSpecificity(b.pattern) - patternSpecificity(a.pattern)
-            );
+        const sorted = [...allMappings].sort((a, b) =>
+            patternSpecificity(b.pattern) - patternSpecificity(a.pattern)
+        );
 
-            this.configCache.set(cacheKey, {
-                mappings: sorted,
-                configType: result.configType
-            });
+        this.configCache.set(cacheKey, sorted);
 
-            logDebug(`Loaded ${sorted.length} path mappings from ${result.configType}: ${sorted.map(m => m.pattern).join(', ')}`);
+        logDebug(`Loaded ${sorted.length} path mappings: ${sorted.map(m => m.pattern).join(', ')}`);
 
-            return [...sorted];
-        }
-
-        return [];
+        return [...sorted];
     }
 
     /**
@@ -273,7 +340,7 @@ export class PathResolver {
     private getRelativePath(fromUri: Uri, toUri: Uri): string {
         const fromParts = fromUri.fsPath.split(/[/\\]/).filter(p => p.length > 0);
         const toParts = toUri.fsPath.split(/[/\\]/).filter(p => p.length > 0);
-        
+
         // Find common base
         let commonLength = 0;
         for (let i = 0; i < Math.min(fromParts.length, toParts.length); i++) {
@@ -283,19 +350,19 @@ export class PathResolver {
                 break;
             }
         }
-        
+
         // Build relative path
         const upCount = fromParts.length - commonLength;
         const downPath = toParts.slice(commonLength);
-        
+
         const parts: string[] = [];
         for (let i = 0; i < upCount; i++) {
             parts.push('..');
         }
         parts.push(...downPath);
-        
+
         const result = parts.join('/') || '.';
-        
+
         return result;
     }
 
@@ -339,25 +406,5 @@ export class PathResolver {
      */
     public clearCache(): void {
         this.configCache.clear();
-    }
-    
-    /**
-     * Get information about the loaded config
-     */
-    public getConfigInfo(document: TextDocument): { type: string; path: string } | null {
-        const workspaceFolder = workspace.getWorkspaceFolder(document.uri);
-        if (!workspaceFolder) {return null;}
-        
-        const cacheKey = workspaceFolder.uri.toString();
-        const cached = this.configCache.get(cacheKey);
-        
-        if (cached) {
-            return {
-                type: cached.configType,
-                path: 'cached'
-            };
-        }
-        
-        return null;
     }
 }
