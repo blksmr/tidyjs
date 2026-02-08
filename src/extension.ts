@@ -12,6 +12,7 @@ import type { TextDocument, ExtensionContext, FormattingOptions, CancellationTok
 // Utils
 import { configManager } from './utils/config';
 import { diagnosticsCache } from './utils/diagnostics-cache';
+import { hasIgnorePragma } from './utils/ignore-pragma';
 import { logDebug, logError } from './utils/log';
 import { showMessage, analyzeImports } from './utils/misc';
 import { perfMonitor } from './utils/performance';
@@ -292,36 +293,6 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             diagnosticsCache.clear();
         }
     }
-}
-
-/**
- * Check if the document contains a tidyjs-ignore pragma comment.
- * Matches `// tidyjs-ignore` on its own line (with optional surrounding whitespace).
- * Ignores matches inside template literals to avoid false positives.
- */
-function hasIgnorePragma(text: string): boolean {
-    const pragmaPattern = /^\s*\/\/\s*tidyjs-ignore\s*$/;
-    const lines = text.split('\n');
-    let inTemplate = false;
-
-    for (const line of lines) {
-        if (!inTemplate && pragmaPattern.test(line)) {
-            return true;
-        }
-
-        // Track template literal state by counting unescaped backticks
-        let backticks = 0;
-        for (let i = 0; i < line.length; i++) {
-            if (line[i] === '`' && (i === 0 || line[i - 1] !== '\\')) {
-                backticks++;
-            }
-        }
-        if (backticks % 2 !== 0) {
-            inTemplate = !inTemplate;
-        }
-    }
-
-    return false;
 }
 
 /**

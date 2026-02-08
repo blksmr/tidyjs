@@ -56,7 +56,7 @@ function sortSpecs(specifiers: string[], config: Config): string[] {
     }
     if (mode === 'alpha') {
         return [...specifiers].sort((a, b) =>
-            a.toLowerCase().localeCompare(b.toLowerCase())
+            a.toLowerCase().localeCompare(b.toLowerCase(), 'en')
         );
     }
     return specifiers; // false — preserve order
