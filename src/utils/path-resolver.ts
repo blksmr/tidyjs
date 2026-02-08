@@ -48,7 +48,7 @@ export function extractTsConfigPaths(configPath: string, config: unknown): PathM
     const configDir = Uri.joinPath(configUri, '..');
     const absoluteBaseUrl = Uri.joinPath(configDir, baseUrl);
 
-    if (tsConfig.compilerOptions.paths) {
+    if (tsConfig.compilerOptions.paths && Object.keys(tsConfig.compilerOptions.paths).length > 0) {
         for (const [pattern, paths] of Object.entries(tsConfig.compilerOptions.paths)) {
             mappings.push({
                 pattern,

@@ -75,7 +75,7 @@ export function buildImportNode(imp: ParsedImport, config: Config, groupId: stri
     const keyword = imp.isReExport ? 'export' : 'import';
     const quote = config.format?.singleQuote !== false ? "'" : '"';
     const bracketSpace = config.format?.bracketSpacing !== false ? ' ' : '';
-    const indentSize = config.format?.indent || 4;
+    const indentSize = config.format?.indent ?? 4;
     const indentStr = ' '.repeat(indentSize);
 
     // Side-effect imports: no `from`, no alignment

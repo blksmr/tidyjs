@@ -46,9 +46,10 @@ describe('extractTsConfigPaths - edge cases', () => {
                     paths: {}
                 }
             });
-            // Empty paths object is truthy, so it enters the paths branch but produces 0 mappings
-            // The else-if (baseUrl) branch is NOT reached — this is a notable behavior
-            expect(mappings).toEqual([]);
+            // Fixed: empty paths object now falls through to baseUrl wildcard
+            expect(mappings).toHaveLength(1);
+            expect(mappings[0].pattern).toBe('*');
+            expect(mappings[0].paths[0]).toContain('src');
         });
 
         it('should return empty array when paths is empty and no baseUrl', () => {
