@@ -28,6 +28,11 @@ export interface Config {
     sortExports?: boolean;
     sortClassProperties?: boolean;
     organizeReExports?: boolean;
+    enforceNewlineAfterImports?: boolean;
+    blankLinesBetweenGroups?: number;
+    trailingComma?: 'always' | 'never';
+    sortSpecifiers?: 'length' | 'alpha' | false;
+    maxLineWidth?: number;
   };
 
   pathResolution?: {
@@ -71,6 +76,11 @@ export interface TidyJSConfigFile {
     sortExports?: boolean;
     sortClassProperties?: boolean;
     organizeReExports?: boolean;
+    enforceNewlineAfterImports?: boolean;
+    blankLinesBetweenGroups?: number;
+    trailingComma?: 'always' | 'never';
+    sortSpecifiers?: 'length' | 'alpha' | false;
+    maxLineWidth?: number;
   };
   pathResolution?: {
     enabled?: boolean;

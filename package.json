@@ -160,6 +160,37 @@
           "default": false,
           "description": "Organize and format re-export statements (export { ... } from '...')"
         },
+        "tidyjs.format.enforceNewlineAfterImports": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ensure exactly one blank line between the last import and the following code"
+        },
+        "tidyjs.format.blankLinesBetweenGroups": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 0,
+          "description": "Number of blank lines between import groups"
+        },
+        "tidyjs.format.trailingComma": {
+          "type": "string",
+          "enum": ["always", "never"],
+          "default": "never",
+          "description": "Trailing comma on the last specifier in multiline imports"
+        },
+        "tidyjs.format.sortSpecifiers": {
+          "oneOf": [
+            { "type": "string", "enum": ["length", "alpha"] },
+            { "type": "boolean", "enum": [false] }
+          ],
+          "default": "length",
+          "description": "Sort import specifiers: 'length' by string length, 'alpha' alphabetically, false to preserve order"
+        },
+        "tidyjs.format.maxLineWidth": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "description": "Maximum line width for imports (0 = disabled). Imports exceeding this wrap to multiline; multiline imports fitting within collapse to single-line."
+        },
         "tidyjs.excludedFolders": {
           "type": "array",
           "default": [],

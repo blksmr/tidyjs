@@ -7,8 +7,9 @@ import { printDocument } from './ir/printer';
 
 import type { Config } from './types';
 
-function replaceImportLines(sourceText: string, importRange: { start: number; end: number }, formattedImports: string): string {
+function replaceImportLines(sourceText: string, importRange: { start: number; end: number }, formattedImports: string, config: Config): string {
     const lines = sourceText.split('\n');
+    const enforce = config.format?.enforceNewlineAfterImports !== false;
 
     // Find line numbers corresponding to importRange more precisely
     let startLine = 0;
@@ -41,13 +42,14 @@ function replaceImportLines(sourceText: string, importRange: { start: number; en
     if (formattedImports.trim()) {
         newImportLines = formattedImports.split('\n');
 
-        // The formatted imports should already end with exactly one empty line from the formatter
-        // If there are following lines, we need to manage the spacing between them
         if (afterLines.length > 0) {
-            // Remove any leading empty lines from afterLines to avoid double spacing
-            while (afterLines.length > 0 && afterLines[0].trim() === '') {
-                afterLines.shift();
+            if (enforce) {
+                // Remove any leading empty lines from afterLines to avoid double spacing
+                while (afterLines.length > 0 && afterLines[0].trim() === '') {
+                    afterLines.shift();
+                }
             }
+            // When not enforcing, preserve afterLines as-is
         } else {
             // File ends with imports - add an extra empty line for proper file ending
             newImportLines.push('');
@@ -90,7 +92,7 @@ function formatImportsFromParser(
     const hasImports = parserResult.groups.some((group) => group.imports.length > 0);
     if (!hasImports) {
         logDebug('No imports remain after parser filtering, removing import section');
-        return replaceImportLines(sourceText, importRange, '');
+        return replaceImportLines(sourceText, importRange, '', config);
     }
 
     try {
@@ -122,7 +124,7 @@ function formatImportsFromParser(
         const irDocument = buildDocument(groups, config);
         const formattedText = printDocument(irDocument);
 
-        return replaceImportLines(sourceText, importRange, formattedText);
+        return replaceImportLines(sourceText, importRange, formattedText, config);
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logDebug(`Error while formatting imports: ${errorMessage}`);

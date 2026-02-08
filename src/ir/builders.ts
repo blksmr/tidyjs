@@ -49,6 +49,19 @@ function specToString(spec: string | { imported: string; local: string }): strin
     return typeof spec === 'string' ? spec : `${spec.imported} as ${spec.local}`;
 }
 
+function sortSpecs(specifiers: string[], config: Config): string[] {
+    const mode = config.format?.sortSpecifiers ?? 'length';
+    if (mode === 'length') {
+        return [...specifiers].sort((a, b) => a.length - b.length);
+    }
+    if (mode === 'alpha') {
+        return [...specifiers].sort((a, b) =>
+            a.toLowerCase().localeCompare(b.toLowerCase())
+        );
+    }
+    return specifiers; // false — preserve order
+}
+
 /**
  * Build an IR node for a single ParsedImport.
  * Replicates the logic of the old `formatImportLine()` but produces IR.
@@ -86,42 +99,49 @@ export function buildImportNode(imp: ParsedImport, config: Config, groupId: stri
         return alignAnchor(groupId, text(prefix), text(suffix));
     }
 
-    // Named / typeNamed with single specifier (inline braces)
-    if ((type === ImportType.NAMED || type === ImportType.TYPE_NAMED) && specifiers.length === 1) {
+    // Named / typeNamed — unified single-line vs multiline decision
+    if (type === ImportType.NAMED || type === ImportType.TYPE_NAMED) {
         const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
-        const specStr = specToString(specifiers[0]);
-        const prefix = `${keyword} ${typePrefix}{${bracketSpace}${specStr}${bracketSpace}} `;
-        const suffix = `from ${quote}${source}${quote};`;
-        return alignAnchor(groupId, text(prefix), text(suffix));
-    }
-
-    // Named / typeNamed with multiple specifiers → multiline
-    if ((type === ImportType.NAMED || type === ImportType.TYPE_NAMED) && specifiers.length > 1) {
-        const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
+        const trailingComma = config.format?.trailingComma ?? 'never';
+        const maxLineWidth = config.format?.maxLineWidth;
 
         const formattedSpecs = specifiers.map(specToString);
-        const specifiersSet = new Set(formattedSpecs);
-        const sortedSpecifiers = Array.from(specifiersSet).sort((a, b) => a.length - b.length);
+        const uniqueSpecs = Array.from(new Set(formattedSpecs));
+        const sorted = sortSpecs(uniqueSpecs, config);
 
-        // Build the multiline import/export as IR
+        // Compute single-line representation
+        const specStr = sorted.join(', ');
+        const singlePrefix = `${keyword} ${typePrefix}{${bracketSpace}${specStr}${bracketSpace}} `;
+        const singleSuffix = `from ${quote}${source}${quote};`;
+        const singleWidth = singlePrefix.length + singleSuffix.length;
+
+        // Decide: single-line or multiline?
+        const useMultiline = maxLineWidth && maxLineWidth > 0
+            ? singleWidth > maxLineWidth
+            : sorted.length > 1;
+
+        if (!useMultiline) {
+            return alignAnchor(groupId, text(singlePrefix), text(singleSuffix));
+        }
+
+        // Multiline
         const firstLine = `${keyword} ${typePrefix}{`;
 
-        // Middle lines: `    specifier,`
-        const middleLines = sortedSpecifiers.map((spec, i) => {
-            const comma = i < sortedSpecifiers.length - 1 ? ',' : '';
+        const middleLines = sorted.map((spec, i) => {
+            const isLast = i === sorted.length - 1;
+            const comma = isLast ? (trailingComma === 'always' ? ',' : '') : ',';
             return `${indentStr}${spec}${comma}`;
         });
 
-        // Compute idealWidth for alignment:
-        const middleLengths = sortedSpecifiers.map((spec) => spec.length);
+        // Compute idealWidth for alignment
+        const middleLengths = sorted.map((spec) => spec.length);
         const maxSpecLength = Math.max(...middleLengths);
 
         const maxIndex = middleLengths.indexOf(maxSpecLength);
-        const isLastSpec = maxIndex === sortedSpecifiers.length - 1;
-        const adjustment = !isLastSpec ? 2 : 1;
+        const isLastSpec = maxIndex === sorted.length - 1;
+        const adjustment = (trailingComma === 'always' || !isLastSpec) ? 2 : 1;
         const idealWidth = indentSize + maxSpecLength + adjustment;
 
-        // Build the full multiline text for the prefix part
         const prefixLines = [firstLine, ...middleLines, '} '];
         const prefixText = prefixLines.join('\n');
 
@@ -129,11 +149,10 @@ export function buildImportNode(imp: ParsedImport, config: Config, groupId: stri
         return alignAnchor(groupId, text(prefixText), text(suffix), idealWidth);
     }
 
-    // Fallback: generic named import/export (shouldn't normally reach here)
-    const typePrefix = type === ImportType.TYPE_NAMED ? 'type ' : '';
+    // Fallback: shouldn't normally reach here
     const formattedSpecs = specifiers.map(specToString);
     const specifiersStr = formattedSpecs.join(', ');
-    const prefix = `${keyword} ${typePrefix}{${bracketSpace}${specifiersStr}${bracketSpace}} `;
+    const prefix = `${keyword} ${specifiersStr} `;
     const suffix = `from ${quote}${source}${quote};`;
     return alignAnchor(groupId, text(prefix), text(suffix));
 }
@@ -170,9 +189,11 @@ export function buildDocument(
 
     for (let i = 0; i < groups.length; i++) {
         if (i > 0) {
-            // Blank line between groups (two hardLines = \n\n)
-            children.push(hardLine());
-            children.push(hardLine());
+            const blankLines = Math.max(0, config.format?.blankLinesBetweenGroups ?? 1);
+            // 1 hardLine terminates the previous line, then N more for N blank lines
+            for (let j = 0; j < 1 + blankLines; j++) {
+                children.push(hardLine());
+            }
         }
         children.push(buildGroupNode(groups[i].name, groups[i].imports, config));
     }
