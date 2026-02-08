@@ -31,6 +31,11 @@ const DEFAULT_CONFIG: Config = {
     blankLinesBetweenGroups: 1,
     trailingComma: 'never',
     sortSpecifiers: 'length',
+    maxLineWidth: 0,
+    sortDestructuring: false,
+    sortEnumMembers: false,
+    sortExports: false,
+    sortClassProperties: false,
   },
   pathResolution: {
     enabled: false,
@@ -280,7 +285,7 @@ class ConfigManager {
           const flags = regexStr.slice(lastSlashIndex + 1);
           
           // Validate flags
-          const validFlags = /^[gimsuy]*$/.test(flags);
+          const validFlags = /^[dgimsuy]*$/.test(flags);
           if (!validFlags) {
             return { isValid: false, error: `Invalid regex flags '${flags}'` };
           }

@@ -53,6 +53,7 @@ function getPropertyName(node: AST.ASTNode): string | null {
         case 'ExportSpecifier': {
             const spec = node as AST.ExportSpecifier;
             if (spec.exported.type === 'Identifier') {return spec.exported.name ?? null;}
+            if (spec.exported.type === 'Literal') {return String(spec.exported.value);}
             return null;
         }
         case 'PropertyDefinition': {
@@ -80,7 +81,25 @@ function isMultiline(sourceText: string, range: [number, number]): boolean {
 
 function hasInternalComments(sourceText: string, range: [number, number]): boolean {
     const text = sourceText.slice(range[0], range[1]);
-    return text.includes('//') || text.includes('/*');
+    let i = 0;
+    while (i < text.length) {
+        const ch = text[i];
+        // Skip string literals (single, double, template)
+        if (ch === '\'' || ch === '"' || ch === '`') {
+            i++;
+            while (i < text.length && text[i] !== ch) {
+                if (text[i] === '\\') {i++;} // skip escaped char
+                i++;
+            }
+            i++; // skip closing quote
+            continue;
+        }
+        if (ch === '/' && i + 1 < text.length) {
+            if (text[i + 1] === '/' || text[i + 1] === '*') {return true;}
+        }
+        i++;
+    }
+    return false;
 }
 
 function extractProperties(

@@ -125,6 +125,22 @@
             ]
           }
         },
+        "tidyjs.format.indent": {
+          "type": "integer",
+          "default": 4,
+          "minimum": 0,
+          "description": "Number of spaces for indentation in multiline imports"
+        },
+        "tidyjs.format.singleQuote": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use single quotes for import paths"
+        },
+        "tidyjs.format.bracketSpacing": {
+          "type": "boolean",
+          "default": true,
+          "description": "Add spaces inside import brackets"
+        },
         "tidyjs.format.removeUnusedImports": {
           "type": "boolean",
           "default": false,
@@ -190,6 +206,38 @@
           "default": 0,
           "minimum": 0,
           "description": "Maximum line width for imports (0 = disabled). Imports exceeding this wrap to multiline; multiline imports fitting within collapse to single-line."
+        },
+        "tidyjs.importOrder": {
+          "type": "object",
+          "default": {
+            "sideEffect": 0,
+            "default": 1,
+            "named": 2,
+            "typeOnly": 3
+          },
+          "description": "Order of import types within each group",
+          "properties": {
+            "sideEffect": {
+              "type": "integer",
+              "default": 0,
+              "description": "Order for side-effect imports"
+            },
+            "default": {
+              "type": "integer",
+              "default": 1,
+              "description": "Order for default imports"
+            },
+            "named": {
+              "type": "integer",
+              "default": 2,
+              "description": "Order for named imports"
+            },
+            "typeOnly": {
+              "type": "integer",
+              "default": 3,
+              "description": "Order for type-only imports"
+            }
+          }
         },
         "tidyjs.excludedFolders": {
           "type": "array",

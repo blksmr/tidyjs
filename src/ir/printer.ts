@@ -3,6 +3,44 @@ import type { IRNode, IRDocument } from './types';
 // ── Pass 1: Measure ─────────────────────────────────────────────────
 
 /**
+ * Check whether an IR node will produce a line break when rendered.
+ */
+function containsNewline(node: IRNode): boolean {
+    switch (node.kind) {
+        case 'text':
+            return node.value.includes('\n');
+        case 'hardLine':
+            return true;
+        case 'indent':
+            return containsNewline(node.content);
+        case 'concat':
+            return node.parts.some(containsNewline);
+        case 'alignAnchor':
+            return containsNewline(node.prefix) || containsNewline(node.suffix);
+        case 'alignGroup':
+            return node.children.some(containsNewline);
+        case 'document':
+            return node.children.some(containsNewline);
+    }
+}
+
+/**
+ * Measure the last-line width across an array of IR children.
+ * Handles nested nodes that contain line breaks correctly.
+ */
+function measureChildren(children: IRNode[]): number {
+    let width = 0;
+    for (const child of children) {
+        if (containsNewline(child)) {
+            width = measureTextWidth(child);
+        } else {
+            width += measureTextWidth(child);
+        }
+    }
+    return width;
+}
+
+/**
  * Measure the text width of an IR node.
  * For nodes containing hardLines, only the *last line* is measured
  * (because that line determines the `from` column position).
@@ -17,43 +55,15 @@ export function measureTextWidth(node: IRNode): number {
             return 0;
         case 'indent':
             return node.count + measureTextWidth(node.content);
-        case 'concat': {
-            // Measure last-line width across concatenated parts
-            let width = 0;
-            for (const part of node.parts) {
-                if (part.kind === 'hardLine') {
-                    width = 0;
-                } else {
-                    width += measureTextWidth(part);
-                }
-            }
-            return width;
-        }
+        case 'concat':
+            return measureChildren(node.parts);
         case 'alignAnchor':
             // Shouldn't be called directly in measurement, but handle gracefully
             return measureTextWidth(node.prefix) + measureTextWidth(node.suffix);
-        case 'alignGroup': {
-            let width = 0;
-            for (const child of node.children) {
-                if (child.kind === 'hardLine') {
-                    width = 0;
-                } else {
-                    width += measureTextWidth(child);
-                }
-            }
-            return width;
-        }
-        case 'document': {
-            let width = 0;
-            for (const child of node.children) {
-                if (child.kind === 'hardLine') {
-                    width = 0;
-                } else {
-                    width += measureTextWidth(child);
-                }
-            }
-            return width;
-        }
+        case 'alignGroup':
+            return measureChildren(node.children);
+        case 'document':
+            return measureChildren(node.children);
     }
 }
 

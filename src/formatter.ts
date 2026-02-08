@@ -48,8 +48,14 @@ function replaceImportLines(sourceText: string, importRange: { start: number; en
                 while (afterLines.length > 0 && afterLines[0].trim() === '') {
                     afterLines.shift();
                 }
+            } else {
+                // When not enforcing, remove trailing empty string from newImportLines
+                // to avoid injecting a blank line that wasn't in the original source.
+                // printDocument always ends with \n, which creates a trailing '' after split.
+                while (newImportLines.length > 0 && newImportLines[newImportLines.length - 1] === '') {
+                    newImportLines.pop();
+                }
             }
-            // When not enforcing, preserve afterLines as-is
         } else {
             // File ends with imports - add an extra empty line for proper file ending
             newImportLines.push('');
