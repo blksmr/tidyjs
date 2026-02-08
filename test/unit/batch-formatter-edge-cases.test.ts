@@ -92,7 +92,7 @@ describe('Batch Formatter - Edge Cases', () => {
                 singleQuote: true,
                 removeUnusedImports: true,
                 removeMissingModules: true,
-                sortDestructuring: true,
+                sortEnumMembers: true,
             },
             pathResolution: {
                 enabled: true,
@@ -119,7 +119,7 @@ describe('Batch Formatter - Edge Cases', () => {
             const batch = createBatchConfig(fullConfig);
             expect(batch.format?.indent).toBe(4);
             expect(batch.format?.singleQuote).toBe(true);
-            expect(batch.format?.sortDestructuring).toBe(true);
+            expect(batch.format?.sortEnumMembers).toBe(true);
         });
 
         it('should preserve other pathResolution options', () => {

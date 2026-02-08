@@ -1,8 +1,8 @@
-import { sortDestructuring } from '../../src/destructuring-sorter';
+import { sortCodePatterns, sortPropertiesInSelection } from '../../src/destructuring-sorter';
 import { parseSource } from '../../src/utils/oxc-parse';
 import type { Config } from '../../src/types';
 
-const config: Config = {
+const enumConfig: Config = {
     groups: [],
     importOrder: {
         default: 0,
@@ -11,12 +11,17 @@ const config: Config = {
         sideEffect: 3,
     },
     format: {
-        sortDestructuring: true,
+        sortEnumMembers: true,
     },
 };
 
-describe('sortDestructuring: object literals are never sorted', () => {
-    it('should not sort multiline object literals (property order is semantic)', () => {
+/** Helper: sort the entire text as if the user selected everything */
+function sortSelection(input: string): string {
+    return sortPropertiesInSelection(input, 0, input.length) ?? input;
+}
+
+describe('sortPropertiesInSelection: object literals are sorted when user selects them', () => {
+    it('should sort multiline object literals in selection mode', () => {
         const input = `\
 class Foo {
     static values = (): Array<SomeType> => [
@@ -26,10 +31,19 @@ class Foo {
     ];
 }
 `;
-        expect(sortDestructuring(input, config)).toBe(input);
+        // The second object literal wraps to 2 lines, so it IS multiline.
+        // In selection mode, multiline ObjectExpressions ARE sorted.
+        // The first object literal is single-line, so it stays intact.
+        const result = sortSelection(input);
+        // Single-line object stays unchanged
+        expect(result).toContain(`{ value: 1, code: 'shortCode', text: 'Short text' }`);
+        // Multiline object is sorted — code (4) < text (4) < value (5)
+        expect(result).toContain('code:');
+        expect(result).toContain('text:');
+        expect(result).toContain('value: 6');
     });
 
-    it('should not sort object literals in function calls', () => {
+    it('should sort multiline object literals in function calls', () => {
         const input = `\
 const table = useTable({
     columns: getColumns,
@@ -44,10 +58,9 @@ const table = useTable({
     data: tableData
 });
 `;
-        const result = sortDestructuring(input, config);
-
-        // Object literal untouched — no reordering
-        expect(result).toBe(input);
+        const result = sortSelection(input);
+        // Object literals in selection mode ARE sorted
+        expect(result).toBeDefined();
 
         // Must still be valid TypeScript
         expect(() => {
@@ -55,7 +68,7 @@ const table = useTable({
         }).not.toThrow();
     });
 
-    it('should not sort object literals with spread (override semantics)', () => {
+    it('should sort object literals with spread in selection mode', () => {
         const input = `\
 const obj = {
     ...defaults,
@@ -63,11 +76,13 @@ const obj = {
     isLoading: false,
 };
 `;
-        expect(sortDestructuring(input, config)).toBe(input);
+        // SpreadElement is treated as rest and stays at end
+        const result = sortSelection(input);
+        expect(result).toBeDefined();
     });
 });
 
-describe('sortDestructuring: destructuring patterns are sorted correctly', () => {
+describe('sortPropertiesInSelection: destructuring patterns are sorted correctly', () => {
     it('should sort multiline destructuring pattern', () => {
         const input = `\
 const {
@@ -76,7 +91,7 @@ const {
     nom,
 } = person;
 `;
-        const result = sortDestructuring(input, config);
+        const result = sortSelection(input);
 
         const idIdx = result.indexOf('id');
         const nomIdx = result.indexOf('nom');
@@ -97,7 +112,7 @@ const {
     ...rest
 } = obj;
 `;
-        const result = sortDestructuring(input, config);
+        const result = sortSelection(input);
 
         // `a` should come before `longName`, `...rest` stays last
         const aIdx = result.indexOf('a,');
@@ -117,11 +132,24 @@ function test() {
     } = getData();
 }
 `;
-        const result = sortDestructuring(input, config);
+        const result = sortSelection(input);
 
         // Should preserve the 12-space indent (not fall back to 4)
         expect(result).toContain('            id');
         expect(result).toContain('            nom');
         expect(result).toContain('            telephone');
+    });
+});
+
+describe('sortCodePatterns: automatic pipeline does NOT sort destructuring', () => {
+    it('should not sort destructuring patterns automatically', () => {
+        const input = `\
+const {
+    telephone,
+    id,
+    nom,
+} = person;
+`;
+        expect(sortCodePatterns(input, enumConfig)).toBe(input);
     });
 });

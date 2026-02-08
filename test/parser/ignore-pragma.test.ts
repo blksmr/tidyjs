@@ -10,10 +10,30 @@ const baseConfig: Config = {
 
 /**
  * The hasIgnorePragma function is internal to extension.ts.
- * We replicate its logic here to unit-test the regex independently.
+ * We replicate its logic here to unit-test independently.
  */
 function hasIgnorePragma(text: string): boolean {
-    return /^\s*\/\/\s*tidyjs-ignore\s*$/m.test(text);
+    const pragmaPattern = /^\s*\/\/\s*tidyjs-ignore\s*$/;
+    const lines = text.split('\n');
+    let inTemplate = false;
+
+    for (const line of lines) {
+        if (!inTemplate && pragmaPattern.test(line)) {
+            return true;
+        }
+
+        let backticks = 0;
+        for (let i = 0; i < line.length; i++) {
+            if (line[i] === '`' && (i === 0 || line[i - 1] !== '\\')) {
+                backticks++;
+            }
+        }
+        if (backticks % 2 !== 0) {
+            inTemplate = !inTemplate;
+        }
+    }
+
+    return false;
 }
 
 describe('tidyjs-ignore pragma', () => {
@@ -51,6 +71,21 @@ describe('tidyjs-ignore pragma', () => {
         test('does NOT match pragma in a string literal', () => {
             const text = `const x = '// tidyjs-ignore';\nimport React from 'react';`;
             expect(hasIgnorePragma(text)).toBe(false);
+        });
+
+        test('does NOT match pragma inside a template literal', () => {
+            const text = "const snippet = `\n// tidyjs-ignore\n`;\nimport React from 'react';";
+            expect(hasIgnorePragma(text)).toBe(false);
+        });
+
+        test('does NOT match pragma inside a multiline template literal', () => {
+            const text = "const md = `\n# Title\n// tidyjs-ignore\nsome text\n`;\nimport React from 'react';";
+            expect(hasIgnorePragma(text)).toBe(false);
+        });
+
+        test('detects real pragma after a closed template literal', () => {
+            const text = "const x = `hello`;\n// tidyjs-ignore\nimport React from 'react';";
+            expect(hasIgnorePragma(text)).toBe(true);
         });
 
         test('returns false when no pragma is present', () => {

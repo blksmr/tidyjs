@@ -23,7 +23,6 @@ export interface Config {
     removeMissingModules?: boolean;
     singleQuote?: boolean;
     bracketSpacing?: boolean;
-    sortDestructuring?: boolean;
     sortEnumMembers?: boolean;
     sortExports?: boolean;
     sortClassProperties?: boolean;
@@ -72,7 +71,6 @@ export interface TidyJSConfigFile {
     removeMissingModules?: boolean;
     singleQuote?: boolean;
     bracketSpacing?: boolean;
-    sortDestructuring?: boolean;
     sortEnumMembers?: boolean;
     sortExports?: boolean;
     sortClassProperties?: boolean;

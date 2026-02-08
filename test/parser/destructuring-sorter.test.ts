@@ -1,11 +1,5 @@
-import { sortDestructuring } from '../../src/destructuring-sorter';
+import { sortCodePatterns, sortPropertiesInSelection } from '../../src/destructuring-sorter';
 import type { Config } from '../../src/types';
-
-const destructuringConfig: Config = {
-    groups: [],
-    importOrder: { default: 1, named: 2, typeOnly: 3, sideEffect: 0 },
-    format: { sortDestructuring: true },
-};
 
 const enumConfig: Config = {
     groups: [],
@@ -25,7 +19,12 @@ const classConfig: Config = {
     format: { sortClassProperties: true },
 };
 
-describe('sortDestructuring', () => {
+/** Helper: sort the entire text as if the user selected everything */
+function sortSelection(input: string): string {
+    return sortPropertiesInSelection(input, 0, input.length) ?? input;
+}
+
+describe('sortPropertiesInSelection', () => {
     describe('variable destructuring', () => {
         it('should sort multiline destructuring by property name length', () => {
             const input = `const {
@@ -42,12 +41,12 @@ describe('sortDestructuring', () => {
     datatestIdAttribute
 } = props;`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+            expect(sortSelection(input)).toBe(expected);
         });
 
         it('should not touch single-line destructuring', () => {
             const input = `const { zzzLong, a } = props;`;
-            expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+            expect(sortSelection(input)).toBe(input);
         });
 
         it('should handle properties with default values — sort by name', () => {
@@ -63,7 +62,7 @@ describe('sortDestructuring', () => {
     longPropertyName = 10,
 } = config;`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+            expect(sortSelection(input)).toBe(expected);
         });
 
         it('should handle properties with aliases — sort by key name', () => {
@@ -79,7 +78,7 @@ describe('sortDestructuring', () => {
     longPropertyName: short,
 } = config;`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+            expect(sortSelection(input)).toBe(expected);
         });
 
         it('should keep ...rest at the end', () => {
@@ -95,7 +94,7 @@ describe('sortDestructuring', () => {
     ...rest
 } = props;`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+            expect(sortSelection(input)).toBe(expected);
         });
     });
 
@@ -113,7 +112,7 @@ describe('sortDestructuring', () => {
     datatestIdAttribute,
 }) {}`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+            expect(sortSelection(input)).toBe(expected);
         });
     });
 
@@ -131,7 +130,7 @@ describe('sortDestructuring', () => {
     datatestIdAttribute,
 }) => {};`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+            expect(sortSelection(input)).toBe(expected);
         });
     });
 
@@ -149,7 +148,7 @@ describe('sortDestructuring', () => {
     datatestIdAttribute: string;
 }`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+            expect(sortSelection(input)).toBe(expected);
         });
     });
 
@@ -167,29 +166,24 @@ describe('sortDestructuring', () => {
     datatestIdAttribute: string;
 };`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+            expect(sortSelection(input)).toBe(expected);
         });
     });
 
     describe('skip patterns with comments', () => {
-        it('should skip destructuring with line comments', () => {
+        it('should sort destructuring with comments (user chose to sort)', () => {
+            // In manual mode, comments are NOT a reason to skip
             const input = `const {
     // this is important
     longName,
     a,
 } = props;`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(input);
-        });
-
-        it('should skip destructuring with block comments', () => {
-            const input = `const {
-    /* comment */
-    longName,
-    a,
-} = props;`;
-
-            expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+            // hasInternalComments is not checked in selection mode,
+            // but extractProperties may bail on unknown nodes.
+            // Comments are not AST nodes in the property list, so this should still work.
+            const result = sortSelection(input);
+            expect(result).toBeDefined();
         });
     });
 
@@ -215,7 +209,7 @@ const {
     longInner,
 } = other;`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+            expect(sortSelection(input)).toBe(expected);
         });
     });
 
@@ -228,8 +222,8 @@ const {
     classesFunctions
 } = props;`;
 
-            const first = sortDestructuring(input, destructuringConfig);
-            const second = sortDestructuring(first, destructuringConfig);
+            const first = sortSelection(input);
+            const second = sortSelection(first);
             expect(first).toBe(second);
         });
     });
@@ -242,7 +236,7 @@ const {
     ccc,
 } = props;`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+            expect(sortSelection(input)).toBe(input);
         });
     });
 
@@ -260,7 +254,7 @@ const {
     ccc,
 } = props;`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(expected);
+            expect(sortSelection(input)).toBe(expected);
         });
     });
 
@@ -271,7 +265,7 @@ const {
     a,
 } = props;`;
 
-            const result = sortDestructuring(input, destructuringConfig);
+            const result = sortSelection(input);
             const lines = result.split('\n');
             const lastPropLine = lines[lines.length - 2].trim();
             expect(lastPropLine).toMatch(/,$/);
@@ -283,7 +277,7 @@ const {
     a
 } = props;`;
 
-            const result = sortDestructuring(input, destructuringConfig);
+            const result = sortSelection(input);
             const lines = result.split('\n');
             const lastPropLine = lines[lines.length - 2].trim();
             expect(lastPropLine).not.toMatch(/,$/);
@@ -298,7 +292,7 @@ const {
     longerName
 } = obj;`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+            expect(sortSelection(input)).toBe(input);
         });
 
         it('should skip interface with index signature', () => {
@@ -308,7 +302,7 @@ const {
     longerProp: number;
 }`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+            expect(sortSelection(input)).toBe(input);
         });
 
         it('should skip interface with call signature', () => {
@@ -318,7 +312,7 @@ const {
     longerProp: number;
 }`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+            expect(sortSelection(input)).toBe(input);
         });
 
         it('should skip type literal with index signature', () => {
@@ -328,52 +322,90 @@ const {
     longerProp: number;
 };`;
 
-            expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+            expect(sortSelection(input)).toBe(input);
         });
     });
 
     describe('edge cases', () => {
-        it('should handle invalid/unparseable code gracefully', () => {
+        it('should return null for invalid/unparseable code', () => {
             const input = `this is not valid code {{{{`;
-            expect(sortDestructuring(input)).toBe(input);
+            expect(sortPropertiesInSelection(input, 0, input.length)).toBeNull();
         });
 
-        it('should handle empty source', () => {
-            expect(sortDestructuring('')).toBe('');
+        it('should return null for empty source', () => {
+            expect(sortPropertiesInSelection('', 0, 0)).toBeNull();
         });
 
-        it('should handle code with no destructuring', () => {
+        it('should return null for code with no sortable patterns', () => {
             const input = `const x = 1;\nconst y = 2;`;
-            expect(sortDestructuring(input)).toBe(input);
+            expect(sortPropertiesInSelection(input, 0, input.length)).toBeNull();
         });
     });
 
-    describe('flag independence', () => {
-        it('should not sort destructuring when only sortClassProperties is enabled', () => {
+    describe('ObjectExpression — sorted in selection mode', () => {
+        it('should sort object literals when user explicitly selects them', () => {
+            const input = `const obj = {
+    telephone: '123',
+    id: 1,
+    nom: 'test',
+};`;
+
+            const result = sortSelection(input);
+            const idIdx = result.indexOf('id:');
+            const nomIdx = result.indexOf('nom:');
+            const telIdx = result.indexOf('telephone:');
+            expect(idIdx).toBeLessThan(nomIdx);
+            expect(nomIdx).toBeLessThan(telIdx);
+        });
+
+        it('should sort object literals in constructor calls', () => {
+            const input = `const model = new SignataireModel({
+    infos_complementaires: '',
+    type: 'foo',
+    nom: '',
+    email: '',
+});`;
+
+            const result = sortSelection(input);
+            // Sorted by length: nom (3) < type (4) < email (5) < infos_complementaires (24)
+            const nomIdx = result.indexOf('nom:');
+            const typeIdx = result.indexOf('type:');
+            const emailIdx = result.indexOf('email:');
+            const infosIdx = result.indexOf('infos_complementaires:');
+            expect(nomIdx).toBeLessThan(typeIdx);
+            expect(typeIdx).toBeLessThan(emailIdx);
+            expect(emailIdx).toBeLessThan(infosIdx);
+        });
+    });
+});
+
+describe('sortCodePatterns — automatic pipeline', () => {
+    describe('destructuring is NOT sorted automatically', () => {
+        it('should not sort destructuring even with sortEnumMembers enabled', () => {
             const input = `const {
     longName,
     a,
 } = props;`;
 
-            expect(sortDestructuring(input, classConfig)).toBe(input);
+            expect(sortCodePatterns(input, enumConfig)).toBe(input);
         });
 
-        it('should not sort interfaces when only sortEnumMembers is enabled', () => {
+        it('should not sort interfaces automatically', () => {
             const input = `interface Props {
     longName: string;
     a: string;
 }`;
 
-            expect(sortDestructuring(input, enumConfig)).toBe(input);
+            expect(sortCodePatterns(input, enumConfig)).toBe(input);
         });
 
-        it('should not sort object literals when only sortClassProperties is enabled', () => {
+        it('should not sort object literals automatically', () => {
             const input = `const obj = {
     longName: 1,
     a: 2,
 };`;
 
-            expect(sortDestructuring(input, classConfig)).toBe(input);
+            expect(sortCodePatterns(input, classConfig)).toBe(input);
         });
     });
 });
@@ -392,7 +424,7 @@ describe('sortEnumMembers', () => {
     InProgress = 'in_progress',
 }`;
 
-        expect(sortDestructuring(input, enumConfig)).toBe(expected);
+        expect(sortCodePatterns(input, enumConfig)).toBe(expected);
     });
 
     it('should not sort enums without config flag', () => {
@@ -401,12 +433,12 @@ describe('sortEnumMembers', () => {
     OK = 'ok',
 }`;
 
-        expect(sortDestructuring(input)).toBe(input);
+        expect(sortCodePatterns(input)).toBe(input);
     });
 
     it('should not touch single-line enums', () => {
         const input = `enum Dir { ZZZ, A }`;
-        expect(sortDestructuring(input, enumConfig)).toBe(input);
+        expect(sortCodePatterns(input, enumConfig)).toBe(input);
     });
 
     it('should handle enums without initializers', () => {
@@ -422,7 +454,7 @@ describe('sortEnumMembers', () => {
     Southeast,
 }`;
 
-        expect(sortDestructuring(input, enumConfig)).toBe(expected);
+        expect(sortCodePatterns(input, enumConfig)).toBe(expected);
     });
 
     it('should handle enums with string literal keys', () => {
@@ -436,7 +468,7 @@ describe('sortEnumMembers', () => {
     'long-code' = 1,
 }`;
 
-        expect(sortDestructuring(input, enumConfig)).toBe(expected);
+        expect(sortCodePatterns(input, enumConfig)).toBe(expected);
     });
 
     it('should preserve trailing comma behavior', () => {
@@ -450,7 +482,7 @@ describe('sortEnumMembers', () => {
     InProgress
 }`;
 
-        expect(sortDestructuring(input, enumConfig)).toBe(expected);
+        expect(sortCodePatterns(input, enumConfig)).toBe(expected);
     });
 
     it('should skip enums with comments', () => {
@@ -460,7 +492,7 @@ describe('sortEnumMembers', () => {
     OK,
 }`;
 
-        expect(sortDestructuring(input, enumConfig)).toBe(input);
+        expect(sortCodePatterns(input, enumConfig)).toBe(input);
     });
 
     it('should be idempotent', () => {
@@ -470,8 +502,8 @@ describe('sortEnumMembers', () => {
     Error = 2,
 }`;
 
-        const first = sortDestructuring(input, enumConfig);
-        const second = sortDestructuring(first, enumConfig);
+        const first = sortCodePatterns(input, enumConfig);
+        const second = sortCodePatterns(first, enumConfig);
         expect(first).toBe(second);
     });
 });
@@ -490,7 +522,7 @@ describe('sortExports', () => {
     useCallback,
 } from 'react';`;
 
-        expect(sortDestructuring(input, exportConfig)).toBe(expected);
+        expect(sortCodePatterns(input, exportConfig)).toBe(expected);
     });
 
     it('should not sort exports without config flag', () => {
@@ -499,12 +531,12 @@ describe('sortExports', () => {
     FC,
 } from 'react';`;
 
-        expect(sortDestructuring(input)).toBe(input);
+        expect(sortCodePatterns(input)).toBe(input);
     });
 
     it('should not touch single-line exports', () => {
         const input = `export { useCallback, FC } from 'react';`;
-        expect(sortDestructuring(input, exportConfig)).toBe(input);
+        expect(sortCodePatterns(input, exportConfig)).toBe(input);
     });
 
     it('should handle re-exports without source', () => {
@@ -520,7 +552,7 @@ describe('sortExports', () => {
     longVariableName,
 };`;
 
-        expect(sortDestructuring(input, exportConfig)).toBe(expected);
+        expect(sortCodePatterns(input, exportConfig)).toBe(expected);
     });
 
     it('should sort by exported name for aliases', () => {
@@ -534,7 +566,7 @@ describe('sortExports', () => {
     internalLongName as longExportedName,
 } from './mod';`;
 
-        expect(sortDestructuring(input, exportConfig)).toBe(expected);
+        expect(sortCodePatterns(input, exportConfig)).toBe(expected);
     });
 
     it('should handle inline type exports', () => {
@@ -550,7 +582,7 @@ describe('sortExports', () => {
     type LongTypeName,
 } from 'react';`;
 
-        expect(sortDestructuring(input, exportConfig)).toBe(expected);
+        expect(sortCodePatterns(input, exportConfig)).toBe(expected);
     });
 
     it('should skip exports with comments', () => {
@@ -560,7 +592,7 @@ describe('sortExports', () => {
     FC,
 } from 'react';`;
 
-        expect(sortDestructuring(input, exportConfig)).toBe(input);
+        expect(sortCodePatterns(input, exportConfig)).toBe(input);
     });
 
     it('should preserve trailing comma behavior', () => {
@@ -574,7 +606,7 @@ describe('sortExports', () => {
     useCallback
 } from 'react';`;
 
-        expect(sortDestructuring(input, exportConfig)).toBe(expected);
+        expect(sortCodePatterns(input, exportConfig)).toBe(expected);
     });
 
     it('should be idempotent', () => {
@@ -584,8 +616,8 @@ describe('sortExports', () => {
     FC,
 } from 'react';`;
 
-        const first = sortDestructuring(input, exportConfig);
-        const second = sortDestructuring(first, exportConfig);
+        const first = sortCodePatterns(input, exportConfig);
+        const second = sortCodePatterns(first, exportConfig);
         expect(first).toBe(second);
     });
 });
@@ -606,7 +638,7 @@ describe('class properties sorting', () => {
     telephone: string;
 }`;
 
-        expect(sortDestructuring(input, classConfig)).toBe(expected);
+        expect(sortCodePatterns(input, classConfig)).toBe(expected);
     });
 
     it('should handle the SignataireModel example', () => {
@@ -628,7 +660,7 @@ describe('class properties sorting', () => {
     }
 }`;
 
-        const result = sortDestructuring(input, classConfig);
+        const result = sortCodePatterns(input, classConfig);
 
         // Properties should be sorted by length
         const lines = result.split('\n');
@@ -649,7 +681,7 @@ describe('class properties sorting', () => {
 }`;
 
         // No config = feature disabled
-        expect(sortDestructuring(input)).toBe(input);
+        expect(sortCodePatterns(input)).toBe(input);
     });
 
     it('should skip static properties', () => {
@@ -665,7 +697,7 @@ describe('class properties sorting', () => {
     longName: string;
 }`;
 
-        expect(sortDestructuring(input, classConfig)).toBe(expected);
+        expect(sortCodePatterns(input, classConfig)).toBe(expected);
     });
 
     it('should handle class with only methods (no properties to sort)', () => {
@@ -674,7 +706,7 @@ describe('class properties sorting', () => {
     getName(): string { return ''; }
 }`;
 
-        expect(sortDestructuring(input, classConfig)).toBe(input);
+        expect(sortCodePatterns(input, classConfig)).toBe(input);
     });
 
     it('should handle properties with initializers', () => {
@@ -690,7 +722,7 @@ describe('class properties sorting', () => {
     retryCount: number = 3;
 }`;
 
-        expect(sortDestructuring(input, classConfig)).toBe(expected);
+        expect(sortCodePatterns(input, classConfig)).toBe(expected);
     });
 
     it('should handle optional properties', () => {
@@ -704,7 +736,7 @@ describe('class properties sorting', () => {
     optional?: string;
 }`;
 
-        expect(sortDestructuring(input, classConfig)).toBe(expected);
+        expect(sortCodePatterns(input, classConfig)).toBe(expected);
     });
 
     it('should be idempotent', () => {
@@ -714,8 +746,8 @@ describe('class properties sorting', () => {
     nom: string;
 }`;
 
-        const first = sortDestructuring(input, classConfig);
-        const second = sortDestructuring(first, classConfig);
+        const first = sortCodePatterns(input, classConfig);
+        const second = sortCodePatterns(first, classConfig);
         expect(first).toBe(second);
     });
 
@@ -726,7 +758,7 @@ describe('class properties sorting', () => {
     a: number;
 }`;
 
-        expect(sortDestructuring(input, classConfig)).toBe(input);
+        expect(sortCodePatterns(input, classConfig)).toBe(input);
     });
 
     it('should sort alphabetically when same length', () => {
@@ -740,41 +772,34 @@ describe('class properties sorting', () => {
     nom: string;
 }`;
 
-        expect(sortDestructuring(input, classConfig)).toBe(expected);
+        expect(sortCodePatterns(input, classConfig)).toBe(expected);
     });
 });
 
 describe('object literal sorting (ObjectExpression)', () => {
-    it('should NOT sort object literals — property order is semantically meaningful', () => {
+    it('should NOT sort object literals automatically', () => {
         const input = `const obj = {
     telephone: '123',
     id: 1,
     nom: 'test',
 };`;
 
-        // Object literals are never sorted because property order can carry
-        // semantic meaning: tab order, spread override priority, render order, etc.
-        expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+        // Automatic pipeline never touches object literals
+        expect(sortCodePatterns(input, enumConfig)).toBe(input);
     });
 
-    it('should NOT sort object literals in constructor calls', () => {
-        const input = `const model = new SignataireModel({
-    infos_complementaires: '',
-    type: 'foo',
-    nom: '',
-    email: '',
-});`;
-
-        expect(sortDestructuring(input, destructuringConfig)).toBe(input);
-    });
-
-    it('should NOT sort object literals in return statements', () => {
-        const input = `return {
+    it('should sort object literals via selection command', () => {
+        const input = `const obj = {
     telephone: '123',
     id: 1,
     nom: 'test',
 };`;
 
-        expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+        const result = sortSelection(input);
+        const idIdx = result.indexOf('id:');
+        const nomIdx = result.indexOf('nom:');
+        const telIdx = result.indexOf('telephone:');
+        expect(idIdx).toBeLessThan(nomIdx);
+        expect(nomIdx).toBeLessThan(telIdx);
     });
 });

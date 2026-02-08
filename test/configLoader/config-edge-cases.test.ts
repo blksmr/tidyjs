@@ -317,7 +317,6 @@ describe('Config edge cases', () => {
                     removeMissingModules: true,
                     singleQuote: false,
                     bracketSpacing: false,
-                    sortDestructuring: true,
                     sortEnumMembers: true,
                     sortExports: true,
                     sortClassProperties: true,
