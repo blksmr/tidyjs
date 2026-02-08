@@ -1,40 +1,13 @@
 import { ImportParser } from '../../src/parser';
 import { formatImports } from '../../src/formatter';
+import { hasIgnorePragma } from '../../src/utils/ignore-pragma';
 import type { Config } from '../../src/types';
 
 const baseConfig: Config = {
     groups: [{ name: 'Other', order: 0, default: true }],
-    importOrder: { default: 0, named: 1, typeOnly: 2, sideEffect: 3 },
+    importOrder: { sideEffect: 0, default: 1, named: 2, typeOnly: 3 },
     format: { indent: 4, singleQuote: true, bracketSpacing: true },
 };
-
-/**
- * The hasIgnorePragma function is internal to extension.ts.
- * We replicate its logic here to unit-test independently.
- */
-function hasIgnorePragma(text: string): boolean {
-    const pragmaPattern = /^\s*\/\/\s*tidyjs-ignore\s*$/;
-    const lines = text.split('\n');
-    let inTemplate = false;
-
-    for (const line of lines) {
-        if (!inTemplate && pragmaPattern.test(line)) {
-            return true;
-        }
-
-        let backticks = 0;
-        for (let i = 0; i < line.length; i++) {
-            if (line[i] === '`' && (i === 0 || line[i - 1] !== '\\')) {
-                backticks++;
-            }
-        }
-        if (backticks % 2 !== 0) {
-            inTemplate = !inTemplate;
-        }
-    }
-
-    return false;
-}
 
 describe('tidyjs-ignore pragma', () => {
     describe('hasIgnorePragma detection', () => {
@@ -85,6 +58,16 @@ describe('tidyjs-ignore pragma', () => {
 
         test('detects real pragma after a closed template literal', () => {
             const text = "const x = `hello`;\n// tidyjs-ignore\nimport React from 'react';";
+            expect(hasIgnorePragma(text)).toBe(true);
+        });
+
+        test('does NOT treat backtick inside a string literal as template literal', () => {
+            const text = "const x = 'foo ` bar';\n// tidyjs-ignore\nimport React from 'react';";
+            expect(hasIgnorePragma(text)).toBe(true);
+        });
+
+        test('does NOT treat backtick inside a double-quoted string as template literal', () => {
+            const text = 'const x = "foo ` bar";\n// tidyjs-ignore\nimport React from \'react\';';
             expect(hasIgnorePragma(text)).toBe(true);
         });
 

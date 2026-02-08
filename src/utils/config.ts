@@ -16,10 +16,10 @@ const DEFAULT_CONFIG: Config = {
     }
   ],
   importOrder: {
-    default: 0,
-    named: 1,
-    typeOnly: 2,
-    sideEffect: 3,
+    sideEffect: 0,
+    default: 1,
+    named: 2,
+    typeOnly: 3,
   },
   format: {
     indent: 4,
@@ -411,7 +411,9 @@ class ConfigManager {
         if (lastSlashIndex > 0) {
           const pattern = regexStr.slice(1, lastSlashIndex);
           const flags = regexStr.slice(lastSlashIndex + 1);
-          return new RegExp(pattern, flags);
+          // Strip g/y flags — they make .test() stateful and are meaningless for matching
+          const safeFlags = flags.replace(/[gy]/g, '');
+          return new RegExp(pattern, safeFlags);
         } else {
           return new RegExp(regexStr.slice(1));
         }
@@ -712,6 +714,7 @@ class ConfigManager {
    */
   public clearDocumentCache(): void {
     this.documentConfigCache.clear();
+    this.configCache.clear();
     ConfigLoader.clearCache();
     logDebug('Document configuration cache cleared');
   }

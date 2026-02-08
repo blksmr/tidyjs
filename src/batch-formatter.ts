@@ -8,6 +8,7 @@ import { organizeReExports } from './reexport-organizer';
 import { ImportParser } from './parser';
 import { configManager } from './utils/config';
 import { ConfigLoader } from './utils/configLoader';
+import { hasIgnorePragma } from './utils/ignore-pragma';
 import { logDebug, logError } from './utils/log';
 
 import type { Config } from './types';
@@ -142,7 +143,7 @@ export async function formatSingleFile(
     }
 
     // Skip files with tidyjs-ignore pragma
-    if (/^\s*\/\/\s*tidyjs-ignore\s*$/m.test(sourceText)) {
+    if (hasIgnorePragma(sourceText)) {
         return { changed: false, skipReason: 'ignored' };
     }
 
