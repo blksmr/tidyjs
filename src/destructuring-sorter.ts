@@ -10,7 +10,7 @@ interface PropertyInfo {
 }
 
 interface SortablePattern {
-    kind: 'objectPattern' | 'interfaceBody' | 'typeLiteral' | 'enumBody' | 'exportBlock' | 'classBody';
+    kind: 'objectPattern' | 'objectExpression' | 'interfaceBody' | 'typeLiteral' | 'enumBody' | 'exportBlock' | 'classBody';
     range: [number, number];
     properties: PropertyInfo[];
 }
@@ -138,6 +138,14 @@ function findBraceRange(
     return [nodeRange[0] + braceStart, nodeRange[0] + braceEnd + 1];
 }
 
+function rangesOverlap(a: [number, number], b: [number, number]): boolean {
+    return a[0] < b[1] && b[0] < a[1];
+}
+
+/**
+ * Find sortable patterns for the automatic pipeline (enum, export, class).
+ * ObjectPattern, TSInterfaceBody, TSTypeLiteral are no longer sorted automatically.
+ */
 function findSortablePatterns(
     ast: AST.Program,
     sourceText: string,
@@ -147,45 +155,6 @@ function findSortablePatterns(
 
     function walk(node: AST.ASTNode): void {
         if (!node || typeof node !== 'object') {return;}
-
-        if (config?.format?.sortDestructuring && node.type === 'ObjectPattern' && node.range) {
-            const range = node.range as [number, number];
-            if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
-                const props = extractProperties(
-                    node.properties as AST.ASTNode[],
-                    sourceText
-                );
-                if (props && props.length >= 2) {
-                    patterns.push({ kind: 'objectPattern', range, properties: props });
-                }
-            }
-        }
-
-        if (config?.format?.sortDestructuring && node.type === 'TSInterfaceBody' && node.range) {
-            const range = node.range as [number, number];
-            if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
-                const props = extractProperties(
-                    node.body as AST.ASTNode[],
-                    sourceText
-                );
-                if (props && props.length >= 2) {
-                    patterns.push({ kind: 'interfaceBody', range, properties: props });
-                }
-            }
-        }
-
-        if (config?.format?.sortDestructuring && node.type === 'TSTypeLiteral' && node.range) {
-            const range = node.range as [number, number];
-            if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
-                const props = extractProperties(
-                    node.members as AST.ASTNode[],
-                    sourceText
-                );
-                if (props && props.length >= 2) {
-                    patterns.push({ kind: 'typeLiteral', range, properties: props });
-                }
-            }
-        }
 
         if (config?.format?.sortEnumMembers && node.type === 'TSEnumDeclaration' && node.range) {
             const enumNode = node as AST.TSEnumDeclaration;
@@ -276,6 +245,95 @@ function findSortablePatterns(
     return patterns;
 }
 
+/**
+ * Find sortable patterns within a selection range (for the manual command).
+ * Collects ObjectPattern, ObjectExpression, TSInterfaceBody, TSTypeLiteral.
+ * No config check — the user explicitly requested sorting.
+ * No hasInternalComments check — the user chose to sort.
+ */
+function findSortablePatternsInRange(
+    ast: AST.Program,
+    sourceText: string,
+    selectionStart: number,
+    selectionEnd: number
+): SortablePattern[] {
+    const patterns: SortablePattern[] = [];
+    const selRange: [number, number] = [selectionStart, selectionEnd];
+
+    function walk(node: AST.ASTNode): void {
+        if (!node || typeof node !== 'object') {return;}
+
+        if (node.type === 'ObjectPattern' && node.range) {
+            const range = node.range as [number, number];
+            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range)) {
+                const props = extractProperties(
+                    node.properties as AST.ASTNode[],
+                    sourceText
+                );
+                if (props && props.length >= 2) {
+                    patterns.push({ kind: 'objectPattern', range, properties: props });
+                }
+            }
+        }
+
+        if (node.type === 'ObjectExpression' && node.range) {
+            const range = node.range as [number, number];
+            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range)) {
+                const props = extractProperties(
+                    node.properties as AST.ASTNode[],
+                    sourceText
+                );
+                if (props && props.length >= 2) {
+                    patterns.push({ kind: 'objectExpression', range, properties: props });
+                }
+            }
+        }
+
+        if (node.type === 'TSInterfaceBody' && node.range) {
+            const range = node.range as [number, number];
+            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range)) {
+                const props = extractProperties(
+                    node.body as AST.ASTNode[],
+                    sourceText
+                );
+                if (props && props.length >= 2) {
+                    patterns.push({ kind: 'interfaceBody', range, properties: props });
+                }
+            }
+        }
+
+        if (node.type === 'TSTypeLiteral' && node.range) {
+            const range = node.range as [number, number];
+            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range)) {
+                const props = extractProperties(
+                    node.members as AST.ASTNode[],
+                    sourceText
+                );
+                if (props && props.length >= 2) {
+                    patterns.push({ kind: 'typeLiteral', range, properties: props });
+                }
+            }
+        }
+
+        for (const key of Object.keys(node)) {
+            if (key === 'parent') {continue;}
+            const value = (node as unknown as Record<string, unknown>)[key];
+            if (Array.isArray(value)) {
+                for (const item of value) {
+                    if (item && typeof item === 'object' && 'type' in item) {
+                        walk(item as AST.ASTNode);
+                    }
+                }
+            } else if (value && typeof value === 'object' && 'type' in value) {
+                walk(value as AST.ASTNode);
+            }
+        }
+    }
+
+    walk(ast);
+    return patterns;
+}
+
 function detectIndent(properties: PropertyInfo[], sourceText: string): string {
     // Detect indentation from actual property positions in the source.
     // Walk backward from each property's start to the previous newline.
@@ -315,7 +373,7 @@ function sortProperties(
     const indent = detectIndent(properties, sourceText);
 
     // For interfaces/types/classes, the separator (;) is included in the AST range of each property.
-    // For destructuring, commas are OUTSIDE the AST range — we must add them ourselves.
+    // For destructuring/objectExpression, commas are OUTSIDE the AST range — we must add them ourselves.
     const separatorIncluded = pattern.kind === 'interfaceBody' || pattern.kind === 'typeLiteral' || pattern.kind === 'classBody';
 
     const allSorted = [...sorted, ...restProps];
@@ -339,7 +397,7 @@ function sortProperties(
         return { range, newText: prefix + newLines.join('\n') + suffix };
     }
 
-    // Destructuring: detect trailing comma from text between last property and closing brace
+    // Destructuring/ObjectExpression: detect trailing comma from text between last property and closing brace
     const hasTrailingComma = /^\s*,/.test(suffix);
     const cleanSuffix = suffix.replace(/^\s*,/, '');
 
@@ -387,7 +445,12 @@ function filterNonOverlapping(replacements: Replacement[]): Replacement[] {
     return result;
 }
 
-export function sortDestructuring(sourceText: string, config?: Config): string {
+/**
+ * Automatic pipeline: sorts enum members, exports, class properties.
+ * ObjectPattern, TSInterfaceBody, TSTypeLiteral are no longer sorted automatically —
+ * use sortPropertiesInSelection() for those via the manual command.
+ */
+export function sortCodePatterns(sourceText: string, config?: Config): string {
     let current = sourceText;
 
     // Iterate to handle nested sortable patterns (outer sort invalidates inner ranges)
@@ -415,6 +478,50 @@ export function sortDestructuring(sourceText: string, config?: Config): string {
         current = applyReplacements(current, safe);
 
         // No overlaps were filtered out — all replacements applied in one pass
+        if (safe.length === replacements.length) {return current;}
+    }
+
+    return current;
+}
+
+/**
+ * Manual command: sort properties in the user's selection.
+ * Collects ObjectPattern, ObjectExpression, TSInterfaceBody, TSTypeLiteral
+ * whose range overlaps the selection.
+ * Returns null if nothing to sort.
+ */
+export function sortPropertiesInSelection(
+    sourceText: string,
+    selectionStart: number,
+    selectionEnd: number
+): string | null {
+    let current = sourceText;
+
+    for (let iteration = 0; iteration < 10; iteration++) {
+        let ast: AST.Program;
+        try {
+            ast = parseSource(current, { jsx: true });
+        } catch {
+            return iteration === 0 ? null : current;
+        }
+
+        const patterns = findSortablePatternsInRange(ast, current, selectionStart, selectionEnd);
+        const replacements: Replacement[] = [];
+
+        for (const pattern of patterns) {
+            const replacement = sortProperties(pattern, current);
+            if (replacement) {
+                replacements.push(replacement);
+            }
+        }
+
+        if (replacements.length === 0) {
+            return iteration === 0 ? null : current;
+        }
+
+        const safe = filterNonOverlapping(replacements);
+        current = applyReplacements(current, safe);
+
         if (safe.length === replacements.length) {return current;}
     }
 

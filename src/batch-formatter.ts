@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { formatImports } from './formatter';
-import { sortDestructuring } from './destructuring-sorter';
+import { sortCodePatterns } from './destructuring-sorter';
 import { organizeReExports } from './reexport-organizer';
 import { ImportParser } from './parser';
 import { configManager } from './utils/config';
@@ -179,12 +179,11 @@ export async function formatSingleFile(
         finalText = formattedDocument.text;
     }
 
-    // Post-processing: sort destructuring/enums/exports/class properties
-    if (config.format?.sortDestructuring ||
-        config.format?.sortEnumMembers ||
+    // Post-processing: sort enums/exports/class properties
+    if (config.format?.sortEnumMembers ||
         config.format?.sortExports ||
         config.format?.sortClassProperties) {
-        finalText = sortDestructuring(finalText, config);
+        finalText = sortCodePatterns(finalText, config);
     }
 
     // Post-processing: organize re-exports

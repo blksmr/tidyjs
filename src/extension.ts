@@ -1,5 +1,5 @@
 // Other
-import { sortDestructuring } from './destructuring-sorter';
+import { sortCodePatterns, sortPropertiesInSelection } from './destructuring-sorter';
 import { formatImports } from './formatter';
 import { organizeReExports } from './reexport-organizer';
 import { formatFolder } from './batch-formatter';
@@ -168,7 +168,6 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
 
             // Check if parser returned any processable imports
             const hasPostProcessing =
-                currentConfig.format?.sortDestructuring ||
                 currentConfig.format?.sortEnumMembers ||
                 currentConfig.format?.sortExports ||
                 currentConfig.format?.sortClassProperties ||
@@ -184,11 +183,10 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 logDebug('No imports to process, but post-processing features are enabled');
                 let finalText = documentText;
 
-                if (currentConfig.format?.sortDestructuring ||
-                    currentConfig.format?.sortEnumMembers ||
+                if (currentConfig.format?.sortEnumMembers ||
                     currentConfig.format?.sortExports ||
                     currentConfig.format?.sortClassProperties) {
-                    finalText = sortDestructuring(finalText, currentConfig);
+                    finalText = sortCodePatterns(finalText, currentConfig);
                 }
                 if (currentConfig.format?.organizeReExports) {
                     finalText = organizeReExports(finalText, currentConfig);
@@ -265,11 +263,10 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
 
             // Post-processing: sort code patterns if any sorting feature is enabled
             let finalText = formattedDocument.text;
-            if (currentConfig.format?.sortDestructuring ||
-                currentConfig.format?.sortEnumMembers ||
+            if (currentConfig.format?.sortEnumMembers ||
                 currentConfig.format?.sortExports ||
                 currentConfig.format?.sortClassProperties) {
-                finalText = sortDestructuring(finalText, currentConfig);
+                finalText = sortCodePatterns(finalText, currentConfig);
             }
 
             // Post-processing: organize re-exports if enabled
@@ -300,9 +297,31 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
 /**
  * Check if the document contains a tidyjs-ignore pragma comment.
  * Matches `// tidyjs-ignore` on its own line (with optional surrounding whitespace).
+ * Ignores matches inside template literals to avoid false positives.
  */
 function hasIgnorePragma(text: string): boolean {
-    return /^\s*\/\/\s*tidyjs-ignore\s*$/m.test(text);
+    const pragmaPattern = /^\s*\/\/\s*tidyjs-ignore\s*$/;
+    const lines = text.split('\n');
+    let inTemplate = false;
+
+    for (const line of lines) {
+        if (!inTemplate && pragmaPattern.test(line)) {
+            return true;
+        }
+
+        // Track template literal state by counting unescaped backticks
+        let backticks = 0;
+        for (let i = 0; i < line.length; i++) {
+            if (line[i] === '`' && (i === 0 || line[i - 1] !== '\\')) {
+                backticks++;
+            }
+        }
+        if (backticks % 2 !== 0) {
+            inTemplate = !inTemplate;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -489,6 +508,38 @@ export function activate(context: ExtensionContext): void {
             }
         });
 
+        const sortPropertiesCommand = commands.registerCommand('tidyjs.sortProperties', async () => {
+            const editor = window.activeTextEditor;
+            if (!editor) {
+                showMessage.warning('No active editor found');
+                return;
+            }
+
+            const selection = editor.selection;
+            if (selection.isEmpty) {
+                showMessage.info('Select the code you want to sort, then run this command.');
+                return;
+            }
+
+            const document = editor.document;
+            const fullText = document.getText();
+            const selectionStart = document.offsetAt(selection.start);
+            const selectionEnd = document.offsetAt(selection.end);
+
+            const result = sortPropertiesInSelection(fullText, selectionStart, selectionEnd);
+
+            if (result === null) {
+                showMessage.info('No sortable properties found in selection.');
+                return;
+            }
+
+            const fullRange = new Range(document.positionAt(0), document.positionAt(fullText.length));
+            await editor.edit((editBuilder) => {
+                editBuilder.replace(fullRange, result);
+            });
+            logDebug('Properties sorted successfully via sortProperties command');
+        });
+
         const formatFolderCommand = commands.registerCommand('tidyjs.formatFolder', async (folderUri?: Uri) => {
             // If no URI provided (invoked from command palette), ask user to pick a folder
             if (!folderUri) {
@@ -568,7 +619,7 @@ export function activate(context: ExtensionContext): void {
             }
         });
 
-        context.subscriptions.push(formatCommand, createConfigCommand, formatFolderCommand, formattingProvider, configChangeDisposable);
+        context.subscriptions.push(formatCommand, createConfigCommand, sortPropertiesCommand, formatFolderCommand, formattingProvider, configChangeDisposable);
 
         logDebug('Extension activated successfully with config:', configManager.getConfig());
 

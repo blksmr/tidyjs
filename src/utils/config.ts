@@ -1,5 +1,6 @@
 import { Config } from '../types';
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { logDebug, logError } from './log';
 import { cloneDeepWith } from './deep-clone';
 import { ConfigCache } from './config-cache';
@@ -32,7 +33,6 @@ const DEFAULT_CONFIG: Config = {
     trailingComma: 'never',
     sortSpecifiers: 'length',
     maxLineWidth: 0,
-    sortDestructuring: false,
     sortEnumMembers: false,
     sortExports: false,
     sortClassProperties: false,
@@ -477,7 +477,6 @@ class ConfigManager {
         removeMissingModules: vsConfig.get<boolean>('format.removeMissingModules'),
         singleQuote: vsConfig.get<boolean>('format.singleQuote'),
         bracketSpacing: vsConfig.get<boolean>('format.bracketSpacing'),
-        sortDestructuring: vsConfig.get<boolean>('format.sortDestructuring'),
         sortEnumMembers: vsConfig.get<boolean>('format.sortEnumMembers'),
         sortExports: vsConfig.get<boolean>('format.sortExports'),
         sortClassProperties: vsConfig.get<boolean>('format.sortClassProperties'),
@@ -581,6 +580,7 @@ class ConfigManager {
     if (sources.length === 0) {
       // No specific config found, use default
       const config = this.getConfig();
+      this.resolveAliasesForUri(config, uri);
       this.documentConfigCache.set(cacheKey, config);
       return config;
     }
@@ -617,8 +617,30 @@ class ConfigManager {
       removeUnusedImports: mergedConfig.format?.removeUnusedImports
     });
 
+    this.resolveAliasesForUri(mergedConfig, uri);
     this.documentConfigCache.set(cacheKey, mergedConfig);
     return mergedConfig;
+  }
+
+  /**
+   * Resolve relative alias paths against the document's workspace folder.
+   * File-based configs (`.tidyjsrc`) are already resolved by ConfigLoader.
+   * This handles aliases from VS Code settings which are stored raw.
+   */
+  private resolveAliasesForUri(config: Config, uri: vscode.Uri): void {
+    const aliases = config.pathResolution?.aliases;
+    if (!aliases || Object.keys(aliases).length === 0) { return; }
+
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+    if (!workspaceFolder) { return; }
+
+    const rootPath = workspaceFolder.uri.fsPath;
+    config.pathResolution!.aliases = Object.fromEntries(
+      Object.entries(aliases).map(([pattern, paths]) => [
+        pattern,
+        paths.map(p => path.isAbsolute(p) ? p : path.resolve(rootPath, p))
+      ])
+    );
   }
 
   /**

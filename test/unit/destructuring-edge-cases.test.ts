@@ -1,11 +1,5 @@
-import { sortDestructuring } from '../../src/destructuring-sorter';
+import { sortCodePatterns, sortPropertiesInSelection } from '../../src/destructuring-sorter';
 import type { Config } from '../../src/types';
-
-const destructuringConfig: Config = {
-    groups: [],
-    importOrder: { default: 1, named: 2, typeOnly: 3, sideEffect: 0 },
-    format: { sortDestructuring: true },
-};
 
 const enumConfig: Config = {
     groups: [],
@@ -25,32 +19,49 @@ const classConfig: Config = {
     format: { sortClassProperties: true },
 };
 
-const allConfig: Config = {
-    groups: [],
-    importOrder: { default: 1, named: 2, typeOnly: 3, sideEffect: 0 },
-    format: {
-        sortDestructuring: true,
-        sortEnumMembers: true,
-        sortExports: true,
-        sortClassProperties: true,
-    },
-};
+/** Helper: sort the entire text as if the user selected everything */
+function sortSelection(input: string): string {
+    return sortPropertiesInSelection(input, 0, input.length) ?? input;
+}
 
 // ============================================================================
-// Edge case 1: ObjectExpression is NEVER walked/sorted
+// Edge case 1: ObjectExpression sorted in selection mode
 // ============================================================================
-describe('ObjectExpression never sorted', () => {
-    it('should not sort object literal assigned to variable', () => {
+describe('ObjectExpression sorted in selection mode', () => {
+    it('should sort object literal assigned to variable when selected', () => {
         const input = `const config = {
     zebra: 1,
     alpha: 2,
     mango: 3,
 };`;
-        expect(sortDestructuring(input, allConfig)).toBe(input);
+        const result = sortSelection(input);
+        const alphaIdx = result.indexOf('alpha:');
+        const mangoIdx = result.indexOf('mango:');
+        const zebraIdx = result.indexOf('zebra:');
+        expect(alphaIdx).toBeLessThan(mangoIdx);
+        expect(mangoIdx).toBeLessThan(zebraIdx);
     });
 
-    it('should not sort nested object literal inside destructuring', () => {
-        // The destructuring pattern should be sorted, but nested object literals should not
+    it('should NOT sort object literals automatically', () => {
+        const allConfig: Config = {
+            groups: [],
+            importOrder: { default: 1, named: 2, typeOnly: 3, sideEffect: 0 },
+            format: {
+                sortEnumMembers: true,
+                sortExports: true,
+                sortClassProperties: true,
+            },
+        };
+        const input = `const config = {
+    zebra: 1,
+    alpha: 2,
+    mango: 3,
+};`;
+        expect(sortCodePatterns(input, allConfig)).toBe(input);
+    });
+
+    it('should sort nested object literal inside destructuring when selected', () => {
+        // The destructuring pattern should be sorted, and the object literal too
         const input = `const {
     longName,
     a,
@@ -58,17 +69,15 @@ describe('ObjectExpression never sorted', () => {
     zebra: 1,
     alpha: 2,
 };`;
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         // Destructuring pattern is sorted (a before longName)
         const aIdx = result.indexOf('    a,');
         const longIdx = result.indexOf('    longName,');
         expect(aIdx).toBeLessThan(longIdx);
-        // Object literal order is preserved
-        expect(result).toContain('zebra: 1');
-        expect(result).toContain('alpha: 2');
-        const zebraIdx = result.indexOf('zebra');
+        // Object literal is also sorted in selection mode
         const alphaIdx = result.indexOf('alpha');
-        expect(zebraIdx).toBeLessThan(alphaIdx);
+        const zebraIdx = result.indexOf('zebra');
+        expect(alphaIdx).toBeLessThan(zebraIdx);
     });
 });
 
@@ -80,14 +89,14 @@ describe('single property destructuring ignored', () => {
         const input = `const {
     onlyOne,
 } = props;`;
-        expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+        expect(sortSelection(input)).toBe(input);
     });
 
     it('should not sort interface with only one property', () => {
         const input = `interface Foo {
     onlyProp: string;
 }`;
-        expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+        expect(sortSelection(input)).toBe(input);
     });
 });
 
@@ -100,7 +109,7 @@ describe('computed properties bail out', () => {
     [KEY_A]: valA,
     [KEY_B]: valB,
 } = obj;`;
-        expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+        expect(sortSelection(input)).toBe(input);
     });
 
     it('should skip when mix of computed and regular properties', () => {
@@ -109,7 +118,7 @@ describe('computed properties bail out', () => {
     regularProp,
     short,
 } = obj;`;
-        expect(sortDestructuring(input, destructuringConfig)).toBe(input);
+        expect(sortSelection(input)).toBe(input);
     });
 });
 
@@ -123,7 +132,7 @@ describe('interface with TSMethodSignature', () => {
     id: string;
     getData(): Promise<void>;
 }`;
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         // Should sort by name length: id (2) < getData (7) < longMethodName (14)
         const idIdx = result.indexOf('id:');
         const getDataIdx = result.indexOf('getData');
@@ -138,7 +147,7 @@ describe('interface with TSMethodSignature', () => {
     go(): void;
     medium(): string;
 }`;
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         const goIdx = result.indexOf('go()');
         const mediumIdx = result.indexOf('medium()');
         const veryLongIdx = result.indexOf('veryLongAction()');
@@ -157,7 +166,7 @@ describe('enum OXC compatibility', () => {
     Red = 'red',
     Green = 'green',
 }`;
-        const result = sortDestructuring(input, enumConfig);
+        const result = sortCodePatterns(input, enumConfig);
         const redIdx = result.indexOf('Red');
         const greenIdx = result.indexOf('Green');
         const lightIdx = result.indexOf('LightBlue');
@@ -180,7 +189,7 @@ describe('filterNonOverlapping with nested patterns', () => {
 } = obj;`;
         // The outer destructuring has a nested one — ranges overlap.
         // filterNonOverlapping should handle this gracefully.
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         // Should not corrupt the output — must still be parseable-ish
         expect(result).toContain('outer');
         expect(result).toContain('inner');
@@ -203,7 +212,7 @@ const {
     xShort,
     c,
 } = third;`;
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         // All three should be sorted independently
         expect(result.indexOf('    a,')).toBeLessThan(result.indexOf('    zLong,'));
         expect(result.indexOf('    b,')).toBeLessThan(result.indexOf('    yMedium,'));
@@ -225,7 +234,7 @@ describe('iteration loop termination', () => {
     a: number;
 }) {}`;
         // Should not hang — both the ObjectPattern and TSTypeLiteral should sort
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         expect(result).toBeDefined();
         expect(typeof result).toBe('string');
     });
@@ -243,7 +252,7 @@ describe('detectIndent edge cases', () => {
         // This is multiline, so it should attempt to sort.
         // The first prop "longName" is on the same line as "{" — no leading whitespace.
         // detectIndent should use a subsequent property's indent.
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         expect(result).toBeDefined();
         // Should not corrupt the output
         expect(result).toContain('longName');
@@ -253,7 +262,7 @@ describe('detectIndent edge cases', () => {
 
     it('should detect correct indent with tab indentation', () => {
         const input = `const {\n\tlongName,\n\ta,\n} = props;`;
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         // Should sort and preserve tab indent
         expect(result).toContain('\ta,');
         expect(result).toContain('\tlongName,');
@@ -264,44 +273,33 @@ describe('detectIndent edge cases', () => {
 });
 
 // ============================================================================
-// Edge case 9: hasInternalComments false positive with string containing //
+// Edge case 9: hasInternalComments — not checked in selection mode
 // ============================================================================
-describe('hasInternalComments false positives', () => {
-    it('should handle string value containing // (false positive for comment detection)', () => {
+describe('hasInternalComments — selection mode skips this check', () => {
+    it('should handle string value containing // in selection mode', () => {
         const input = `const {
     url,
     longProtocol,
 } = parseUrl('https://example.com');`;
-        // The string 'https://example.com' contains '//' but is NOT a comment.
-        // However, hasInternalComments works on the ObjectPattern range, not the full expression.
-        // The ObjectPattern range is just `{ url, longProtocol }` — no string inside.
-        // So this should still sort correctly.
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         const urlIdx = result.indexOf('    url,');
         const longIdx = result.indexOf('    longProtocol,');
         expect(urlIdx).toBeLessThan(longIdx);
     });
 
-    it('should sort destructuring with default value containing // in string (false positive bug)', () => {
-        // BUG: hasInternalComments does naive text search for '//' and '/*'
-        // A default value like 'https://example.com' contains '//' inside a string literal.
-        // The ObjectPattern range includes the default values, so hasInternalComments
-        // returns true — causing a false positive that skips the sort.
-        // The order here is intentionally reversed so the test fails if sort is skipped.
+    it('should sort destructuring with default value containing // in string', () => {
         const input = `const {
     longProtocol = 'ftp',
     url = 'https://example.com',
 } = config;`;
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         // After fix: should sort (url (3) < longProtocol (12))
         const urlIdx = result.indexOf('    url');
         const longIdx = result.indexOf('    longProtocol');
         expect(urlIdx).toBeLessThan(longIdx);
     });
 
-    it('should sort interface with URL-like string literal type (false positive bug)', () => {
-        // BUG: same false positive — interface body range includes 'https://...'
-        // Reversed order to expose the bug.
+    it('should sort interface with URL-like string literal type', () => {
         const input = `interface ApiConfig {
     longPropertyName: string;
     endpoint: 'https://api.example.com';
@@ -310,8 +308,7 @@ describe('hasInternalComments false positives', () => {
     endpoint: 'https://api.example.com';
     longPropertyName: string;
 }`;
-        const result = sortDestructuring(input, destructuringConfig);
-        // After fix: endpoint (8) < longPropertyName (16) — should be sorted
+        const result = sortSelection(input);
         expect(result).toBe(expected);
     });
 });
@@ -325,7 +322,7 @@ describe('class body: static vs readonly', () => {
     readonly longReadonlyProp: string;
     readonly id: number;
 }`;
-        const result = sortDestructuring(input, classConfig);
+        const result = sortCodePatterns(input, classConfig);
         const idIdx = result.indexOf('id:');
         const longIdx = result.indexOf('longReadonlyProp');
         expect(idIdx).toBeLessThan(longIdx);
@@ -340,7 +337,7 @@ describe('class body: static vs readonly', () => {
     zzz: boolean;
     b: string;
 }`;
-        const result = sortDestructuring(input, classConfig);
+        const result = sortCodePatterns(input, classConfig);
         // Static properties stay in place and break runs.
         // Run 1: longDynamicProp, a → sorted to: a, longDynamicProp
         // Run 2: zzz, b → sorted to: b, zzz
@@ -348,11 +345,6 @@ describe('class body: static vs readonly', () => {
         expect(result).toContain('static anotherStatic');
 
         // Verify the non-static runs are sorted
-        const lines = result.split('\n');
-        const propLines = lines.filter(l => l.trim().length > 0 && !l.includes('class') && !l.includes('}'));
-
-        // We can at least verify that 'a' comes before 'longDynamicProp'
-        // and 'b' comes before 'zzz'
         const aIdx = result.indexOf('    a: number');
         const longDynIdx = result.indexOf('    longDynamicProp');
         if (aIdx !== -1 && longDynIdx !== -1) {
@@ -374,7 +366,7 @@ describe('class body: static vs readonly', () => {
     getLongMethodName(): void {}
     a(): void {}
 }`;
-        const result = sortDestructuring(input, classConfig);
+        const result = sortCodePatterns(input, classConfig);
         // Properties should be sorted
         const idIdx = result.indexOf('id: number');
         const longPropIdx = result.indexOf('longProp: string');
@@ -392,33 +384,22 @@ describe('class body: static vs readonly', () => {
 // ============================================================================
 describe('export specifier with string literals', () => {
     it('should handle export with string literal exported name (aliased)', () => {
-        // export { 'weird-name' as foo } — OXC puts Literal in local, Identifier in exported
-        // getPropertyName uses spec.exported which is Identifier → works fine
         const input = `export {
     'weird-name' as foo,
     normalName,
 } from './mod';`;
-        const result = sortDestructuring(input, exportConfig);
-        // 'foo' (3) < 'normalName' (10) → already sorted
+        const result = sortCodePatterns(input, exportConfig);
         expect(result).toContain('foo');
         expect(result).toContain('normalName');
     });
 
     it('should sort export block that contains string literal without alias', () => {
-        // BUG: export { 'weird-name' } without alias — OXC has Literal in exported
-        // getPropertyName for ExportSpecifier only handles Identifier for exported,
-        // so it returns null, causing extractProperties to bail out entirely.
-        // The fix: handle Literal in ExportSpecifier.exported
         const input = `export {
     'weird-name',
     normalName,
     ab,
 } from './mod';`;
-        const result = sortDestructuring(input, exportConfig);
-        // After fix: ab (2) < normalName (10) < weird-name (10) — but weird-name
-        // has Literal type, should still be handled. At minimum, should not bail out
-        // and should sort the normal specifiers.
-        // With fix: getPropertyName returns 'weird-name' for Literal exported
+        const result = sortCodePatterns(input, exportConfig);
         const abIdx = result.indexOf('ab');
         const normalIdx = result.indexOf('normalName');
         expect(abIdx).toBeLessThan(normalIdx);
@@ -438,7 +419,8 @@ describe('additional edge cases', () => {
     longName,
     a,
 } = props;`;
-        expect(sortDestructuring(input, config)).toBe(input);
+        // Automatic pipeline: no format flags → nothing sorted
+        expect(sortCodePatterns(input, config)).toBe(input);
     });
 
     it('should handle undefined config', () => {
@@ -446,28 +428,28 @@ describe('additional edge cases', () => {
     longName,
     a,
 } = props;`;
-        expect(sortDestructuring(input, undefined)).toBe(input);
+        expect(sortCodePatterns(input, undefined)).toBe(input);
     });
 
-    it('should handle destructuring with type annotations', () => {
+    it('should handle destructuring with type annotations in selection mode', () => {
         const input = `const {
     longName,
     a,
 }: { longName: string; a: number } = props;`;
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         // The ObjectPattern should be sorted
         const aIdx = result.indexOf('    a,');
         const longIdx = result.indexOf('    longName,');
         expect(aIdx).toBeLessThan(longIdx);
     });
 
-    it('should handle interface extending another', () => {
+    it('should handle interface extending another in selection mode', () => {
         const input = `interface Extended extends Base {
     zzzLongProp: string;
     ab: number;
     medium: boolean;
 }`;
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         const abIdx = result.indexOf('ab:');
         const mediumIdx = result.indexOf('medium:');
         const zzzIdx = result.indexOf('zzzLongProp:');
@@ -475,13 +457,13 @@ describe('additional edge cases', () => {
         expect(mediumIdx).toBeLessThan(zzzIdx);
     });
 
-    it('should handle type literal in union/intersection', () => {
+    it('should handle type literal in union/intersection in selection mode', () => {
         const input = `type Combined = Base & {
     zzzLongProp: string;
     ab: number;
     medium: boolean;
 };`;
-        const result = sortDestructuring(input, destructuringConfig);
+        const result = sortSelection(input);
         const abIdx = result.indexOf('ab:');
         const mediumIdx = result.indexOf('medium:');
         const zzzIdx = result.indexOf('zzzLongProp:');
@@ -496,7 +478,7 @@ describe('additional edge cases', () => {
     protected med: boolean;
 }`;
         // Access modifiers are part of PropertyDefinition — should still sort
-        const result = sortDestructuring(input, classConfig);
+        const result = sortCodePatterns(input, classConfig);
         expect(result).toBeDefined();
         // All properties should still be present
         expect(result).toContain('longPublicProp');
@@ -505,13 +487,12 @@ describe('additional edge cases', () => {
     });
 
     it('should handle enum with computed member (bail out)', () => {
-        // OXC may parse computed enum members differently
         const input = `enum Flags {
     [Symbol.iterator] = 1,
     Normal = 2,
 }`;
         // If this parses at all, computed members should cause bail out
-        const result = sortDestructuring(input, enumConfig);
+        const result = sortCodePatterns(input, enumConfig);
         // Should not corrupt — either skip or sort non-computed only
         expect(result).toBeDefined();
     });

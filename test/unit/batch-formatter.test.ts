@@ -156,7 +156,7 @@ describe('createBatchConfig', () => {
                 indent: 2,
                 singleQuote: false,
                 bracketSpacing: false,
-                sortDestructuring: true,
+                sortEnumMembers: true,
             },
         };
 
@@ -165,7 +165,7 @@ describe('createBatchConfig', () => {
         expect(batchConfig.format?.indent).toBe(2);
         expect(batchConfig.format?.singleQuote).toBe(false);
         expect(batchConfig.format?.bracketSpacing).toBe(false);
-        expect(batchConfig.format?.sortDestructuring).toBe(true);
+        expect(batchConfig.format?.sortEnumMembers).toBe(true);
     });
 });
 

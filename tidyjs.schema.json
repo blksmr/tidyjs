@@ -121,11 +121,6 @@
           "description": "Add spaces inside import brackets",
           "default": true
         },
-        "sortDestructuring": {
-          "type": "boolean",
-          "description": "Sort destructured properties by name length (shortest first)",
-          "default": false
-        },
         "sortEnumMembers": {
           "type": "boolean",
           "description": "Sort enum members by name length (shortest first)",
