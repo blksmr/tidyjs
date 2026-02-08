@@ -1,7 +1,6 @@
 import esbuild from 'esbuild';
 import fs from 'fs';
 import path from 'path';
-import lodashPlugin from 'esbuild-plugin-lodash';
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -102,7 +101,6 @@ const config = {
     logLevel: 'silent',
     legalComments: 'none',
     plugins: [
-        lodashPlugin(),
         nodeBuiltinsPlugin,
         esbuildProblemMatcherPlugin,
     ],

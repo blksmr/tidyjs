@@ -1,7 +1,7 @@
 import { Config } from '../types';
 import * as vscode from 'vscode';
 import { logDebug, logError } from './log';
-import { cloneDeepWith, uniq } from 'lodash';
+import { cloneDeepWith } from './deep-clone';
 import { ConfigCache } from './config-cache';
 import { ConfigLoader } from './configLoader';
 
@@ -27,6 +27,10 @@ const DEFAULT_CONFIG: Config = {
     singleQuote: true,
     bracketSpacing: true,
     organizeReExports: false,
+    enforceNewlineAfterImports: true,
+    blankLinesBetweenGroups: 1,
+    trailingComma: 'never',
+    sortSpecifiers: 'length',
   },
   pathResolution: {
     enabled: false,
@@ -167,10 +171,10 @@ class ConfigManager {
 
     // Check for duplicate group names
     const names = config.groups.map(g => g.name);
-    const uniqueNames = uniq(names);
+    const uniqueNames = [...new Set(names)];
     if (names.length !== uniqueNames.length) {
       const duplicateNames = names.filter((name, index) => names.indexOf(name) !== index);
-      const uniqueDuplicateNames = uniq(duplicateNames);
+      const uniqueDuplicateNames = [...new Set(duplicateNames)];
       errors.push(`Duplicate group names found: ${uniqueDuplicateNames.join(', ')}. Each group must have a unique name.`);
     }
 
@@ -473,6 +477,11 @@ class ConfigManager {
         sortExports: vsConfig.get<boolean>('format.sortExports'),
         sortClassProperties: vsConfig.get<boolean>('format.sortClassProperties'),
         organizeReExports: vsConfig.get<boolean>('format.organizeReExports'),
+        enforceNewlineAfterImports: vsConfig.get<boolean>('format.enforceNewlineAfterImports'),
+        blankLinesBetweenGroups: vsConfig.get<number>('format.blankLinesBetweenGroups'),
+        trailingComma: vsConfig.get<string>('format.trailingComma'),
+        sortSpecifiers: vsConfig.get<string | false>('format.sortSpecifiers'),
+        maxLineWidth: vsConfig.get<number>('format.maxLineWidth'),
       };
 
       for (const [key, value] of Object.entries(formatSettings)) {

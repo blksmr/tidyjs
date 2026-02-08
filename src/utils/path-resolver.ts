@@ -1,22 +1,36 @@
 import { workspace, Uri, TextDocument } from 'vscode';
 import { UnifiedConfigLoader } from './config-loaders';
-import { logDebug } from './log';
+import { logDebug, logError } from './log';
 
 export interface PathMapping {
     pattern: string;
     paths: string[];
 }
 
-export interface TsConfig {
-    compilerOptions?: {
-        baseUrl?: string;
-        paths?: Record<string, string[]>;
-    };
-}
-
 export interface PathResolverConfig {
     mode: 'relative' | 'absolute';
     preferredAliases?: string[];
+}
+
+/**
+ * Compute a specificity score for a path mapping pattern.
+ * Higher score = more specific. Accounts for fixed segments count,
+ * pattern length, and wildcard count.
+ */
+function patternSpecificity(pattern: string): number {
+    const wildcards = (pattern.match(/\*/g) || []).length;
+    const fixedSegments = pattern.replace(/\*/g, '').split('/').filter(Boolean).length;
+    // Fixed segments weigh most, then total length, then fewer wildcards
+    return fixedSegments * 1000 + pattern.length * 10 - wildcards;
+}
+
+function safeRegExp(pattern: string): RegExp | null {
+    try {
+        return new RegExp(pattern);
+    } catch {
+        logError(`Invalid regex pattern: ${pattern}`);
+        return null;
+    }
 }
 
 export class PathResolver {
@@ -33,30 +47,33 @@ export class PathResolver {
         if (!workspaceFolder) {return [];}
 
         const cacheKey = workspaceFolder.uri.toString();
-        if (this.configCache.has(cacheKey)) {
-            return this.configCache.get(cacheKey)!.mappings;
+        const cached = this.configCache.get(cacheKey);
+        if (cached) {
+            return [...cached.mappings];
         }
 
-        const result = await this.unifiedLoader.loadAliases(document);
+        let result;
+        try {
+            result = await this.unifiedLoader.loadAliases(document);
+        } catch (error) {
+            logError('Error loading path aliases:', error);
+            return [];
+        }
+
         if (result) {
+            // Sort by specificity — most specific patterns first (defensive copy)
+            const sorted = [...result.mappings].sort((a, b) =>
+                patternSpecificity(b.pattern) - patternSpecificity(a.pattern)
+            );
+
             this.configCache.set(cacheKey, {
-                mappings: result.mappings,
+                mappings: sorted,
                 configType: result.configType
             });
-            
-            // Sort by specificity (more specific patterns first)
-            result.mappings.sort((a, b) => {
-                const aSpecificity = a.pattern.split('*').length - 1;
-                const bSpecificity = b.pattern.split('*').length - 1;
-                if (aSpecificity !== bSpecificity) {
-                    return aSpecificity - bSpecificity;
-                }
-                return b.pattern.length - a.pattern.length;
-            });
-            
-            logDebug(`Loaded ${result.mappings.length} path mappings from ${result.configType}: ${result.mappings.map(m => m.pattern).join(', ')}`);
-            
-            return result.mappings;
+
+            logDebug(`Loaded ${sorted.length} path mappings from ${result.configType}: ${sorted.map(m => m.pattern).join(', ')}`);
+
+            return [...sorted];
         }
 
         return [];
@@ -121,7 +138,8 @@ export class PathResolver {
                     const mappedPattern = mappedPath
                         .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
                         .replace(/\*/g, '(.*?)');
-                    const regex = new RegExp(`^${mappedPattern}$`);
+                    const regex = safeRegExp(`^${mappedPattern}$`);
+                    if (!regex) { continue; }
 
                     logDebug(`    Regex pattern: ^${mappedPattern}$`);
                     const match = absolutePath.match(regex);
@@ -206,8 +224,8 @@ export class PathResolver {
         const regexPattern = pattern
             .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
             .replace(/\*/g, '.*');
-        const regex = new RegExp(`^${regexPattern}$`);
-        return regex.test(importPath);
+        const regex = safeRegExp(`^${regexPattern}$`);
+        return regex ? regex.test(importPath) : false;
     }
 
     /**
@@ -219,7 +237,8 @@ export class PathResolver {
         const regexPattern = pattern
             .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
             .replace(/\*/g, '(.*?)');
-        const regex = new RegExp(`^${regexPattern}$`);
+        const regex = safeRegExp(`^${regexPattern}$`);
+        if (!regex) { return null; }
         const match = importPath.match(regex);
 
         if (match && mapping.paths.length > 0) {
@@ -243,36 +262,6 @@ export class PathResolver {
             }
 
             logDebug(`All ${mapping.paths.length} fallback paths failed for ${importPath}`);
-        }
-
-        return null;
-    }
-
-    /**
-     * DEPRECATED: Use resolveAliasToPathWithFallbacks instead
-     * Resolve an aliased import to an absolute file path
-     */
-    private resolveAliasToPath(importPath: string, mapping: PathMapping): string | null {
-        const pattern = mapping.pattern;
-        const regexPattern = pattern
-            .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-            .replace(/\*/g, '(.*?)');
-        const regex = new RegExp(`^${regexPattern}$`);
-        const match = importPath.match(regex);
-
-        if (match && mapping.paths.length > 0) {
-            for (const pathTemplate of mapping.paths) {
-                let resolvedPath = pathTemplate;
-                let captureIndex = 1;
-
-                resolvedPath = resolvedPath.replace(/\*/g, () => {
-                    return match[captureIndex++] || '';
-                });
-
-                const pathWithoutExt = resolvedPath.replace(/(\.d\.(?:cts|mts|ts)|\.(?:tsx?|jsx?))$/, '');
-
-                return pathWithoutExt;
-            }
         }
 
         return null;

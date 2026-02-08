@@ -243,5 +243,254 @@ describe('IR Builders', () => {
             const output = printDocument(document);
             expect(output.endsWith('\n')).toBe(true);
         });
+
+        describe('blankLinesBetweenGroups', () => {
+            const twoGroups = [
+                {
+                    name: 'React',
+                    imports: [
+                        makeParsedImport({ type: ImportType.DEFAULT, source: 'react', specifiers: ['React'] }),
+                    ],
+                },
+                {
+                    name: 'Other',
+                    imports: [
+                        makeParsedImport({ type: ImportType.DEFAULT, source: 'lodash', specifiers: ['_'] }),
+                    ],
+                },
+            ];
+
+            it('blankLinesBetweenGroups: 0 — no blank lines between groups', () => {
+                const config = { ...baseConfig, format: { ...baseConfig.format, blankLinesBetweenGroups: 0 } };
+                const output = printDocument(buildDocument(twoGroups, config));
+                const lines = output.split('\n');
+                // // React, import React..., // Other (no blank line in between)
+                expect(lines[0]).toBe('// React');
+                expect(lines[1]).toContain('import React');
+                expect(lines[2]).toBe('// Other');
+            });
+
+            it('blankLinesBetweenGroups: 1 — one blank line (default)', () => {
+                const config = { ...baseConfig, format: { ...baseConfig.format, blankLinesBetweenGroups: 1 } };
+                const output = printDocument(buildDocument(twoGroups, config));
+                const lines = output.split('\n');
+                expect(lines[2]).toBe(''); // blank line
+                expect(lines[3]).toBe('// Other');
+            });
+
+            it('blankLinesBetweenGroups: 2 — two blank lines', () => {
+                const config = { ...baseConfig, format: { ...baseConfig.format, blankLinesBetweenGroups: 2 } };
+                const output = printDocument(buildDocument(twoGroups, config));
+                const lines = output.split('\n');
+                expect(lines[2]).toBe('');
+                expect(lines[3]).toBe('');
+                expect(lines[4]).toBe('// Other');
+            });
+
+            it('undefined — defaults to 1', () => {
+                const config = { ...baseConfig, format: { ...baseConfig.format } };
+                delete (config.format as Record<string, unknown>).blankLinesBetweenGroups;
+                const output = printDocument(buildDocument(twoGroups, config));
+                const lines = output.split('\n');
+                expect(lines[2]).toBe('');
+                expect(lines[3]).toBe('// Other');
+            });
+
+            it('single group — no effect', () => {
+                const config = { ...baseConfig, format: { ...baseConfig.format, blankLinesBetweenGroups: 3 } };
+                const singleGroup = [twoGroups[0]];
+                const output = printDocument(buildDocument(singleGroup, config));
+                const lines = output.split('\n');
+                expect(lines[0]).toBe('// React');
+                expect(lines[1]).toContain('import React');
+            });
+        });
+    });
+
+    describe('trailingComma', () => {
+        it('always — trailing comma on last specifier', () => {
+            const config = { ...baseConfig, format: { ...baseConfig.format, trailingComma: 'always' as const } };
+            const imp = makeParsedImport({
+                type: ImportType.NAMED,
+                source: 'react',
+                specifiers: ['useState', 'useEffect'],
+            });
+            const node = buildImportNode(imp, config, 'g1');
+            if (node.kind === 'alignAnchor') {
+                const resolved = new Map<string, number>();
+                const prefixStr = render(node.prefix, resolved);
+                // Last specifier should have a trailing comma
+                const lines = prefixStr.split('\n');
+                const lastSpecLine = lines[lines.length - 2]; // line before '} '
+                expect(lastSpecLine.trimEnd().endsWith(',')).toBe(true);
+            }
+        });
+
+        it('never — no trailing comma on last specifier', () => {
+            const config = { ...baseConfig, format: { ...baseConfig.format, trailingComma: 'never' as const } };
+            const imp = makeParsedImport({
+                type: ImportType.NAMED,
+                source: 'react',
+                specifiers: ['useState', 'useEffect'],
+            });
+            const node = buildImportNode(imp, config, 'g1');
+            if (node.kind === 'alignAnchor') {
+                const resolved = new Map<string, number>();
+                const prefixStr = render(node.prefix, resolved);
+                const lines = prefixStr.split('\n');
+                const lastSpecLine = lines[lines.length - 2];
+                expect(lastSpecLine.trimEnd().endsWith(',')).toBe(false);
+            }
+        });
+
+        it('undefined — defaults to never', () => {
+            const config = { ...baseConfig, format: { ...baseConfig.format } };
+            delete (config.format as Record<string, unknown>).trailingComma;
+            const imp = makeParsedImport({
+                type: ImportType.NAMED,
+                source: 'react',
+                specifiers: ['useState', 'useEffect'],
+            });
+            const node = buildImportNode(imp, config, 'g1');
+            if (node.kind === 'alignAnchor') {
+                const resolved = new Map<string, number>();
+                const prefixStr = render(node.prefix, resolved);
+                const lines = prefixStr.split('\n');
+                const lastSpecLine = lines[lines.length - 2];
+                expect(lastSpecLine.trimEnd().endsWith(',')).toBe(false);
+            }
+        });
+
+        it('always with re-export multiline', () => {
+            const config = { ...baseConfig, format: { ...baseConfig.format, trailingComma: 'always' as const } };
+            const imp = makeParsedImport({
+                type: ImportType.NAMED,
+                source: './utils',
+                specifiers: ['foo', 'bar'],
+                isReExport: true,
+            });
+            const node = buildImportNode(imp, config, 'g1');
+            if (node.kind === 'alignAnchor') {
+                const resolved = new Map<string, number>();
+                const prefixStr = render(node.prefix, resolved);
+                expect(prefixStr).toContain('export {');
+                const lines = prefixStr.split('\n');
+                const lastSpecLine = lines[lines.length - 2];
+                expect(lastSpecLine.trimEnd().endsWith(',')).toBe(true);
+            }
+        });
+    });
+
+    describe('sortSpecifiers', () => {
+        it('length — sorts by string length', () => {
+            const config = { ...baseConfig, format: { ...baseConfig.format, sortSpecifiers: 'length' as const } };
+            const imp = makeParsedImport({
+                type: ImportType.NAMED,
+                source: 'react',
+                specifiers: ['useCallback', 'FC', 'useState'],
+            });
+            const node = buildImportNode(imp, config, 'g1');
+            if (node.kind === 'alignAnchor') {
+                const resolved = new Map<string, number>();
+                const prefixStr = render(node.prefix, resolved);
+                const lines = prefixStr.split('\n').filter(l => l.trim().startsWith('FC') || l.trim().startsWith('use'));
+                expect(lines[0].trim().replace(',', '')).toBe('FC');
+                expect(lines[1].trim().replace(',', '')).toBe('useState');
+                expect(lines[2].trim().replace(',', '')).toBe('useCallback');
+            }
+        });
+
+        it('alpha — sorts alphabetically case-insensitive', () => {
+            const config = { ...baseConfig, format: { ...baseConfig.format, sortSpecifiers: 'alpha' as const } };
+            const imp = makeParsedImport({
+                type: ImportType.NAMED,
+                source: 'react',
+                specifiers: ['useState', 'FC', 'useEffect'],
+            });
+            const node = buildImportNode(imp, config, 'g1');
+            if (node.kind === 'alignAnchor') {
+                const resolved = new Map<string, number>();
+                const prefixStr = render(node.prefix, resolved);
+                const lines = prefixStr.split('\n').filter(l => l.trim().startsWith('FC') || l.trim().startsWith('use'));
+                expect(lines[0].trim().replace(',', '')).toBe('FC');
+                expect(lines[1].trim().replace(',', '')).toBe('useEffect');
+                expect(lines[2].trim().replace(',', '')).toBe('useState');
+            }
+        });
+
+        it('false — preserves original order', () => {
+            const config = { ...baseConfig, format: { ...baseConfig.format, sortSpecifiers: false as const } };
+            const imp = makeParsedImport({
+                type: ImportType.NAMED,
+                source: 'react',
+                specifiers: ['useState', 'FC', 'useEffect'],
+            });
+            const node = buildImportNode(imp, config, 'g1');
+            if (node.kind === 'alignAnchor') {
+                const resolved = new Map<string, number>();
+                const prefixStr = render(node.prefix, resolved);
+                const lines = prefixStr.split('\n').filter(l => l.trim().startsWith('FC') || l.trim().startsWith('use'));
+                expect(lines[0].trim().replace(',', '')).toBe('useState');
+                expect(lines[1].trim().replace(',', '')).toBe('FC');
+                expect(lines[2].trim().replace(',', '')).toBe('useEffect');
+            }
+        });
+
+        it('undefined — defaults to length', () => {
+            const config = { ...baseConfig, format: { ...baseConfig.format } };
+            delete (config.format as Record<string, unknown>).sortSpecifiers;
+            const imp = makeParsedImport({
+                type: ImportType.NAMED,
+                source: 'react',
+                specifiers: ['useCallback', 'FC', 'useState'],
+            });
+            const node = buildImportNode(imp, config, 'g1');
+            if (node.kind === 'alignAnchor') {
+                const resolved = new Map<string, number>();
+                const prefixStr = render(node.prefix, resolved);
+                const lines = prefixStr.split('\n').filter(l => l.trim().startsWith('FC') || l.trim().startsWith('use'));
+                expect(lines[0].trim().replace(',', '')).toBe('FC');
+                expect(lines[1].trim().replace(',', '')).toBe('useState');
+                expect(lines[2].trim().replace(',', '')).toBe('useCallback');
+            }
+        });
+
+        it('aliased specifiers — sorted by full string', () => {
+            const config = { ...baseConfig, format: { ...baseConfig.format, sortSpecifiers: 'alpha' as const } };
+            const imp = makeParsedImport({
+                type: ImportType.NAMED,
+                source: './utils',
+                specifiers: [
+                    { imported: 'zoo', local: 'z' },
+                    'abc',
+                    { imported: 'def', local: 'mno' },
+                ],
+            });
+            const node = buildImportNode(imp, config, 'g1');
+            if (node.kind === 'alignAnchor') {
+                const resolved = new Map<string, number>();
+                const prefixStr = render(node.prefix, resolved);
+                const specLines = prefixStr.split('\n').filter(l => l.trim() && !l.includes('{') && !l.includes('}'));
+                expect(specLines[0]).toContain('abc');
+                expect(specLines[1]).toContain('def as mno');
+                expect(specLines[2]).toContain('zoo as z');
+            }
+        });
+
+        it('dedup works regardless of sort mode', () => {
+            const config = { ...baseConfig, format: { ...baseConfig.format, sortSpecifiers: 'alpha' as const } };
+            const imp = makeParsedImport({
+                type: ImportType.NAMED,
+                source: 'react',
+                specifiers: ['useState', 'FC', 'useState'],
+            });
+            const node = buildImportNode(imp, config, 'g1');
+            if (node.kind === 'alignAnchor') {
+                const resolved = new Map<string, number>();
+                const prefixStr = render(node.prefix, resolved);
+                const useStateCount = (prefixStr.match(/useState/g) || []).length;
+                expect(useStateCount).toBe(1);
+            }
+        });
     });
 });
