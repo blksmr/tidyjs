@@ -51,22 +51,5 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-non-null-assertion": "off",
     },
-  },
-  // Configuration pour jest.config.cjs (CommonJS)
-  {
-    files: ["jest.config.cjs"],
-    languageOptions: {
-      sourceType: "commonjs",
-      globals: {
-        module: "readonly",
-        exports: "readonly",
-        require: "readonly",
-        __dirname: "readonly",
-        __filename: "readonly",
-        global: "readonly",
-        process: "readonly",
-        Buffer: "readonly",
-      },
-    },
   }
 );
