@@ -39,8 +39,9 @@ sideEffect (`import './styles.css'`), default (`import React from 'react'`), nam
 
 ## Testing
 
-- Jest + ts-jest, tests in `test/parser/`, IR tests in `test/ir/`
-- VS Code mock: `test/mocks/vscode.js`
+- Jest + ts-jest, tests in `test/parser/`, `test/ir/`, `test/unit/`, `test/configLoader/`, `test/path-resolver/`
+- VS Code mock: `test/mocks/vscode.cjs`
+- oxc-parser mock: `test/mocks/oxc-parser.cjs`
 - Fixtures: `test/fixtures/` (input/expected pairs)
 - Every feature must have tests. Bug reproduction tests for regressions.
 
