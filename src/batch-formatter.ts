@@ -6,13 +6,14 @@ import { formatImports } from './formatter';
 import { sortCodePatterns } from './destructuring-sorter';
 import { organizeReExports } from './reexport-organizer';
 import { ImportParser } from './parser';
+import { PathResolver } from './utils/path-resolver';
 import { configManager } from './utils/config';
 import { ConfigLoader } from './utils/configLoader';
 import { hasIgnorePragma } from './utils/ignore-pragma';
 import { logDebug, logError } from './utils/log';
 
 import type { Config } from './types';
-import type { ParserResult } from './parser';
+import type { ParserResult, ParsedImport, ImportSource } from './parser';
 
 // --- Types ---
 
@@ -102,21 +103,6 @@ export function isFileInExcludedFolder(
     });
 }
 
-export function createBatchConfig(config: Config): Config {
-    return {
-        ...config,
-        format: {
-            ...config.format,
-            removeUnusedImports: false,
-            removeMissingModules: false,
-        },
-        pathResolution: {
-            ...config.pathResolution,
-            enabled: false,
-        },
-    };
-}
-
 export type SkipReason = 'empty' | 'ignored' | 'no-imports' | 'unchanged';
 
 export interface SingleFileResult {
@@ -128,7 +114,8 @@ export interface SingleFileResult {
 export async function formatSingleFile(
     filePath: string,
     config: Config,
-    parserCache: Map<string, ImportParser>
+    parserCache: Map<string, ImportParser>,
+    workspaceRoot?: string
 ): Promise<SingleFileResult> {
     let sourceText: string;
     try {
@@ -161,6 +148,24 @@ export async function formatSingleFile(
         parserResult = parser.parse(sourceText, undefined, undefined, filePath);
     } catch (error) {
         return { changed: false, error: `Parse error: ${error}` };
+    }
+
+    // Apply path resolution if enabled
+    if (config.pathResolution?.enabled && workspaceRoot) {
+        try {
+            const pathResolver = new PathResolver({
+                mode: config.pathResolution.mode || 'relative',
+                preferredAliases: config.pathResolution.preferredAliases || [],
+                aliases: config.pathResolution.aliases,
+            });
+            const enhanced = applyPathResolutionBatch(
+                parserResult, pathResolver, filePath, parser,
+                config.pathResolution.mode || 'relative', workspaceRoot
+            );
+            if (enhanced) { parserResult = enhanced; }
+        } catch (error) {
+            logError('Error during batch path resolution:', error);
+        }
     }
 
     // Skip files with invalid imports
@@ -215,6 +220,77 @@ export async function formatSingleFile(
     }
 
     return { changed: true };
+}
+
+// --- Path resolution for batch mode ---
+
+function applyPathResolutionBatch(
+    originalResult: ParserResult,
+    pathResolver: PathResolver,
+    filePath: string,
+    parserInstance: ImportParser,
+    mode: 'absolute' | 'relative',
+    workspaceRoot: string
+): ParserResult | null {
+    try {
+        const allImports: ParsedImport[] = [];
+        for (const group of originalResult.groups) {
+            allImports.push(...group.imports);
+        }
+
+        const convertedImports: ParsedImport[] = [];
+        let hasChanges = false;
+        let convertedCount = 0;
+
+        for (const importInfo of allImports) {
+            const resolvedPath = pathResolver.convertImportPathBatch(
+                importInfo.source,
+                filePath,
+                workspaceRoot
+            );
+
+            if (resolvedPath && resolvedPath !== importInfo.source) {
+                let groupName = importInfo.groupName;
+                let isPriority = importInfo.isPriority;
+
+                // Only re-group in absolute mode — the new alias path may match a different group.
+                if (mode === 'absolute') {
+                    const result = parserInstance.determineGroup(resolvedPath);
+                    groupName = result.groupName;
+                    isPriority = result.isPriority;
+                }
+
+                convertedImports.push({
+                    ...importInfo,
+                    source: resolvedPath as ImportSource,
+                    groupName,
+                    isPriority
+                });
+                hasChanges = true;
+                convertedCount++;
+                logDebug(`Path resolved (batch): ${importInfo.source} -> ${resolvedPath} (group: ${groupName})`);
+            } else {
+                convertedImports.push(importInfo);
+            }
+        }
+
+        if (!hasChanges) {
+            logDebug('Path resolution (batch): no changes needed');
+            return null;
+        }
+
+        logDebug(`Path resolution (batch): ${convertedCount}/${allImports.length} imports converted`);
+
+        const regroupedGroups = parserInstance.organizeImportsIntoGroups(convertedImports);
+
+        return {
+            ...originalResult,
+            groups: regroupedGroups
+        };
+    } catch (error) {
+        logError('Error applying path resolution with regrouping (batch):', error);
+        return null;
+    }
 }
 
 // --- Main export ---
@@ -278,11 +354,8 @@ export async function formatFolder(
                 continue;
             }
 
-            // Apply batch-safe config overrides
-            const batchConfig = createBatchConfig(config);
-
             // Format the file
-            const formatResult = await formatSingleFile(filePath, batchConfig, parserCache);
+            const formatResult = await formatSingleFile(filePath, config, parserCache, workspaceRoot);
 
             if (formatResult.error) {
                 result.errors.push({ filePath, error: formatResult.error });
