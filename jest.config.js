@@ -1,4 +1,5 @@
-module.exports = {
+/** @type {import('jest').Config} */
+export default {
     testEnvironment: 'node',
     testMatch: [
         "**/unit/**/*.ts",
@@ -8,13 +9,13 @@ module.exports = {
         "**/test/ir/**/*.ts"
     ],
     moduleNameMapper: {
-        "^vscode$": "<rootDir>/test/mocks/vscode.cjs",
-        "^oxc-parser$": "<rootDir>/test/mocks/oxc-parser.cjs"
+        "^vscode$": "<rootDir>/test/mocks/vscode.ts",
+        "^oxc-parser$": "<rootDir>/test/mocks/oxc-parser.ts"
     },
     transform: {
         "^.+\\.tsx?$": "ts-jest"
     },
-    moduleFileExtensions: ["ts", "tsx", "js", "jsx", "cjs", "json", "node"],
+    moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
     testPathIgnorePatterns: [
         "/node_modules/",
         "/.vscode-test/"

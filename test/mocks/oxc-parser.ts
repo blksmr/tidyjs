@@ -1,10 +1,11 @@
-// CJS shim for oxc-parser — Jest cannot handle ESM modules directly.
-// Loads the native binding and reproduces the wrap/parseSync logic.
+// TypeScript mock for oxc-parser — ts-jest compiles to CJS,
+// so the Node.js `require` is available at runtime.
+// We declare it to satisfy TypeScript.
 
-const path = require('path');
+declare const require: (id: string) => any;
 
 // Load the native binding directly
-let nativeBinding;
+let nativeBinding: any;
 try {
     nativeBinding = require('@oxc-parser/binding-darwin-arm64');
 } catch {
@@ -22,7 +23,7 @@ try {
     }
 }
 
-function jsonParseAst(programJson) {
+function jsonParseAst(programJson: string) {
     const { node: program, fixes } = JSON.parse(programJson);
     for (const fixPath of fixes) {
         let node = program;
@@ -42,30 +43,28 @@ function jsonParseAst(programJson) {
     return program;
 }
 
-function wrap(result) {
-    let program, module_, comments, errors;
+function wrap(result: any) {
+    let program: any, module_: any, comments: any, errors: any;
     return {
         get program() {
-            if (!program) program = jsonParseAst(result.program);
+            if (!program) { program = jsonParseAst(result.program); }
             return program;
         },
         get module() {
-            if (!module_) module_ = result.module;
+            if (!module_) { module_ = result.module; }
             return module_;
         },
         get comments() {
-            if (!comments) comments = result.comments;
+            if (!comments) { comments = result.comments; }
             return comments;
         },
         get errors() {
-            if (!errors) errors = result.errors;
+            if (!errors) { errors = result.errors; }
             return errors;
         },
     };
 }
 
-module.exports = {
-    parseSync(filename, sourceText, options) {
-        return wrap(nativeBinding.parseSync(filename, sourceText, options));
-    },
-};
+export function parseSync(filename: string, sourceText: string, options?: any) {
+    return wrap(nativeBinding.parseSync(filename, sourceText, options));
+}

@@ -299,9 +299,9 @@
     "dev": "npm-run-all -p watch:*",
     "watch:esbuild": "node scripts/esbuild.mjs --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "test": "jest --config jest.config.cjs",
+    "test": "jest",
     "test:e2e": "node scripts/esbuild.mjs --production && tsc -p ./test/e2e/tsconfig.json && node ./out/test/e2e/test/e2e/runTest",
-    "lint": "eslint --config eslint.config.mjs src test/parser jest.config.cjs",
+    "lint": "eslint --config eslint.config.mjs src test/parser",
     "check": "tsc --noEmit && npm run lint && npm run test",
     "build": "node scripts/esbuild.mjs --production && vsce package",
     "bump": "sh ./scripts/bump.sh"
