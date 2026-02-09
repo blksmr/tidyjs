@@ -11,6 +11,8 @@ npm install
 npm run dev
 ```
 
+The project uses **ESM output** (`"type": "module"` in package.json). The build is handled by `scripts/esbuild.mjs`. CJS files (Jest config, test mocks) use the `.cjs` extension.
+
 ## Available Scripts
 
 | Script | Description |
@@ -79,6 +81,7 @@ npm run dev
 ## Testing
 
 - Jest with ts-jest for unit tests
-- Tests in `test/parser/` directory
-- Mock VS Code API in `test/mocks/vscode.js`
+- Tests in `test/parser/`, `test/ir/`, `test/unit/`, `test/configLoader/`, `test/path-resolver/`
+- Mock VS Code API in `test/mocks/vscode.cjs`
+- Mock oxc-parser in `test/mocks/oxc-parser.cjs`
 - Test fixtures in `test/fixtures/`
