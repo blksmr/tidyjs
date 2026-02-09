@@ -5,7 +5,6 @@ import * as os from 'os';
 import {
     discoverFiles,
     isFileInExcludedFolder,
-    createBatchConfig,
     formatSingleFile,
 } from '../../src/batch-formatter';
 
@@ -126,49 +125,6 @@ describe('isFileInExcludedFolder', () => {
     });
 });
 
-describe('createBatchConfig', () => {
-    test('disables VS Code-dependent features', () => {
-        const config: Config = {
-            ...BASE_CONFIG,
-            format: {
-                ...BASE_CONFIG.format,
-                removeUnusedImports: true,
-                removeMissingModules: true,
-            },
-            pathResolution: {
-                enabled: true,
-                mode: 'relative',
-                preferredAliases: ['@/'],
-            },
-        };
-
-        const batchConfig = createBatchConfig(config);
-
-        expect(batchConfig.format?.removeUnusedImports).toBe(false);
-        expect(batchConfig.format?.removeMissingModules).toBe(false);
-        expect(batchConfig.pathResolution?.enabled).toBe(false);
-    });
-
-    test('preserves other config values', () => {
-        const config: Config = {
-            ...BASE_CONFIG,
-            format: {
-                indent: 2,
-                singleQuote: false,
-                bracketSpacing: false,
-                sortEnumMembers: true,
-            },
-        };
-
-        const batchConfig = createBatchConfig(config);
-
-        expect(batchConfig.format?.indent).toBe(2);
-        expect(batchConfig.format?.singleQuote).toBe(false);
-        expect(batchConfig.format?.bracketSpacing).toBe(false);
-        expect(batchConfig.format?.sortEnumMembers).toBe(true);
-    });
-});
-
 describe('formatSingleFile', () => {
     let tmpDir: string;
     let parserCache: Map<string, any>;
@@ -278,5 +234,146 @@ describe('formatSingleFile', () => {
         const contentAfterSecond = fs.readFileSync(filePath, 'utf8');
 
         expect(contentAfterFirst).toBe(contentAfterSecond);
+    });
+
+    test('converts relative imports to aliases when pathResolution is enabled (absolute mode)', async () => {
+        // Create a project structure with tsconfig paths
+        writeFile(tmpDir, 'tsconfig.json', JSON.stringify({
+            compilerOptions: {
+                baseUrl: '.',
+                paths: {
+                    '@/*': ['src/*']
+                }
+            }
+        }));
+
+        // Create the target file that the import points to
+        writeFile(tmpDir, 'src/utils/helper.ts', 'export const helper = 1;\n');
+
+        // Create a source file with a relative import that should become @/utils/helper
+        const filePath = writeFile(tmpDir, 'src/components/Button.ts', [
+            "import { helper } from '../utils/helper';",
+            '',
+            'const x = helper;',
+        ].join('\n'));
+
+        const config: Config = {
+            ...BASE_CONFIG,
+            pathResolution: {
+                enabled: true,
+                mode: 'absolute',
+            },
+        };
+
+        const result = await formatSingleFile(filePath, config, parserCache, tmpDir);
+
+        expect(result.changed).toBe(true);
+        expect(result.error).toBeUndefined();
+
+        const content = fs.readFileSync(filePath, 'utf8');
+        expect(content).toContain('@/utils/helper');
+        expect(content).not.toContain('../utils/helper');
+    });
+
+    test('converts alias imports to relative when pathResolution is enabled (relative mode)', async () => {
+        // Create a project structure with tsconfig paths
+        writeFile(tmpDir, 'tsconfig.json', JSON.stringify({
+            compilerOptions: {
+                baseUrl: '.',
+                paths: {
+                    '@/*': ['src/*']
+                }
+            }
+        }));
+
+        // Create the target file
+        writeFile(tmpDir, 'src/utils/helper.ts', 'export const helper = 1;\n');
+
+        // Create a source file with an alias import
+        const filePath = writeFile(tmpDir, 'src/components/Button.ts', [
+            "import { helper } from '@/utils/helper';",
+            '',
+            'const x = helper;',
+        ].join('\n'));
+
+        const config: Config = {
+            ...BASE_CONFIG,
+            pathResolution: {
+                enabled: true,
+                mode: 'relative',
+            },
+        };
+
+        const result = await formatSingleFile(filePath, config, parserCache, tmpDir);
+
+        expect(result.changed).toBe(true);
+        expect(result.error).toBeUndefined();
+
+        const content = fs.readFileSync(filePath, 'utf8');
+        expect(content).toContain('../utils/helper');
+        expect(content).not.toContain('@/utils/helper');
+    });
+
+    test('skips path resolution when workspaceRoot is not provided', async () => {
+        writeFile(tmpDir, 'tsconfig.json', JSON.stringify({
+            compilerOptions: {
+                baseUrl: '.',
+                paths: { '@/*': ['src/*'] }
+            }
+        }));
+        writeFile(tmpDir, 'src/utils/helper.ts', 'export const helper = 1;\n');
+
+        const filePath = writeFile(tmpDir, 'src/components/Button.ts', [
+            "import { helper } from '../utils/helper';",
+            '',
+            'const x = helper;',
+        ].join('\n'));
+
+        const config: Config = {
+            ...BASE_CONFIG,
+            pathResolution: {
+                enabled: true,
+                mode: 'absolute',
+            },
+        };
+
+        // No workspaceRoot → path resolution should be skipped
+        const result = await formatSingleFile(filePath, config, parserCache);
+
+        // The file may or may not change due to import formatting,
+        // but the relative path should remain unchanged
+        const content = fs.readFileSync(filePath, 'utf8');
+        expect(content).toContain('../utils/helper');
+        expect(content).not.toContain('@/utils/helper');
+    });
+
+    test('skips path resolution when pathResolution.enabled is false', async () => {
+        writeFile(tmpDir, 'tsconfig.json', JSON.stringify({
+            compilerOptions: {
+                baseUrl: '.',
+                paths: { '@/*': ['src/*'] }
+            }
+        }));
+        writeFile(tmpDir, 'src/utils/helper.ts', 'export const helper = 1;\n');
+
+        const filePath = writeFile(tmpDir, 'src/components/Button.ts', [
+            "import { helper } from '../utils/helper';",
+            '',
+            'const x = helper;',
+        ].join('\n'));
+
+        const config: Config = {
+            ...BASE_CONFIG,
+            pathResolution: {
+                enabled: false,
+                mode: 'absolute',
+            },
+        };
+
+        const result = await formatSingleFile(filePath, config, parserCache, tmpDir);
+
+        const content = fs.readFileSync(filePath, 'utf8');
+        expect(content).toContain('../utils/helper');
+        expect(content).not.toContain('@/utils/helper');
     });
 });

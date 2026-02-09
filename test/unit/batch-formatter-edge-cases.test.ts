@@ -1,7 +1,6 @@
 import {
     discoverFiles,
     isFileInExcludedFolder,
-    createBatchConfig,
     formatSingleFile,
 } from '../../src/batch-formatter';
 import type { Config } from '../../src/types';
@@ -80,89 +79,6 @@ describe('Batch Formatter - Edge Cases', () => {
             // The path IS the excluded folder, not a file inside it
             // relativePath = 'dist' which equals excludedFolder 'dist'
             expect(isFileInExcludedFolder('/project/dist', config, '/project')).toBe(true);
-        });
-    });
-
-    describe('createBatchConfig', () => {
-        const fullConfig: Config = {
-            groups: [{ name: 'React', order: 0, match: /^react/ }],
-            importOrder: { default: 0, named: 1, typeOnly: 2, sideEffect: 3 },
-            format: {
-                indent: 4,
-                singleQuote: true,
-                removeUnusedImports: true,
-                removeMissingModules: true,
-                sortEnumMembers: true,
-            },
-            pathResolution: {
-                enabled: true,
-                mode: 'relative',
-            },
-        };
-
-        it('should force removeUnusedImports to false', () => {
-            const batch = createBatchConfig(fullConfig);
-            expect(batch.format?.removeUnusedImports).toBe(false);
-        });
-
-        it('should force removeMissingModules to false', () => {
-            const batch = createBatchConfig(fullConfig);
-            expect(batch.format?.removeMissingModules).toBe(false);
-        });
-
-        it('should force pathResolution.enabled to false', () => {
-            const batch = createBatchConfig(fullConfig);
-            expect(batch.pathResolution?.enabled).toBe(false);
-        });
-
-        it('should preserve other format options', () => {
-            const batch = createBatchConfig(fullConfig);
-            expect(batch.format?.indent).toBe(4);
-            expect(batch.format?.singleQuote).toBe(true);
-            expect(batch.format?.sortEnumMembers).toBe(true);
-        });
-
-        it('should preserve other pathResolution options', () => {
-            const batch = createBatchConfig(fullConfig);
-            expect(batch.pathResolution?.mode).toBe('relative');
-        });
-
-        it('should preserve groups unchanged', () => {
-            const batch = createBatchConfig(fullConfig);
-            expect(batch.groups).toEqual(fullConfig.groups);
-        });
-
-        it('should handle config with no format property', () => {
-            const minConfig: Config = {
-                groups: [],
-                importOrder: { default: 0, named: 1, typeOnly: 2, sideEffect: 3 },
-            };
-            const batch = createBatchConfig(minConfig);
-            // Spreading undefined gives {}, then overrides are applied
-            expect(batch.format?.removeUnusedImports).toBe(false);
-            expect(batch.format?.removeMissingModules).toBe(false);
-        });
-
-        it('should handle config with no pathResolution property', () => {
-            const minConfig: Config = {
-                groups: [],
-                importOrder: { default: 0, named: 1, typeOnly: 2, sideEffect: 3 },
-            };
-            const batch = createBatchConfig(minConfig);
-            // Spreading undefined gives {}, then enabled: false is applied
-            expect(batch.pathResolution?.enabled).toBe(false);
-        });
-
-        it('should NOT mutate the original config', () => {
-            const original: Config = {
-                groups: [],
-                importOrder: { default: 0, named: 1, typeOnly: 2, sideEffect: 3 },
-                format: { removeUnusedImports: true },
-                pathResolution: { enabled: true },
-            };
-            createBatchConfig(original);
-            expect(original.format?.removeUnusedImports).toBe(true);
-            expect(original.pathResolution?.enabled).toBe(true);
         });
     });
 

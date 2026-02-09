@@ -19,10 +19,12 @@ VS Code extension that organizes and formats TypeScript/JavaScript import declar
 - **Formatter (`src/formatter.ts`)**: IR-based formatting pipeline. Aligns `from` keywords, handles multiline, preserves comments. Pipeline: `ParsedImport[] → IR Builder → IRDocument → Two-Pass Printer → String`. IR files: `src/ir/types.ts`, `src/ir/builders.ts`, `src/ir/printer.ts`.
 - **Extension (`src/extension.ts`)**: VS Code integration — commands, keybindings, format-on-save, config updates, non-intrusive debug logging.
 - **Configuration (`src/utils/config.ts`)**: ConfigManager with RegExp-aware cache, validation (duplicate orders/names), regex group patterns, @app subfolder detection.
+- **Path Resolver (`src/utils/path-resolver.ts`)**: Converts import paths between relative and alias forms. VS Code API methods for single-file mode, pure Node.js/fs batch methods (`convertImportPathBatch`, `loadPathMappingsBatch`, etc.) for folder-wide formatting. Reads tsconfig/jsconfig path mappings.
+- **Batch Formatter (`src/batch-formatter.ts`)**: Folder-wide formatting with file discovery, safety guards, and path resolution support. `formatSingleFile` accepts optional `workspaceRoot` to enable batch path resolution.
 
 ### Processing Flow
 
-AST Analysis → Mixed Import Separation → Type Categorization → Group Matching (regex) → Consolidation → Sorting → Alignment → Output
+AST Analysis → Mixed Import Separation → Type Categorization → Group Matching (regex) → Consolidation → Path Resolution (if enabled) → Sorting → Alignment → Output
 
 ### Import Types
 
