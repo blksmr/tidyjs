@@ -24,6 +24,7 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-extraneous-class": "off",
       curly: "warn",
       eqeqeq: "warn",
       "no-throw-literal": "warn",
@@ -49,23 +50,6 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-non-null-assertion": "off",
-    },
-  },
-  // Configuration pour jest.config.js (CommonJS)
-  {
-    files: ["jest.config.js"],
-    languageOptions: {
-      sourceType: "commonjs",
-      globals: {
-        module: "readonly",
-        exports: "readonly",
-        require: "readonly",
-        __dirname: "readonly",
-        __filename: "readonly",
-        global: "readonly",
-        process: "readonly",
-        Buffer: "readonly",
-      },
     },
   }
 );

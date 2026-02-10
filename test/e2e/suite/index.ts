@@ -10,7 +10,7 @@ export function run(): Promise<void> {
         timeout: 10000
     });
 
-    const testsRoot = path.resolve(__dirname, '..');
+    const testsRoot = path.resolve(import.meta.dirname, '..');
 
     return new Promise((resolve, reject) => {
         glob('**/**.test.js', { cwd: testsRoot })

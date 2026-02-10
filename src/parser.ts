@@ -1,10 +1,12 @@
 // Other
-import { parse } from '@typescript-eslint/parser';
-import { TSESTree } from '@typescript-eslint/types';
+import { parseSource } from './utils/oxc-parse';
 
 // Utils
 import { GroupMatcher } from './utils/group-matcher';
 import { logDebug } from './utils/log';
+
+// Types
+import type * as AST from './types/ast';
 
 // Types
 import { Config as ExtensionGlobalConfig } from './types';
@@ -75,6 +77,7 @@ export interface ParsedImport {
     isPriority: boolean;
     sourceIndex: number;
     originalSource?: ImportSource; // Keep track of original source for grouping
+    isReExport?: boolean;
 }
 
 export interface ImportGroup {
@@ -97,7 +100,7 @@ export interface ParserResult {
 
 export class ImportParser {
     private internalConfig: InternalProcessedConfig;
-    private ast!: TSESTree.Program;
+    private ast!: AST.Program;
     private sourceCode = '';
     private invalidImports: InvalidImport[] = [];
     private groupMatcher: GroupMatcher;
@@ -180,15 +183,7 @@ export class ImportParser {
         logDebug('JSX enabled:', shouldEnableJSX);
 
         try {
-            this.ast = parse(sourceCode, {
-                ecmaVersion: 'latest',
-                sourceType: 'module',
-                jsx: shouldEnableJSX,
-                errorOnUnknownASTType: false,
-                errorOnTypeScriptSyntacticAndSemanticIssues: false,
-                loc: true,
-                range: true,
-            });
+            this.ast = parseSource(sourceCode, { jsx: shouldEnableJSX, fileName });
 
             // Extract all imports first
             const allImports = this.extractAllImports();
@@ -243,7 +238,7 @@ export class ImportParser {
         for (const node of program.body) {
             if (node.type === 'ImportDeclaration') {
                 try {
-                    const importNode = node as TSESTree.ImportDeclaration;
+                    const importNode = node as AST.ImportDeclaration;
                     const source = importNode.source.value as string;
 
                     // Extract raw text once for this import
@@ -279,7 +274,8 @@ export class ImportParser {
 
                     for (const specifierNode of importNode.specifiers) {
                         if (specifierNode.type === 'ImportDefaultSpecifier') {
-                            const localName = specifierNode.local.name;
+                            const defaultSpec = specifierNode as AST.ImportDefaultSpecifier;
+                            const localName = defaultSpec.local.name;
 
                             if (typeOnly) {
                                 typeDefaultImport = localName;
@@ -287,12 +283,13 @@ export class ImportParser {
                                 defaultImport = localName;
                             }
                         } else if (specifierNode.type === 'ImportSpecifier') {
+                            const namedSpec = specifierNode as AST.ImportSpecifier;
                             // Only ImportSpecifier has importKind property for individual type specifiers
-                            const isTypeSpecifier = (specifierNode as TSESTree.ImportSpecifier).importKind === 'type' || typeOnly;
-                            const importedName = specifierNode.imported
-                                ? (specifierNode.imported as TSESTree.Identifier).name
-                                : specifierNode.local.name;
-                            const localName = specifierNode.local.name;
+                            const isTypeSpecifier = namedSpec.importKind === 'type' || typeOnly;
+                            const importedName = namedSpec.imported
+                                ? namedSpec.imported.name
+                                : namedSpec.local.name;
+                            const localName = namedSpec.local.name;
 
                             const specifier = importedName !== localName ? { imported: importedName, local: localName } : importedName;
 
@@ -302,7 +299,8 @@ export class ImportParser {
                                 valueSpecifiers.push(specifier);
                             }
                         } else if (specifierNode.type === 'ImportNamespaceSpecifier') {
-                            const localName = specifierNode.local.name;
+                            const nsSpec = specifierNode as AST.ImportNamespaceSpecifier;
+                            const localName = nsSpec.local.name;
 
                             const namespaceSpec = `* as ${localName}`;
                             if (typeOnly) {

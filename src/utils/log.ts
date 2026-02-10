@@ -1,4 +1,4 @@
-import vscode from 'vscode';
+import * as vscode from 'vscode';
 
 const OUTPUT_CHANNEL = vscode.window.createOutputChannel('TidyJS');
 const DEBUG_MODE = () => {

@@ -1,14 +1,18 @@
 // Other
+import { sortCodePatterns, sortPropertiesInSelection } from './destructuring-sorter';
 import { formatImports } from './formatter';
+import { organizeReExports } from './reexport-organizer';
+import { formatFolder } from './batch-formatter';
 import { ImportParser, ParserResult, InvalidImport, ParsedImport, ImportSource } from './parser';
 
 // VSCode
-import { Range, window, commands, TextEdit, workspace, languages, CancellationTokenSource } from 'vscode';
+import { Range, window, commands, TextEdit, workspace, languages, CancellationTokenSource, ProgressLocation, Uri } from 'vscode';
 import type { TextDocument, ExtensionContext, FormattingOptions, CancellationToken, DocumentFormattingEditProvider } from 'vscode';
 
 // Utils
 import { configManager } from './utils/config';
 import { diagnosticsCache } from './utils/diagnostics-cache';
+import { hasIgnorePragma } from './utils/ignore-pragma';
 import { logDebug, logError } from './utils/log';
 import { showMessage, analyzeImports } from './utils/misc';
 import { perfMonitor } from './utils/performance';
@@ -50,9 +54,11 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
 
             const documentText = document.getText();
 
-            // Vérification de sécurité pour éviter de formater des logs
-            // Supprimer cette vérification car elle est trop restrictive et empêche le formatage
-            // de fichiers légitimes qui pourraient contenir ces chaînes dans leur code
+            // Check for tidyjs-ignore pragma
+            if (hasIgnorePragma(documentText)) {
+                logDebug('Formatting skipped: tidyjs-ignore pragma found');
+                return undefined;
+            }
 
             // Create or update parser with document-specific configuration
             const configString = JSON.stringify(currentConfig);
@@ -162,9 +168,40 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             );
 
             // Check if parser returned any processable imports
+            const hasPostProcessing =
+                currentConfig.format?.sortEnumMembers ||
+                currentConfig.format?.sortExports ||
+                currentConfig.format?.sortClassProperties ||
+                currentConfig.format?.organizeReExports;
+
             if (!parserResult.importRange && parserResult.groups.length === 0) {
-                logDebug('No imports to process in document');
-                return undefined;
+                if (!hasPostProcessing) {
+                    logDebug('No imports to process in document');
+                    return undefined;
+                }
+
+                // No imports but post-processing features are enabled — run them on the raw text
+                logDebug('No imports to process, but post-processing features are enabled');
+                let finalText = documentText;
+
+                if (currentConfig.format?.sortEnumMembers ||
+                    currentConfig.format?.sortExports ||
+                    currentConfig.format?.sortClassProperties) {
+                    finalText = sortCodePatterns(finalText, currentConfig);
+                }
+                if (currentConfig.format?.organizeReExports) {
+                    finalText = organizeReExports(finalText, currentConfig);
+                }
+
+                if (finalText === documentText) {
+                    logDebug('Post-processing produced no changes');
+                    return undefined;
+                }
+
+                const fullRange = new Range(document.positionAt(0), document.positionAt(documentText.length));
+                const totalDuration = perfMonitor.end('total_format_operation');
+                logDebug(`Document formatting (post-processing only) completed in ${totalDuration.toFixed(2)}ms`);
+                return [TextEdit.replace(fullRange, finalText)];
             }
             
             // Apply path resolution if enabled
@@ -172,7 +209,8 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 try {
                     const pathResolver = new PathResolver({
                         mode: currentConfig.pathResolution.mode || 'relative',
-                        preferredAliases: currentConfig.pathResolution.preferredAliases || []
+                        preferredAliases: currentConfig.pathResolution.preferredAliases || [],
+                        aliases: currentConfig.pathResolution.aliases,
                     });
                     
                     const resolutionMode = currentConfig.pathResolution.mode || 'relative';
@@ -224,6 +262,18 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 return undefined;
             }
 
+            // Post-processing: sort code patterns if any sorting feature is enabled
+            let finalText = formattedDocument.text;
+            if (currentConfig.format?.sortEnumMembers ||
+                currentConfig.format?.sortExports ||
+                currentConfig.format?.sortClassProperties) {
+                finalText = sortCodePatterns(finalText, currentConfig);
+            }
+
+            // Post-processing: organize re-exports if enabled
+            if (currentConfig.format?.organizeReExports) {
+                finalText = organizeReExports(finalText, currentConfig);
+            }
 
             // Créer et retourner les éditions
             const fullRange = new Range(document.positionAt(0), document.positionAt(documentText.length));
@@ -235,7 +285,7 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 perfMonitor.logSummary();
             }
 
-            return [TextEdit.replace(fullRange, formattedDocument.text)];
+            return [TextEdit.replace(fullRange, finalText)];
         } catch (error) {
             logError('Error in provideDocumentFormattingEdits:', error);
             return undefined;
@@ -429,6 +479,106 @@ export function activate(context: ExtensionContext): void {
             }
         });
 
+        const sortPropertiesCommand = commands.registerCommand('tidyjs.sortProperties', async () => {
+            const editor = window.activeTextEditor;
+            if (!editor) {
+                showMessage.warning('No active editor found');
+                return;
+            }
+
+            const selection = editor.selection;
+            if (selection.isEmpty) {
+                showMessage.info('Select the code you want to sort, then run this command.');
+                return;
+            }
+
+            const document = editor.document;
+            const fullText = document.getText();
+            const selectionStart = document.offsetAt(selection.start);
+            const selectionEnd = document.offsetAt(selection.end);
+
+            const result = sortPropertiesInSelection(fullText, selectionStart, selectionEnd);
+
+            if (result === null) {
+                showMessage.info('No sortable properties found in selection.');
+                return;
+            }
+
+            const fullRange = new Range(document.positionAt(0), document.positionAt(fullText.length));
+            await editor.edit((editBuilder) => {
+                editBuilder.replace(fullRange, result);
+            });
+            logDebug('Properties sorted successfully via sortProperties command');
+        });
+
+        const formatFolderCommand = commands.registerCommand('tidyjs.formatFolder', async (folderUri?: Uri) => {
+            // If no URI provided (invoked from command palette), ask user to pick a folder
+            if (!folderUri) {
+                const selected = await window.showOpenDialog({
+                    canSelectFolders: true,
+                    canSelectFiles: false,
+                    canSelectMany: false,
+                    openLabel: 'Select Folder',
+                    title: 'Select folder to format',
+                });
+                if (!selected || selected.length === 0) {
+                    return;
+                }
+                folderUri = selected[0];
+            }
+
+            const workspaceFolder = workspace.getWorkspaceFolder(folderUri);
+            const workspaceRoot = workspaceFolder?.uri.fsPath;
+
+            await window.withProgress(
+                {
+                    location: ProgressLocation.Notification,
+                    title: 'TidyJS: Formatting folder...',
+                    cancellable: true,
+                },
+                async (progress, token) => {
+                    const result = await formatFolder(folderUri.fsPath, workspaceRoot, {
+                        onProgress: (current, total, filePath) => {
+                            const pct = Math.round((current / total) * 100);
+                            const fileName = filePath.split('/').pop() ?? filePath;
+                            progress.report({
+                                increment: (1 / total) * 100,
+                                message: `(${current}/${total}) ${fileName}`,
+                            });
+                            logDebug(`Batch format progress: ${pct}% — ${filePath}`);
+                        },
+                        isCancelled: () => token.isCancellationRequested,
+                        createUri: (filePath) => Uri.file(filePath),
+                    });
+
+                    if (token.isCancellationRequested) {
+                        showMessage.info(
+                            `Cancelled. ${result.formatted} file(s) formatted before cancellation.`
+                        );
+                        return;
+                    }
+
+                    if (result.errors.length > 0) {
+                        const showErrors = 'Show Errors';
+                        const choice = await showMessage.warning(
+                            `${result.formatted} file(s) formatted, ${result.skipped} skipped, ${result.errors.length} error(s).`,
+                            showErrors
+                        );
+                        if (choice === showErrors) {
+                            const errorDetails = result.errors
+                                .map((e) => `${e.filePath}: ${e.error}`)
+                                .join('\n');
+                            logError('Batch format errors:\n' + errorDetails);
+                        }
+                    } else {
+                        showMessage.info(
+                            `${result.formatted} file(s) formatted, ${result.skipped} skipped.`
+                        );
+                    }
+                }
+            );
+        });
+
         // Listen for configuration changes to invalidate parser cache
         const configChangeDisposable = workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration('tidyjs')) {
@@ -439,8 +589,8 @@ export function activate(context: ExtensionContext): void {
                 configManager.clearDocumentCache();
             }
         });
-        
-        context.subscriptions.push(formatCommand, createConfigCommand, formattingProvider, configChangeDisposable);
+
+        context.subscriptions.push(formatCommand, createConfigCommand, sortPropertiesCommand, formatFolderCommand, formattingProvider, configChangeDisposable);
 
         logDebug('Extension activated successfully with config:', configManager.getConfig());
 
@@ -482,15 +632,16 @@ function formatImportError(invalidImport: InvalidImport): string {
 }
 
 /**
- * Apply path resolution and re-group imports based on converted paths
- * Works for both absolute and relative modes
+ * Apply path resolution and re-group imports based on converted paths.
+ * In absolute mode: re-determine group from the new alias path.
+ * In relative mode: keep the original group (the relative path won't match the regex pattern).
  */
 async function applyPathResolutionWithRegrouping(
     originalResult: ParserResult,
     pathResolver: PathResolver,
     document: TextDocument,
     parserInstance: ImportParser,
-    _mode: 'absolute' | 'relative'
+    mode: 'absolute' | 'relative'
 ): Promise<ParserResult | null> {
     try {
         const allImports: ParsedImport[] = [];
@@ -509,17 +660,27 @@ async function applyPathResolutionWithRegrouping(
             );
 
             if (resolvedPath && resolvedPath !== importInfo.source) {
-                const { groupName, isPriority } = parserInstance.determineGroup(resolvedPath);
+                let groupName = importInfo.groupName;
+                let isPriority = importInfo.isPriority;
+
+                // Only re-group in absolute mode — the new alias path may match a different group.
+                // In relative mode, keep the original group since relative paths won't match regex patterns.
+                if (mode === 'absolute') {
+                    const result = parserInstance.determineGroup(resolvedPath);
+                    groupName = result.groupName;
+                    isPriority = result.isPriority;
+                }
+
                 const convertedImport = {
                     ...importInfo,
                     source: resolvedPath as ImportSource,
-                    groupName: groupName,
-                    isPriority: isPriority
+                    groupName,
+                    isPriority
                 };
                 convertedImports.push(convertedImport);
                 hasChanges = true;
                 convertedCount++;
-                logDebug(`Path resolved and regrouped: ${importInfo.source} -> ${resolvedPath} (group: ${groupName})`);
+                logDebug(`Path resolved: ${importInfo.source} -> ${resolvedPath} (group: ${groupName})`);
             } else {
                 convertedImports.push(importInfo);
             }
@@ -530,7 +691,7 @@ async function applyPathResolutionWithRegrouping(
             return null;
         }
 
-        logDebug(`Path resolution summary: ${convertedCount}/${allImports.length} imports converted and regrouped`);
+        logDebug(`Path resolution summary: ${convertedCount}/${allImports.length} imports converted`);
 
         const regroupedGroups = parserInstance.organizeImportsIntoGroups(convertedImports);
 

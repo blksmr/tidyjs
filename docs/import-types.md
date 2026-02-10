@@ -30,7 +30,7 @@ TidyJS automatically separates all mixed import combinations into clean, organiz
 import React, { useState } from 'react';
 
 // Output
-import React from 'react';
+import React        from 'react';
 import { useState } from 'react';
 ```
 
@@ -42,7 +42,7 @@ import { useState, type FC } from 'react';
 
 // Output
 import { useState } from 'react';
-import type { FC } from 'react';
+import type { FC }  from 'react';
 ```
 
 ### Default + Named + Type Named (3-way split)
@@ -52,9 +52,9 @@ import type { FC } from 'react';
 import React, { useState, type FC } from 'react';
 
 // Output
-import React from 'react';
+import React        from 'react';
 import { useState } from 'react';
-import type { FC } from 'react';
+import type { FC }  from 'react';
 ```
 
 ### Default + Namespace
@@ -64,17 +64,16 @@ import type { FC } from 'react';
 import React, * as ReactDOM from 'react-dom';
 
 // Output
-import React from 'react-dom';
+import React         from 'react-dom';
 import * as ReactDOM from 'react-dom';
 ```
 
 ### Type Default + Type Named
 
-```typescript
-// Input
-import type React, { FC } from 'react';
+> **Note**: The syntax `import type Default, { Named } from '...'` is invalid TypeScript. TypeScript requires separate statements for type default and type named imports. TidyJS handles these as individual imports:
 
-// Output
+```typescript
+// These are separate imports (mixed type default + type named is invalid TS)
 import type React from 'react';
 import type { FC } from 'react';
 ```
@@ -132,8 +131,8 @@ import * as Utils from './utils';
 **After TidyJS:**
 ```typescript
 // React
-import React from 'react';
-import { FC, useState } from 'react';
+import React                              from 'react';
+import { FC, useState }                   from 'react';
 import type { ReactNode, ComponentProps } from 'react';
 
 // External Libraries

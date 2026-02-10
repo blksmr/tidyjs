@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 describe('TidyJS Integration Tests', () => {
-    const testWorkspaceDir = path.join(__dirname, '../fixtures');
+    const testWorkspaceDir = path.join(import.meta.dirname, '../fixtures');
 
     before(async () => {
         if (!fs.existsSync(testWorkspaceDir)) {

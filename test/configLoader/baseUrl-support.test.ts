@@ -1,4 +1,4 @@
-import { tsConfigLoader } from '../../src/utils/config-loaders';
+import { extractTsConfigPaths } from '../../src/utils/path-resolver';
 import * as path from 'path';
 
 jest.mock('../../src/utils/log', () => ({
@@ -7,7 +7,7 @@ jest.mock('../../src/utils/log', () => ({
     logInfo: jest.fn()
 }));
 
-describe('tsConfigLoader - baseUrl support', () => {
+describe('extractTsConfigPaths - baseUrl support', () => {
     describe('baseUrl without paths', () => {
         it('should create wildcard mapping when only baseUrl is defined', () => {
             const configPath = '/Users/test/project/tsconfig.json';
@@ -17,7 +17,7 @@ describe('tsConfigLoader - baseUrl support', () => {
                 }
             };
 
-            const mappings = tsConfigLoader.extractAliases(configPath, config);
+            const mappings = extractTsConfigPaths(configPath, config);
 
             expect(mappings).toHaveLength(1);
             expect(mappings[0].pattern).toBe('*');
@@ -33,7 +33,7 @@ describe('tsConfigLoader - baseUrl support', () => {
                 }
             };
 
-            const mappings = tsConfigLoader.extractAliases(configPath, config);
+            const mappings = extractTsConfigPaths(configPath, config);
 
             expect(mappings).toHaveLength(1);
             expect(mappings[0].pattern).toBe('*');
@@ -47,7 +47,7 @@ describe('tsConfigLoader - baseUrl support', () => {
                 }
             };
 
-            const mappings = tsConfigLoader.extractAliases(configPath, config);
+            const mappings = extractTsConfigPaths(configPath, config);
 
             expect(mappings).toHaveLength(1);
             expect(mappings[0].pattern).toBe('*');
@@ -69,7 +69,7 @@ describe('tsConfigLoader - baseUrl support', () => {
                 }
             };
 
-            const mappings = tsConfigLoader.extractAliases(configPath, config);
+            const mappings = extractTsConfigPaths(configPath, config);
 
             expect(mappings).toHaveLength(2);
             expect(mappings.find(m => m.pattern === '@app/*')).toBeDefined();
@@ -88,7 +88,7 @@ describe('tsConfigLoader - baseUrl support', () => {
                 }
             };
 
-            const mappings = tsConfigLoader.extractAliases(configPath, config);
+            const mappings = extractTsConfigPaths(configPath, config);
 
             expect(mappings).toHaveLength(1);
             expect(mappings[0].paths[0]).toContain('src');
@@ -104,7 +104,7 @@ describe('tsConfigLoader - baseUrl support', () => {
                 include: ['src/**/*']
             };
 
-            const mappings = tsConfigLoader.extractAliases(configPath, config);
+            const mappings = extractTsConfigPaths(configPath, config);
 
             expect(mappings).toHaveLength(0);
         });
@@ -115,7 +115,7 @@ describe('tsConfigLoader - baseUrl support', () => {
                 compilerOptions: {}
             };
 
-            const mappings = tsConfigLoader.extractAliases(configPath, config);
+            const mappings = extractTsConfigPaths(configPath, config);
 
             expect(mappings).toHaveLength(0);
         });
@@ -130,7 +130,7 @@ describe('tsConfigLoader - baseUrl support', () => {
                 }
             };
 
-            const mappings = tsConfigLoader.extractAliases(configPath, config);
+            const mappings = extractTsConfigPaths(configPath, config);
 
             expect(mappings).toHaveLength(1);
             expect(mappings[0].pattern).toBe('*');
@@ -149,7 +149,7 @@ describe('tsConfigLoader - baseUrl support', () => {
                 }
             };
 
-            const mappings = tsConfigLoader.extractAliases(configPath, config);
+            const mappings = extractTsConfigPaths(configPath, config);
 
             expect(mappings).toHaveLength(2);
             expect(mappings.find(m => m.pattern === '@shared/*')).toBeDefined();

@@ -120,6 +120,57 @@
           "type": "boolean",
           "description": "Add spaces inside import brackets",
           "default": true
+        },
+        "sortEnumMembers": {
+          "type": "boolean",
+          "description": "Sort enum members by name length (shortest first)",
+          "default": false
+        },
+        "sortExports": {
+          "type": "boolean",
+          "description": "Sort export specifiers by name length (shortest first)",
+          "default": false
+        },
+        "sortClassProperties": {
+          "type": "boolean",
+          "description": "Sort class properties by name length (shortest first)",
+          "default": false
+        },
+        "organizeReExports": {
+          "type": "boolean",
+          "description": "Organize and format re-export statements (export { ... } from '...')",
+          "default": false
+        },
+        "enforceNewlineAfterImports": {
+          "type": "boolean",
+          "description": "Ensure exactly one blank line between the last import and the following code",
+          "default": true
+        },
+        "blankLinesBetweenGroups": {
+          "type": "integer",
+          "description": "Number of blank lines between import groups",
+          "minimum": 0,
+          "default": 1
+        },
+        "trailingComma": {
+          "type": "string",
+          "enum": ["always", "never"],
+          "description": "Trailing comma on the last specifier in multiline imports",
+          "default": "never"
+        },
+        "sortSpecifiers": {
+          "oneOf": [
+            { "type": "string", "enum": ["length", "alpha"] },
+            { "type": "boolean", "enum": [false] }
+          ],
+          "description": "Sort import specifiers: 'length' by string length, 'alpha' alphabetically, false to preserve order",
+          "default": "length"
+        },
+        "maxLineWidth": {
+          "type": "integer",
+          "description": "Maximum line width for imports (0 = disabled)",
+          "minimum": 0,
+          "default": 0
         }
       },
       "additionalProperties": false
@@ -146,6 +197,16 @@
             "type": "string"
           },
           "default": []
+        },
+        "aliases": {
+          "type": "object",
+          "description": "Path aliases in tsconfig paths format. Keys are patterns (e.g. '@app/*'), values are arrays of relative paths (e.g. ['./src/app/*'])",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "additionalProperties": false

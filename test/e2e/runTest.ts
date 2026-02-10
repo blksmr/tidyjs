@@ -4,13 +4,13 @@ import { runTests } from '@vscode/test-electron';
 async function main(): Promise<void> {
     try {
         // The folder containing the Extension Manifest package.json
-        const extensionDevelopmentPath = path.resolve(__dirname, '../../');
+        const extensionDevelopmentPath = path.resolve(import.meta.dirname, '../../');
 
         // The path to the test suite
-        const extensionTestsPath = path.resolve(__dirname, './suite/index');
+        const extensionTestsPath = path.resolve(import.meta.dirname, './suite/index');
 
         // Create a test workspace
-        const testWorkspace = path.resolve(__dirname, '../fixtures');
+        const testWorkspace = path.resolve(import.meta.dirname, '../fixtures');
 
         // Download VS Code, unzip it and run the integration test
         await runTests({

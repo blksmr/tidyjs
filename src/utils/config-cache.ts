@@ -3,7 +3,7 @@
  */
 
 import { Config } from '../types';
-import { cloneDeepWith } from 'lodash';
+import { cloneDeepWith } from './deep-clone';
 
 export class ConfigCache {
     private lastConfigString = '';
