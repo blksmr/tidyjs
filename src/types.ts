@@ -23,12 +23,22 @@ export interface Config {
     removeMissingModules?: boolean;
     singleQuote?: boolean;
     bracketSpacing?: boolean;
+    sortEnumMembers?: boolean;
+    sortExports?: boolean;
+    sortClassProperties?: boolean;
+    organizeReExports?: boolean;
+    enforceNewlineAfterImports?: boolean;
+    blankLinesBetweenGroups?: number;
+    trailingComma?: 'always' | 'never';
+    sortSpecifiers?: 'length' | 'alpha' | false;
+    maxLineWidth?: number;
   };
 
   pathResolution?: {
     enabled?: boolean;
     mode?: 'relative' | 'absolute';
     preferredAliases?: string[];
+    aliases?: Record<string, string[]>;
   };
 
   excludedFolders?: string[];
@@ -61,11 +71,21 @@ export interface TidyJSConfigFile {
     removeMissingModules?: boolean;
     singleQuote?: boolean;
     bracketSpacing?: boolean;
+    sortEnumMembers?: boolean;
+    sortExports?: boolean;
+    sortClassProperties?: boolean;
+    organizeReExports?: boolean;
+    enforceNewlineAfterImports?: boolean;
+    blankLinesBetweenGroups?: number;
+    trailingComma?: 'always' | 'never';
+    sortSpecifiers?: 'length' | 'alpha' | false;
+    maxLineWidth?: number;
   };
   pathResolution?: {
     enabled?: boolean;
     mode?: 'relative' | 'absolute';
     preferredAliases?: string[];
+    aliases?: Record<string, string[]>;
   };
   excludedFolders?: string[];
 }
@@ -76,8 +96,3 @@ export interface ConfigSource {
   config: Partial<Config>;
 }
 
-export interface FormattedImportGroup {
-  groupName: string;
-  commentLine: string;
-  importLines: string[];
-}

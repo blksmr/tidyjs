@@ -1,7 +1,8 @@
 import { Config } from '../types';
-import vscode from 'vscode';
+import * as vscode from 'vscode';
+import * as path from 'path';
 import { logDebug, logError } from './log';
-import { cloneDeepWith, uniq } from 'lodash';
+import { cloneDeepWith } from './deep-clone';
 import { ConfigCache } from './config-cache';
 import { ConfigLoader } from './configLoader';
 
@@ -15,10 +16,10 @@ const DEFAULT_CONFIG: Config = {
     }
   ],
   importOrder: {
-    default: 0,
-    named: 1,
-    typeOnly: 2,
-    sideEffect: 3,
+    sideEffect: 0,
+    default: 1,
+    named: 2,
+    typeOnly: 3,
   },
   format: {
     indent: 4,
@@ -26,6 +27,15 @@ const DEFAULT_CONFIG: Config = {
     removeMissingModules: false,
     singleQuote: true,
     bracketSpacing: true,
+    organizeReExports: false,
+    enforceNewlineAfterImports: true,
+    blankLinesBetweenGroups: 1,
+    trailingComma: 'never',
+    sortSpecifiers: 'length',
+    maxLineWidth: 0,
+    sortEnumMembers: false,
+    sortExports: false,
+    sortClassProperties: false,
   },
   pathResolution: {
     enabled: false,
@@ -166,10 +176,10 @@ class ConfigManager {
 
     // Check for duplicate group names
     const names = config.groups.map(g => g.name);
-    const uniqueNames = uniq(names);
+    const uniqueNames = [...new Set(names)];
     if (names.length !== uniqueNames.length) {
       const duplicateNames = names.filter((name, index) => names.indexOf(name) !== index);
-      const uniqueDuplicateNames = uniq(duplicateNames);
+      const uniqueDuplicateNames = [...new Set(duplicateNames)];
       errors.push(`Duplicate group names found: ${uniqueDuplicateNames.join(', ')}. Each group must have a unique name.`);
     }
 
@@ -275,7 +285,7 @@ class ConfigManager {
           const flags = regexStr.slice(lastSlashIndex + 1);
           
           // Validate flags
-          const validFlags = /^[gimsuy]*$/.test(flags);
+          const validFlags = /^[dgimsuy]*$/.test(flags);
           if (!validFlags) {
             return { isValid: false, error: `Invalid regex flags '${flags}'` };
           }
@@ -401,7 +411,9 @@ class ConfigManager {
         if (lastSlashIndex > 0) {
           const pattern = regexStr.slice(1, lastSlashIndex);
           const flags = regexStr.slice(lastSlashIndex + 1);
-          return new RegExp(pattern, flags);
+          // Strip g/y flags — they make .test() stateful and are meaningless for matching
+          const safeFlags = flags.replace(/[gy]/g, '');
+          return new RegExp(pattern, safeFlags);
         } else {
           return new RegExp(regexStr.slice(1));
         }
@@ -467,6 +479,15 @@ class ConfigManager {
         removeMissingModules: vsConfig.get<boolean>('format.removeMissingModules'),
         singleQuote: vsConfig.get<boolean>('format.singleQuote'),
         bracketSpacing: vsConfig.get<boolean>('format.bracketSpacing'),
+        sortEnumMembers: vsConfig.get<boolean>('format.sortEnumMembers'),
+        sortExports: vsConfig.get<boolean>('format.sortExports'),
+        sortClassProperties: vsConfig.get<boolean>('format.sortClassProperties'),
+        organizeReExports: vsConfig.get<boolean>('format.organizeReExports'),
+        enforceNewlineAfterImports: vsConfig.get<boolean>('format.enforceNewlineAfterImports'),
+        blankLinesBetweenGroups: vsConfig.get<number>('format.blankLinesBetweenGroups'),
+        trailingComma: vsConfig.get<string>('format.trailingComma'),
+        sortSpecifiers: vsConfig.get<string | false>('format.sortSpecifiers'),
+        maxLineWidth: vsConfig.get<number>('format.maxLineWidth'),
       };
 
       for (const [key, value] of Object.entries(formatSettings)) {
@@ -504,7 +525,13 @@ class ConfigManager {
         config.pathResolution = config.pathResolution || {};
         config.pathResolution.preferredAliases = [...pathResolutionAliases];
       }
-      
+
+      const customAliases = vsConfig.get<Record<string, string[]>>('pathResolution.aliases');
+      if (customAliases !== undefined && Object.keys(customAliases).length > 0) {
+        config.pathResolution = config.pathResolution || {};
+        config.pathResolution.aliases = customAliases;
+      }
+
       return config;
 
     } catch (error) {
@@ -536,25 +563,26 @@ class ConfigManager {
   }
 
   /**
-   * Gets configuration for a specific document, considering all config sources
-   * @param document The VS Code text document
+   * Gets configuration for a specific URI, considering all config sources
+   * @param uri The VS Code URI
    * @returns Configuration merged from all applicable sources
    */
-  public async getConfigForDocument(document: vscode.TextDocument): Promise<Config> {
-    const cacheKey = document.uri.toString();
-    
+  public async getConfigForUri(uri: vscode.Uri): Promise<Config> {
+    const cacheKey = uri.toString();
+
     // Check cache first
     const cached = this.documentConfigCache.get(cacheKey);
     if (cached) {
       return cached;
     }
 
-    // Get all config sources for this document
-    const sources = await ConfigLoader.getConfigForDocument(document.uri);
-    
+    // Get all config sources for this URI
+    const sources = await ConfigLoader.getConfigForDocument(uri);
+
     if (sources.length === 0) {
       // No specific config found, use default
       const config = this.getConfig();
+      this.resolveAliasesForUri(config, uri);
       this.documentConfigCache.set(cacheKey, config);
       return config;
     }
@@ -562,7 +590,7 @@ class ConfigManager {
     // Start with default config
     let mergedConfig = this.deepCloneConfig(DEFAULT_CONFIG);
 
-    logDebug(`Merging ${sources.length} config sources for document`);
+    logDebug(`Merging ${sources.length} config sources for URI`);
 
     // Apply configurations in reverse order (most general to most specific)
     for (let i = sources.length - 1; i >= 0; i--) {
@@ -583,16 +611,47 @@ class ConfigManager {
     const allGroups = this.getAllGroupsForConfig(mergedConfig);
     mergedConfig.groups = allGroups;
 
-    logDebug(`Config loaded for ${document.fileName} from ${sources.length} sources`);
+    logDebug(`Config loaded for ${uri.fsPath} from ${sources.length} sources`);
     logDebug(`Final merged config format:`, {
       indent: mergedConfig.format?.indent,
       singleQuote: mergedConfig.format?.singleQuote,
       bracketSpacing: mergedConfig.format?.bracketSpacing,
       removeUnusedImports: mergedConfig.format?.removeUnusedImports
     });
-    
+
+    this.resolveAliasesForUri(mergedConfig, uri);
     this.documentConfigCache.set(cacheKey, mergedConfig);
     return mergedConfig;
+  }
+
+  /**
+   * Resolve relative alias paths against the document's workspace folder.
+   * File-based configs (`.tidyjsrc`) are already resolved by ConfigLoader.
+   * This handles aliases from VS Code settings which are stored raw.
+   */
+  private resolveAliasesForUri(config: Config, uri: vscode.Uri): void {
+    const aliases = config.pathResolution?.aliases;
+    if (!aliases || Object.keys(aliases).length === 0) { return; }
+
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+    if (!workspaceFolder) { return; }
+
+    const rootPath = workspaceFolder.uri.fsPath;
+    config.pathResolution!.aliases = Object.fromEntries(
+      Object.entries(aliases).map(([pattern, paths]) => [
+        pattern,
+        paths.map(p => path.isAbsolute(p) ? p : path.resolve(rootPath, p))
+      ])
+    );
+  }
+
+  /**
+   * Gets configuration for a specific document, considering all config sources
+   * @param document The VS Code text document
+   * @returns Configuration merged from all applicable sources
+   */
+  public async getConfigForDocument(document: vscode.TextDocument): Promise<Config> {
+    return this.getConfigForUri(document.uri);
   }
 
   /**
@@ -655,6 +714,7 @@ class ConfigManager {
    */
   public clearDocumentCache(): void {
     this.documentConfigCache.clear();
+    this.configCache.clear();
     ConfigLoader.clearCache();
     logDebug('Document configuration cache cleared');
   }

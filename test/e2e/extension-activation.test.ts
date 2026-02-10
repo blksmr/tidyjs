@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 describe('TidyJS Extension Activation E2E Tests', () => {
-    const testWorkspaceDir = path.join(__dirname, '../fixtures');
+    const testWorkspaceDir = path.join(import.meta.dirname, '../fixtures');
     let tidyjsExtension: vscode.Extension<any> | undefined;
 
     before(async function() {

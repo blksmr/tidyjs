@@ -11,6 +11,8 @@ npm install
 npm run dev
 ```
 
+The project uses **ESM output** (`"type": "module"` in package.json). The build is handled by `scripts/esbuild.mjs`. CJS files (Jest config, test mocks) use the `.cjs` extension.
+
 ## Available Scripts
 
 | Script | Description |
@@ -27,12 +29,12 @@ npm run dev
 ### Core Components
 
 1. **Parser (`src/parser.ts`)**: AST-based import analysis
-   - Uses @typescript-eslint/parser for TypeScript AST
+   - Uses oxc-parser (Rust-based, ESTree-compatible) via `src/utils/oxc-parse.ts`
    - Smart mixed import separation
    - Categorizes imports by type
 
 2. **Formatter (`src/formatter.ts`)**: Visual formatting engine
-   - Uses @babel/parser for parsing
+   - IR-based pipeline (`ParsedImport[] → IR → Printer → String`)
    - Aligns 'from' keywords
    - Handles multiline imports
 
@@ -48,7 +50,7 @@ npm run dev
 
 ### Import Processing Flow
 
-1. AST Analysis: Extract imports using TypeScript AST
+1. AST Analysis: Extract imports using oxc-parser AST
 2. Smart Separation: Separate mixed imports by type
 3. Type Categorization: Classify each import
 4. Group Matching: Match imports to groups using regex
@@ -79,6 +81,7 @@ npm run dev
 ## Testing
 
 - Jest with ts-jest for unit tests
-- Tests in `test/parser/` directory
-- Mock VS Code API in `test/mocks/vscode.js`
+- Tests in `test/parser/`, `test/ir/`, `test/unit/`, `test/configLoader/`, `test/path-resolver/`
+- Mock VS Code API in `test/mocks/vscode.cjs`
+- Mock oxc-parser in `test/mocks/oxc-parser.cjs`
 - Test fixtures in `test/fixtures/`

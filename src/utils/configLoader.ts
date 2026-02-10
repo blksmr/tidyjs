@@ -7,7 +7,6 @@ import { configManager } from './config';
 
 const CONFIG_FILE_NAMES = ['.tidyjsrc', 'tidyjs.json'];
 
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class ConfigLoader {
     private static configCache = new Map<string, ConfigSource | null>();
     private static fileWatcher: vscode.FileSystemWatcher | undefined;
@@ -110,7 +109,7 @@ export class ConfigLoader {
         };
     }
 
-    static convertFileConfigToConfig(fileConfig: TidyJSConfigFile): Partial<Config> {
+    static convertFileConfigToConfig(fileConfig: TidyJSConfigFile, configPath?: string): Partial<Config> {
         const config: Partial<Config> = {
             // Don't include debug from file config - it should only come from VS Code settings
             excludedFolders: fileConfig.excludedFolders,
@@ -154,7 +153,16 @@ export class ConfigLoader {
         }
 
         if (fileConfig.pathResolution) {
-            config.pathResolution = fileConfig.pathResolution;
+            config.pathResolution = { ...fileConfig.pathResolution };
+            if (fileConfig.pathResolution.aliases && configPath) {
+                const configDir = path.dirname(configPath);
+                config.pathResolution.aliases = Object.fromEntries(
+                    Object.entries(fileConfig.pathResolution.aliases).map(([pattern, paths]) => [
+                        pattern,
+                        paths.map(p => path.resolve(configDir, p))
+                    ])
+                );
+            }
         }
 
         return config;
@@ -180,7 +188,7 @@ export class ConfigLoader {
                 debugLog(`Loading fresh config from ${configPath}`);
                 const fileConfig = await this.loadConfigFile(configPath);
                 if (fileConfig) {
-                    const config = this.convertFileConfigToConfig(fileConfig);
+                    const config = this.convertFileConfigToConfig(fileConfig, configPath);
                     debugLog(`Loaded config from file:`, fileConfig);
                     debugLog(`Converted config:`, config);
                     const source: ConfigSource = {
