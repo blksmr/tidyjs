@@ -11,7 +11,7 @@ import type * as AST from './types/ast';
 // Types
 import { Config as ExtensionGlobalConfig } from './types';
 
-export type ConfigImportGroup = {
+type ConfigImportGroup = {
     name: string;
     order: number;
     priority?: number;
@@ -37,9 +37,9 @@ export enum ImportType {
 export type ImportSource = string;
 export type ImportSpecifier = string | { imported: string; local: string };
 
-export type TypeOrder = Record<ImportType, number>;
+type TypeOrder = Record<ImportType, number>;
 
-export interface FormattingOptions {
+interface FormattingOptions {
     quoteStyle?: 'single' | 'double';
     semicolons?: boolean;
     multilineIndentation?: number | 'tab';
@@ -80,7 +80,7 @@ export interface ParsedImport {
     isReExport?: boolean;
 }
 
-export interface ImportGroup {
+interface ImportGroup {
     name: string;
     order: number;
     imports: ParsedImport[];

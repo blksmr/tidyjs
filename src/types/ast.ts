@@ -54,21 +54,6 @@ export interface Property extends ASTNode {
     computed: boolean;
 }
 
-export interface ObjectPattern extends ASTNode {
-    type: 'ObjectPattern';
-    properties: ASTNode[];
-}
-
-export interface TSInterfaceBody extends ASTNode {
-    type: 'TSInterfaceBody';
-    body: ASTNode[];
-}
-
-export interface TSTypeLiteral extends ASTNode {
-    type: 'TSTypeLiteral';
-    members: ASTNode[];
-}
-
 export interface TSEnumDeclaration extends ASTNode {
     type: 'TSEnumDeclaration';
     body?: { members: ASTNode[] };

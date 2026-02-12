@@ -2,7 +2,7 @@ import * as path from 'path';
 import Mocha from 'mocha';
 import { glob } from 'glob';
 
-export function run(): Promise<void> {
+export async function run(): Promise<void> {
     // Create the mocha test
     const mocha = new Mocha({
         ui: 'bdd',
@@ -12,21 +12,18 @@ export function run(): Promise<void> {
 
     const testsRoot = path.resolve(import.meta.dirname, '..');
 
-    return new Promise((resolve, reject) => {
-        glob('**/**.test.js', { cwd: testsRoot })
-            .then(files => {
-                files.forEach((f: string) => mocha.addFile(path.resolve(testsRoot, f)));
-                mocha.run((failures: number) => {
-                    if (failures > 0) {
-                        reject(new Error(`${failures} tests failed.`));
-                    } else {
-                        resolve();
-                    }
-                });
-            })
-            .catch(err => {
-                console.error(err);
-                reject(err);
-            });
+    const files = await glob('**/**.test.js', { cwd: testsRoot });
+    files.forEach((f: string) => mocha.addFile(path.resolve(testsRoot, f)));
+
+    await mocha.loadFilesAsync();
+
+    return new Promise<void>((resolve, reject) => {
+        mocha.run((failures: number) => {
+            if (failures > 0) {
+                reject(new Error(`${failures} tests failed.`));
+            } else {
+                resolve();
+            }
+        });
     });
 }

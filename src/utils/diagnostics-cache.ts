@@ -5,7 +5,7 @@
 import { Diagnostic, Uri, languages } from 'vscode';
 import { perfMonitor } from './performance';
 
-export class DiagnosticsCache {
+class DiagnosticsCache {
     private cache = new Map<string, { diagnostics: readonly Diagnostic[]; timestamp: number }>();
     private readonly TTL = 100; // Cache for 100ms during format operation
 
@@ -41,12 +41,6 @@ export class DiagnosticsCache {
         this.cache.clear();
     }
 
-    /**
-     * Clear specific URI from cache
-     */
-    clearUri(uri: Uri): void {
-        this.cache.delete(uri.toString());
-    }
 }
 
 // Singleton instance

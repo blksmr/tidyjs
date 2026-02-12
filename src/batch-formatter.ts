@@ -17,14 +17,14 @@ import type { ParserResult, ParsedImport, ImportSource } from './parser';
 
 // --- Types ---
 
-export interface BatchFormatResult {
+interface BatchFormatResult {
     formatted: number;
     skipped: number;
     errors: { filePath: string; error: string }[];
     totalFiles: number;
 }
 
-export interface BatchFormatCallbacks {
+interface BatchFormatCallbacks {
     onProgress: (current: number, total: number, filePath: string) => void;
     isCancelled: () => boolean;
     createUri: (filePath: string) => vscode.Uri;
@@ -103,9 +103,9 @@ export function isFileInExcludedFolder(
     });
 }
 
-export type SkipReason = 'empty' | 'ignored' | 'no-imports' | 'unchanged';
+type SkipReason = 'empty' | 'ignored' | 'no-imports' | 'unchanged';
 
-export interface SingleFileResult {
+interface SingleFileResult {
     changed: boolean;
     error?: string;
     skipReason?: SkipReason;
