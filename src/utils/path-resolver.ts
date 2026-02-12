@@ -9,7 +9,7 @@ export interface PathMapping {
     paths: string[];
 }
 
-export interface PathResolverConfig {
+interface PathResolverConfig {
     mode: 'relative' | 'absolute';
     preferredAliases?: string[];
     aliases?: Record<string, string[]>;
@@ -105,7 +105,7 @@ async function loadTsConfigMappings(document: TextDocument): Promise<PathMapping
 /**
  * Extract path mappings from a parsed tsconfig/jsconfig JSON object (pure Node.js, no VS Code APIs).
  */
-export function extractTsConfigPathsFs(configPath: string, config: unknown): PathMapping[] {
+function extractTsConfigPathsFs(configPath: string, config: unknown): PathMapping[] {
     const mappings: PathMapping[] = [];
 
     if (!config || typeof config !== 'object') { return mappings; }

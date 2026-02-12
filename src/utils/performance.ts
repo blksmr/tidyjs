@@ -2,14 +2,14 @@
  * Performance monitoring utilities for TidyJS extension
  */
 
-export interface PerformanceMetrics {
+interface PerformanceMetrics {
     operation: string;
     duration: number;
     timestamp: number;
     metadata?: Record<string, unknown>;
 }
 
-export class PerformanceMonitor {
+class PerformanceMonitor {
     private metrics: PerformanceMetrics[] = [];
     private timers = new Map<string, number>();
 
@@ -71,13 +71,6 @@ export class PerformanceMonitor {
             this.end(operation, { ...metadata, error: true });
             throw error;
         }
-    }
-
-    /**
-     * Get all metrics
-     */
-    getMetrics(): PerformanceMetrics[] {
-        return [...this.metrics];
     }
 
     /**
