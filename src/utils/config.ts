@@ -36,6 +36,7 @@ const DEFAULT_CONFIG: Config = {
     sortEnumMembers: false,
     sortExports: false,
     sortClassProperties: false,
+    sortTypeMembers: false,
   },
   pathResolution: {
     enabled: false,
@@ -46,7 +47,6 @@ const DEFAULT_CONFIG: Config = {
 };
 
 class ConfigManager {
-  private subfolders = new Map<string, Config['groups'][0]>();
   private configCache = new ConfigCache();
   private documentConfigCache = new Map<string, Config>();
 
@@ -346,30 +346,17 @@ class ConfigManager {
   }
 
   /**
-   * Gets all groups including dynamically generated subfolder groups
-   * Combines base configuration groups with registered app subfolder groups
-   * Groups are sorted by order, then by default status, then by name
+   * Gets all groups sorted by order, then by default status, then by name
    * @returns Array of all groups sorted by order and name
-   * @example
-   * ```typescript
-   * const groups = configManager.getGroups();
-   * // groups might include: [External, Internal, @app/auth, @app/utils, Other]
-   * groups.forEach(group => {
-   *   console.log(`${group.name}: order ${group.order}, default: ${group.default}`);
-   * });
-   * ```
    */
   public getGroups(): Config['groups'] {
     const config = this.getConfig();
-    const baseGroups = config.groups.map(g => ({
+    const groups = config.groups.map(g => ({
       ...g,
       default: !!g.default,
     }));
 
-    const subfolderGroups = Array.from(this.subfolders.values());
-    const combinedGroups = [...baseGroups, ...subfolderGroups];
-
-    combinedGroups.sort((a, b) => {
+    groups.sort((a, b) => {
       if (a.order !== b.order) {
         return a.order - b.order;
       }
@@ -379,7 +366,7 @@ class ConfigManager {
       return a.name.localeCompare(b.name);
     });
 
-    return combinedGroups;
+    return groups;
   }
 
   /**
@@ -482,6 +469,7 @@ class ConfigManager {
         sortEnumMembers: vsConfig.get<boolean>('format.sortEnumMembers'),
         sortExports: vsConfig.get<boolean>('format.sortExports'),
         sortClassProperties: vsConfig.get<boolean>('format.sortClassProperties'),
+        sortTypeMembers: vsConfig.get<boolean>('format.sortTypeMembers'),
         organizeReExports: vsConfig.get<boolean>('format.organizeReExports'),
         enforceNewlineAfterImports: vsConfig.get<boolean>('format.enforceNewlineAfterImports'),
         blankLinesBetweenGroups: vsConfig.get<number>('format.blankLinesBetweenGroups'),
@@ -545,15 +533,7 @@ class ConfigManager {
 
   /**
    * Gets configuration optimized for the parser with all groups included
-   * Returns the base configuration enhanced with all registered subfolder groups
-   * This is the configuration that should be used by the import parser
-   * @returns Configuration object with dynamic groups included
-   * @example
-   * ```typescript
-   * const parserConfig = configManager.getParserConfig();
-   * // parserConfig.groups includes both base groups and @app/* subfolders
-   * const parser = new ImportParser(parserConfig);
-   * ```
+   * @returns Configuration object ready for the import parser
    */
   public getParserConfig(): Config {
     return {
@@ -606,10 +586,6 @@ class ConfigManager {
     if (mergedConfig.groups) {
       mergedConfig.groups = this.computeAutoOrder(mergedConfig.groups);
     }
-
-    // Add dynamic subfolders
-    const allGroups = this.getAllGroupsForConfig(mergedConfig);
-    mergedConfig.groups = allGroups;
 
     logDebug(`Config loaded for ${uri.fsPath} from ${sources.length} sources`);
     logDebug(`Final merged config format:`, {
@@ -688,24 +664,6 @@ class ConfigManager {
     }
 
     return result;
-  }
-
-  /**
-   * Gets all groups including dynamic subfolders for a specific config
-   * @param config The base configuration
-   * @returns All groups including dynamic ones
-   */
-  private getAllGroupsForConfig(config: Config): Config['groups'] {
-    const allGroups = [...config.groups];
-    
-    // Add dynamic subfolder groups
-    this.subfolders.forEach((group) => {
-      if (!allGroups.some(g => g.name === group.name)) {
-        allGroups.push(group);
-      }
-    });
-
-    return allGroups;
   }
 
   /**

@@ -26,6 +26,7 @@ export interface Config {
     sortEnumMembers?: boolean;
     sortExports?: boolean;
     sortClassProperties?: boolean;
+    sortTypeMembers?: boolean;
     organizeReExports?: boolean;
     enforceNewlineAfterImports?: boolean;
     blankLinesBetweenGroups?: number;
@@ -74,6 +75,7 @@ export interface TidyJSConfigFile {
     sortEnumMembers?: boolean;
     sortExports?: boolean;
     sortClassProperties?: boolean;
+    sortTypeMembers?: boolean;
     organizeReExports?: boolean;
     enforceNewlineAfterImports?: boolean;
     blankLinesBetweenGroups?: number;

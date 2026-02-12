@@ -136,6 +136,11 @@
           "description": "Sort class properties by name length (shortest first)",
           "default": false
         },
+        "sortTypeMembers": {
+          "type": "boolean",
+          "description": "Sort interface and type literal properties by name length (shortest first)",
+          "default": false
+        },
         "organizeReExports": {
           "type": "boolean",
           "description": "Organize and format re-export statements (export { ... } from '...')",

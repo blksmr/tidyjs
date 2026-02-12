@@ -188,7 +188,8 @@ export async function formatSingleFile(
     // Post-processing: sort enums/exports/class properties
     if (config.format?.sortEnumMembers ||
         config.format?.sortExports ||
-        config.format?.sortClassProperties) {
+        config.format?.sortClassProperties ||
+        config.format?.sortTypeMembers) {
         finalText = sortCodePatterns(finalText, config);
     }
 
