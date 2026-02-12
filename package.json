@@ -171,6 +171,11 @@
           "default": false,
           "description": "Sort class properties by name length (shortest first)"
         },
+        "tidyjs.format.sortTypeMembers": {
+          "type": "boolean",
+          "default": false,
+          "description": "Sort interface and type literal properties by name length (shortest first)"
+        },
         "tidyjs.format.organizeReExports": {
           "type": "boolean",
           "default": false,

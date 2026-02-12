@@ -19,6 +19,12 @@ const classConfig: Config = {
     format: { sortClassProperties: true },
 };
 
+const typeMembersConfig: Config = {
+    groups: [],
+    importOrder: { default: 1, named: 2, typeOnly: 3, sideEffect: 0 },
+    format: { sortTypeMembers: true },
+};
+
 /** Helper: sort the entire text as if the user selected everything */
 function sortSelection(input: string): string {
     return sortPropertiesInSelection(input, 0, input.length) ?? input;
@@ -801,5 +807,155 @@ describe('object literal sorting (ObjectExpression)', () => {
         const telIdx = result.indexOf('telephone:');
         expect(idIdx).toBeLessThan(nomIdx);
         expect(nomIdx).toBeLessThan(telIdx);
+    });
+});
+
+describe('sortTypeMembers', () => {
+    it('should sort interface properties automatically', () => {
+        const input = `interface Props {
+    className: string;
+    datatestIdAttribute: string;
+    datatestId: string;
+}`;
+
+        const expected = `interface Props {
+    className: string;
+    datatestId: string;
+    datatestIdAttribute: string;
+}`;
+
+        expect(sortCodePatterns(input, typeMembersConfig)).toBe(expected);
+    });
+
+    it('should sort type literal properties automatically', () => {
+        const input = `type Props = {
+    className: string;
+    datatestIdAttribute: string;
+    datatestId: string;
+};`;
+
+        const expected = `type Props = {
+    className: string;
+    datatestId: string;
+    datatestIdAttribute: string;
+};`;
+
+        expect(sortCodePatterns(input, typeMembersConfig)).toBe(expected);
+    });
+
+    it('should not sort interfaces when sortTypeMembers is disabled', () => {
+        const input = `interface Props {
+    longName: string;
+    a: string;
+}`;
+
+        expect(sortCodePatterns(input, enumConfig)).toBe(input);
+    });
+
+    it('should not sort type literals when sortTypeMembers is disabled', () => {
+        const input = `type Props = {
+    longName: string;
+    a: string;
+};`;
+
+        expect(sortCodePatterns(input, enumConfig)).toBe(input);
+    });
+
+    it('should skip interfaces with comments', () => {
+        const input = `interface Props {
+    // important: must be first
+    longName: string;
+    a: string;
+}`;
+
+        expect(sortCodePatterns(input, typeMembersConfig)).toBe(input);
+    });
+
+    it('should skip type literals with comments', () => {
+        const input = `type Props = {
+    // important: must be first
+    longName: string;
+    a: string;
+};`;
+
+        expect(sortCodePatterns(input, typeMembersConfig)).toBe(input);
+    });
+
+    it('should not touch single-line interfaces', () => {
+        const input = `interface Props { longName: string; a: string; }`;
+        expect(sortCodePatterns(input, typeMembersConfig)).toBe(input);
+    });
+
+    it('should not touch single-line type literals', () => {
+        const input = `type Props = { longName: string; a: string; };`;
+        expect(sortCodePatterns(input, typeMembersConfig)).toBe(input);
+    });
+
+    it('should be idempotent for interfaces', () => {
+        const input = `interface Props {
+    className: string;
+    datatestIdAttribute: string;
+    datatestId: string;
+}`;
+
+        const first = sortCodePatterns(input, typeMembersConfig);
+        const second = sortCodePatterns(first, typeMembersConfig);
+        expect(first).toBe(second);
+    });
+
+    it('should be idempotent for type literals', () => {
+        const input = `type Props = {
+    className: string;
+    datatestIdAttribute: string;
+    datatestId: string;
+};`;
+
+        const first = sortCodePatterns(input, typeMembersConfig);
+        const second = sortCodePatterns(first, typeMembersConfig);
+        expect(first).toBe(second);
+    });
+
+    it('should sort alphabetically when same length', () => {
+        const input = `interface Props {
+    nom: string;
+    age: number;
+}`;
+
+        const expected = `interface Props {
+    age: number;
+    nom: string;
+}`;
+
+        expect(sortCodePatterns(input, typeMembersConfig)).toBe(expected);
+    });
+
+    it('should handle method signatures', () => {
+        const input = `interface Service {
+    disconnect(): void;
+    connect(): void;
+    id: string;
+}`;
+
+        const expected = `interface Service {
+    id: string;
+    connect(): void;
+    disconnect(): void;
+}`;
+
+        expect(sortCodePatterns(input, typeMembersConfig)).toBe(expected);
+    });
+
+    it('should handle optional properties', () => {
+        const input = `interface Props {
+    optional?: string;
+    id: number;
+}`;
+
+        const expected = `interface Props {
+    id: number;
+    optional?: string;
+}`;
+
+        expect(sortCodePatterns(input, typeMembersConfig)).toBe(expected);
     });
 });

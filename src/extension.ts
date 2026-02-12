@@ -172,6 +172,7 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 currentConfig.format?.sortEnumMembers ||
                 currentConfig.format?.sortExports ||
                 currentConfig.format?.sortClassProperties ||
+                currentConfig.format?.sortTypeMembers ||
                 currentConfig.format?.organizeReExports;
 
             if (!parserResult.importRange && parserResult.groups.length === 0) {
@@ -186,7 +187,8 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
 
                 if (currentConfig.format?.sortEnumMembers ||
                     currentConfig.format?.sortExports ||
-                    currentConfig.format?.sortClassProperties) {
+                    currentConfig.format?.sortClassProperties ||
+                    currentConfig.format?.sortTypeMembers) {
                     finalText = sortCodePatterns(finalText, currentConfig);
                 }
                 if (currentConfig.format?.organizeReExports) {

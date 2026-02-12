@@ -226,6 +226,32 @@ function findSortablePatterns(
             flushRun();
         }
 
+        if (config?.format?.sortTypeMembers && node.type === 'TSInterfaceBody' && node.range) {
+            const range = node.range as [number, number];
+            if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
+                const props = extractProperties(
+                    node.body as AST.ASTNode[],
+                    sourceText
+                );
+                if (props && props.length >= 2) {
+                    patterns.push({ kind: 'interfaceBody', range, properties: props });
+                }
+            }
+        }
+
+        if (config?.format?.sortTypeMembers && node.type === 'TSTypeLiteral' && node.range) {
+            const range = node.range as [number, number];
+            if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
+                const props = extractProperties(
+                    node.members as AST.ASTNode[],
+                    sourceText
+                );
+                if (props && props.length >= 2) {
+                    patterns.push({ kind: 'typeLiteral', range, properties: props });
+                }
+            }
+        }
+
         for (const key of Object.keys(node)) {
             if (key === 'parent') {continue;}
             const value = (node as unknown as Record<string, unknown>)[key];
