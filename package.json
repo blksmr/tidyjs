@@ -309,7 +309,8 @@
     "lint": "eslint --config eslint.config.mjs src test/parser",
     "check": "tsc --noEmit && npm run lint && npm run test",
     "build": "node scripts/esbuild.mjs --production && vsce package",
-    "bump": "sh ./scripts/bump.sh"
+    "bump": "sh ./scripts/bump.sh",
+    "publish:marketplace": "node scripts/publish.mjs"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
