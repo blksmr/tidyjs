@@ -25,6 +25,9 @@ src/**/*.js.map
 test/**/package.json
 test/**/package-*.json
 
+# Environment
+.env
+
 # Package manager files
 package-lock.json
 pnpm-lock.yaml
