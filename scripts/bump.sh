@@ -1,11 +1,38 @@
 #!/bin/bash
-# Interactive version management script for TidyJS
+# Version management script for TidyJS
+# Usage:
+#   ./scripts/bump.sh                  Interactive mode
+#   ./scripts/bump.sh minor            Ask version type, prompt for git/publish
+#   ./scripts/bump.sh minor --yes      Fully non-interactive: bump + build + commit + tag + push + publish
+
+set -e
 
 # Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+RED='\033[0;31m'
+NC='\033[0m'
+
+# Parse flags
+VERSION_TYPE=""
+AUTO_YES=false
+
+for arg in "$@"; do
+  case "$arg" in
+    patch|minor|major) VERSION_TYPE="$arg" ;;
+    --yes|-y) AUTO_YES=true ;;
+  esac
+done
+
+confirm() {
+  if [ "$AUTO_YES" = true ]; then
+    return 0
+  fi
+  read -p "$1 (y/n) " -n 1 -r
+  printf "\n"
+  [[ $REPLY =~ ^[Yy]$ ]]
+}
 
 show_header() {
   printf "${BLUE}╔════════════════════════════════════════════╗${NC}\n"
@@ -17,34 +44,24 @@ show_header() {
 # Get current version
 CURRENT_VERSION=$(grep -o '"version": "[^"]*"' package.json | cut -d'"' -f4)
 
-# Parse version
 IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
 MAJOR=${VERSION_PARTS[0]}
 MINOR=${VERSION_PARTS[1]}
 PATCH=${VERSION_PARTS[2]}
 
-# If an argument is passed, use it directly
-if [ "$1" == "patch" ] || [ "$1" == "minor" ] || [ "$1" == "major" ]; then
-  VERSION_TYPE=$1
-else
-  # Interactive mode
+# If no version type provided, ask interactively
+if [ -z "$VERSION_TYPE" ]; then
   show_header
 
-  printf "${YELLOW}Current version: ${GREEN}$CURRENT_VERSION${NC}\n"
-  printf "\n"
-  printf "Choose the version type to increment:\n"
-  printf "\n"
+  printf "${YELLOW}Current version: ${GREEN}$CURRENT_VERSION${NC}\n\n"
+  printf "Choose the version type to increment:\n\n"
   printf "${BLUE}1) Patch${NC} ($MAJOR.$MINOR.$PATCH → $MAJOR.$MINOR.$((PATCH + 1)))\n"
-  printf "   └─ Bug fixes, small improvements\n"
-  printf "\n"
+  printf "   └─ Bug fixes, small improvements\n\n"
   printf "${BLUE}2) Minor${NC} ($MAJOR.$MINOR.$PATCH → $MAJOR.$((MINOR + 1)).0)\n"
-  printf "   └─ New features, significant improvements\n"
-  printf "\n"
+  printf "   └─ New features, significant improvements\n\n"
   printf "${BLUE}3) Major${NC} ($MAJOR.$MINOR.$PATCH → $((MAJOR + 1)).0.0)\n"
-  printf "   └─ Breaking changes, major rework\n"
-  printf "\n"
-  printf "${BLUE}4) Cancel${NC}\n"
-  printf "\n"
+  printf "   └─ Breaking changes, major rework\n\n"
+  printf "${BLUE}4) Cancel${NC}\n\n"
 
   read -p "Your choice (1-4): " choice
 
@@ -52,40 +69,21 @@ else
     1) VERSION_TYPE="patch" ;;
     2) VERSION_TYPE="minor" ;;
     3) VERSION_TYPE="major" ;;
-    4)
+    *)
       printf "${YELLOW}Cancelled${NC}\n"
       exit 0
-      ;;
-    *)
-      printf "${YELLOW}Invalid choice. Cancelled.${NC}\n"
-      exit 1
       ;;
   esac
 fi
 
 # Calculate new version
 case "$VERSION_TYPE" in
-  "major")
-    NEW_MAJOR=$((MAJOR + 1))
-    NEW_MINOR=0
-    NEW_PATCH=0
-    ;;
-  "minor")
-    NEW_MAJOR=$MAJOR
-    NEW_MINOR=$((MINOR + 1))
-    NEW_PATCH=0
-    ;;
-  "patch")
-    NEW_MAJOR=$MAJOR
-    NEW_MINOR=$MINOR
-    NEW_PATCH=$((PATCH + 1))
-    ;;
+  "major") NEW_VERSION="$((MAJOR + 1)).0.0" ;;
+  "minor") NEW_VERSION="$MAJOR.$((MINOR + 1)).0" ;;
+  "patch") NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))" ;;
 esac
 
-NEW_VERSION="$NEW_MAJOR.$NEW_MINOR.$NEW_PATCH"
-
-printf "\n"
-printf "${GREEN}► Updating version: $CURRENT_VERSION → $NEW_VERSION${NC}\n"
+printf "\n${GREEN}► Updating version: $CURRENT_VERSION → $NEW_VERSION${NC}\n"
 
 # Update package.json
 if command -v jq &> /dev/null; then
@@ -98,75 +96,52 @@ fi
 
 printf "${GREEN}✓ Version updated in package.json${NC}\n"
 
-# Ask to create commit and tag
-printf "\n"
-read -p "Create a Git commit and tag? (y/n) " -n 1 -r
-printf "\n"
-
-if [[ $REPLY =~ ^[Yy]$ ]]; then
+# Git commit, tag, push, publish
+if confirm "Build, commit, tag, push, and publish?"; then
   # Clean old .vsix files
   printf "${BLUE}► Cleaning old .vsix files...${NC}\n"
   rm -f *.vsix
 
-  # Build the package
+  # Build
   printf "${BLUE}► Building package...${NC}\n"
   npm run build
 
-  # Create commit
-  git add package.json
-  git commit -m "chore: bump version to $NEW_VERSION"
-  printf "${GREEN}✓ Commit created${NC}\n"
-
-  # Create tag
-  git tag "v$NEW_VERSION"
-  printf "${GREEN}✓ Tag v$NEW_VERSION created${NC}\n"
-
-  # Ask to push
-  printf "\n"
-  read -p "Push changes to GitHub? (y/n) " -n 1 -r
-  printf "\n"
-
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    git push origin main
-    git push origin "v$NEW_VERSION"
-    printf "${GREEN}✓ Changes pushed to GitHub${NC}\n"
-  else
-    printf "${YELLOW}► Changes kept locally${NC}\n"
-    printf "  To push later: git push origin main && git push origin v$NEW_VERSION\n"
+  VSIX_FILE="tidyjs-${NEW_VERSION}.vsix"
+  if [ ! -f "$VSIX_FILE" ]; then
+    printf "${RED}✗ Build failed: $VSIX_FILE not found${NC}\n"
+    exit 1
   fi
 
-  # Ask to publish to Marketplace
-  printf "\n"
-  read -p "Publish to VS Code Marketplace? (y/n) " -n 1 -r
-  printf "\n"
+  # Commit + tag
+  git add package.json
+  git commit -m "chore: bump version to $NEW_VERSION"
+  git tag "v$NEW_VERSION"
+  printf "${GREEN}✓ Commit + tag v$NEW_VERSION created${NC}\n"
 
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if [ -z "$VSCE_PAT" ]; then
-      printf "${YELLOW}✗ VSCE_PAT not set. Add it to .env or ~/.zshrc:${NC}\n"
-      printf "  export VSCE_PAT=\"your-token\"\n"
-      exit 1
-    fi
+  # Push
+  if confirm "Push to GitHub?"; then
+    git push origin main && git push origin "v$NEW_VERSION"
+    printf "${GREEN}✓ Pushed to GitHub${NC}\n"
+  else
+    printf "${YELLOW}► Kept locally. Push later: git push origin main && git push origin v$NEW_VERSION${NC}\n"
+  fi
 
-    VSIX_FILE="tidyjs-${NEW_VERSION}.vsix"
-    if [ ! -f "$VSIX_FILE" ]; then
-      printf "${YELLOW}✗ File $VSIX_FILE not found${NC}\n"
-      exit 1
-    fi
-
+  # Publish (delegates to publish.mjs which handles .env + vsce)
+  if confirm "Publish to VS Code Marketplace?"; then
     printf "${BLUE}► Publishing to Marketplace...${NC}\n"
-    vsce publish --packagePath "$VSIX_FILE" -p "$VSCE_PAT"
+    node scripts/publish.mjs
 
     if [ $? -eq 0 ]; then
-      printf "${GREEN}✓ TidyJS v$NEW_VERSION published to Marketplace${NC}\n"
+      printf "${GREEN}✓ TidyJS v$NEW_VERSION published${NC}\n"
     else
-      printf "${YELLOW}✗ Publish failed. Upload manually: $VSIX_FILE${NC}\n"
+      printf "${RED}✗ Publish failed. Upload manually: $VSIX_FILE${NC}\n"
       printf "  https://marketplace.visualstudio.com/manage/publishers/asmir\n"
+      exit 1
     fi
   fi
 else
   printf "${GREEN}✓ Version updated (no commit)${NC}\n"
-  printf "  To commit manually: git add package.json && git commit -m \"chore: bump version to $NEW_VERSION\"\n"
+  printf "  To continue manually: git add package.json && git commit -m \"chore: bump version to $NEW_VERSION\"\n"
 fi
 
-printf "\n"
-printf "${GREEN}✨ Done!${NC}\n"
+printf "\n${GREEN}✨ Done!${NC}\n"
