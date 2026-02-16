@@ -2,7 +2,7 @@
   "name": "tidyjs",
   "displayName": "TidyJS",
   "description": "Automatically organizes and formats import declarations",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "publisher": "Asmir",
   "license": "MIT",
   "icon": "resources/small.png",
@@ -194,14 +194,28 @@
         },
         "tidyjs.format.trailingComma": {
           "type": "string",
-          "enum": ["always", "never"],
+          "enum": [
+            "always",
+            "never"
+          ],
           "default": "never",
           "description": "Trailing comma on the last specifier in multiline imports"
         },
         "tidyjs.format.sortSpecifiers": {
           "oneOf": [
-            { "type": "string", "enum": ["length", "alpha"] },
-            { "type": "boolean", "enum": [false] }
+            {
+              "type": "string",
+              "enum": [
+                "length",
+                "alpha"
+              ]
+            },
+            {
+              "type": "boolean",
+              "enum": [
+                false
+              ]
+            }
           ],
           "default": "length",
           "description": "Sort import specifiers: 'length' by string length, 'alpha' alphabetically, false to preserve order"
@@ -264,7 +278,9 @@
             },
             {
               "type": "boolean",
-              "enum": [false]
+              "enum": [
+                false
+              ]
             }
           ],
           "default": false,
