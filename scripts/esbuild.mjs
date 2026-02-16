@@ -107,6 +107,11 @@ const config = {
 };
 
 async function main() {
+    // Clean dist/ before production builds to remove stale artifacts
+    if (production) {
+        fs.rmSync('dist', { recursive: true, force: true });
+    }
+
     const ctx = await esbuild.context(config);
 
     if (watch) {

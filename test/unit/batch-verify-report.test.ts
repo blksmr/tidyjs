@@ -62,7 +62,6 @@ const CONFIG: Config = {
     },
     pathResolution: {
         mode: 'relative',
-        enabled: true,
     },
     excludedFolders: [],
 };
@@ -169,10 +168,10 @@ async function classifyFile(
     }
 
     // Apply path resolution (dry-run)
-    if (config.pathResolution?.enabled && workspaceRoot) {
+    if (config.pathResolution?.mode && workspaceRoot) {
         try {
             const pathResolver = new PathResolver({
-                mode: config.pathResolution.mode || 'relative',
+                mode: config.pathResolution.mode,
                 preferredAliases: config.pathResolution.preferredAliases || [],
                 aliases: config.pathResolution.aliases,
             });

@@ -53,7 +53,7 @@ function formatConfigObject(config: Record<string, unknown>): string {
     `Groups: ${Array.isArray(config.groups) ? config.groups.length : 0} configured`,
     `Import order: ${config.importOrder && typeof config.importOrder === 'object' ? Object.keys(config.importOrder).join(' → ') : 'none'}`,
     `Format: ${config.format && typeof config.format === 'object' && 'singleQuote' in config.format ? (config.format.singleQuote ? 'single quotes' : 'double quotes') : 'default'}, ${config.format && typeof config.format === 'object' && 'indent' in config.format ? config.format.indent || 2 : 2} spaces`,
-    `Path resolution: ${config.pathResolution && typeof config.pathResolution === 'object' && 'enabled' in config.pathResolution ? (config.pathResolution.enabled ? 'enabled' : 'disabled') : 'disabled'}`,
+    `Path resolution: ${config.pathResolution && typeof config.pathResolution === 'object' && 'mode' in config.pathResolution && config.pathResolution.mode ? config.pathResolution.mode : 'disabled'}`,
     `Excluded folders: ${Array.isArray(config.excludedFolders) ? config.excludedFolders.length : 0} folders`
   ];
   

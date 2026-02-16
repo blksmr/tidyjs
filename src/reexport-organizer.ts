@@ -6,7 +6,7 @@ import { GroupMatcher } from './utils/group-matcher';
 import { buildDocument } from './ir/builders';
 import { printDocument } from './ir/printer';
 
-import type { ParsedImport, ImportSource } from './parser';
+import type { ParsedImport, ImportSource, ImportSpecifier } from './parser';
 import type { Config } from './types';
 
 interface ReExportBlock {
@@ -107,6 +107,36 @@ function buildBlock(nodes: AST.ExportNamedDeclaration[], sourceText: string): Re
 }
 
 /**
+ * Merge re-exports that share the same source and type.
+ * E.g. `export { A } from './x'` + `export { B } from './x'` → `export { A, B } from './x'`
+ */
+function consolidateReExports(reExports: ParsedImport[]): ParsedImport[] {
+    const map = new Map<string, ParsedImport>();
+
+    for (const re of reExports) {
+        const key = `${re.type}::${re.source}`;
+        const existing = map.get(key);
+
+        if (existing) {
+            const specMap = new Map<string, ImportSpecifier>();
+            for (const spec of existing.specifiers) {
+                const name = typeof spec === 'string' ? spec : spec.local;
+                specMap.set(name, spec);
+            }
+            for (const spec of re.specifiers) {
+                const name = typeof spec === 'string' ? spec : spec.local;
+                specMap.set(name, spec);
+            }
+            existing.specifiers = Array.from(specMap.values());
+        } else {
+            map.set(key, { ...re, specifiers: [...re.specifiers] });
+        }
+    }
+
+    return Array.from(map.values());
+}
+
+/**
  * Format a single contiguous block of re-exports through the IR pipeline.
  */
 function formatReExportBlock(
@@ -119,7 +149,8 @@ function formatReExportBlock(
         return null;
     }
 
-    const grouped = groupReExports(parsed, config);
+    const consolidated = consolidateReExports(parsed);
+    const grouped = groupReExports(consolidated, config);
     if (grouped.length === 0) {
         return null;
     }

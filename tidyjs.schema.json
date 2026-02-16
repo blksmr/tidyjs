@@ -184,16 +184,19 @@
       "type": "object",
       "description": "Path resolution options",
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable path resolution",
-          "default": false
-        },
         "mode": {
-          "type": "string",
-          "enum": ["relative", "absolute"],
-          "description": "Resolution mode",
-          "default": "relative"
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": ["relative", "absolute"]
+            },
+            {
+              "type": "boolean",
+              "enum": [false]
+            }
+          ],
+          "description": "Resolution mode, or false to disable",
+          "default": false
         },
         "preferredAliases": {
           "type": "array",

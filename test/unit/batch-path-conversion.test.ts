@@ -48,7 +48,6 @@ function makeConfig(mode: 'relative' | 'absolute'): Config {
         },
         pathResolution: {
             mode,
-            enabled: true,
         },
         excludedFolders: [],
     };

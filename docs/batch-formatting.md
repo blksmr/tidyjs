@@ -107,7 +107,7 @@ Batch formatting automatically disables certain potentially destructive options:
 
 - **`removeUnusedImports: false`**: removing unused imports could break code if static analysis is incomplete
 - **`removeMissingModules: false`**: removing missing modules could be due to a different build environment
-- **`pathResolution.enabled: false`**: path resolution depends on the execution context and could produce incorrect paths in batch mode
+- **`pathResolution.mode: false`**: path resolution depends on the execution context and could produce incorrect paths in batch mode
 
 These guards only apply in batch mode. Individual formatting (on save or via command) preserves your settings as-is.
 

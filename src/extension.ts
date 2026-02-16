@@ -207,15 +207,15 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             }
             
             // Apply path resolution if enabled
-            if (currentConfig.pathResolution?.enabled) {
+            if (currentConfig.pathResolution?.mode) {
                 try {
                     const pathResolver = new PathResolver({
-                        mode: currentConfig.pathResolution.mode || 'relative',
+                        mode: currentConfig.pathResolution.mode,
                         preferredAliases: currentConfig.pathResolution.preferredAliases || [],
                         aliases: currentConfig.pathResolution.aliases,
                     });
-                    
-                    const resolutionMode = currentConfig.pathResolution.mode || 'relative';
+
+                    const resolutionMode = currentConfig.pathResolution.mode;
                     logDebug('Applying path resolution with mode:', resolutionMode);
 
                     const enhancedParserResult = await applyPathResolutionWithRegrouping(
@@ -245,7 +245,7 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
             }
 
             // Debug: Log the imports before formatting
-            if (currentConfig.pathResolution?.enabled) {
+            if (currentConfig.pathResolution?.mode) {
                 logDebug('Imports before formatting:');
                 parserResult.groups.forEach(group => {
                     group.imports.forEach(imp => {

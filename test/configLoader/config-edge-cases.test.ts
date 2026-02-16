@@ -173,7 +173,7 @@ describe('Config edge cases', () => {
                 groups: [{ name: 'Test', match: '^test', order: 0 }],
                 format: { indent: 2 },
                 pathResolution: {
-                    enabled: true,
+                    mode: 'absolute',
                     aliases: { '@app/*': ['./src/app/*'] },
                 },
             };
@@ -183,7 +183,7 @@ describe('Config edge cases', () => {
 
             expect(result.groups).toHaveLength(1);
             expect(result.format?.indent).toBe(2);
-            expect(result.pathResolution?.enabled).toBe(true);
+            expect(result.pathResolution?.mode).toBe('absolute');
             // aliases should be kept from spread, not resolved
             expect(result.pathResolution?.aliases).toEqual({ '@app/*': ['./src/app/*'] });
         });
@@ -258,7 +258,6 @@ describe('Config edge cases', () => {
         it('should merge pathResolution fields (not replace entirely)', () => {
             const base: TidyJSConfigFile = {
                 pathResolution: {
-                    enabled: true,
                     mode: 'absolute',
                     preferredAliases: ['@app'],
                 },
@@ -272,7 +271,6 @@ describe('Config edge cases', () => {
 
             const result = ConfigLoader.mergeConfigs(base, override);
 
-            expect(result.pathResolution?.enabled).toBe(true);
             expect(result.pathResolution?.mode).toBe('relative');
             expect(result.pathResolution?.preferredAliases).toEqual(['@app']);
         });

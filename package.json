@@ -253,19 +253,22 @@
             "description": "Folder path relative to workspace root (e.g., 'node_modules', 'dist', 'build')"
           }
         },
-        "tidyjs.pathResolution.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable automatic path resolution for imports"
-        },
         "tidyjs.pathResolution.mode": {
-          "type": "string",
-          "enum": [
-            "relative",
-            "absolute"
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "relative",
+                "absolute"
+              ]
+            },
+            {
+              "type": "boolean",
+              "enum": [false]
+            }
           ],
-          "default": "relative",
-          "description": "Convert imports to relative or absolute (with aliases) paths"
+          "default": false,
+          "description": "Convert imports to relative or absolute (with aliases) paths, or false to disable"
         },
         "tidyjs.pathResolution.preferredAliases": {
           "type": "array",

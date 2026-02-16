@@ -260,7 +260,6 @@ describe('formatSingleFile', () => {
         const config: Config = {
             ...BASE_CONFIG,
             pathResolution: {
-                enabled: true,
                 mode: 'absolute',
             },
         };
@@ -299,7 +298,6 @@ describe('formatSingleFile', () => {
         const config: Config = {
             ...BASE_CONFIG,
             pathResolution: {
-                enabled: true,
                 mode: 'relative',
             },
         };
@@ -332,7 +330,6 @@ describe('formatSingleFile', () => {
         const config: Config = {
             ...BASE_CONFIG,
             pathResolution: {
-                enabled: true,
                 mode: 'absolute',
             },
         };
@@ -347,7 +344,7 @@ describe('formatSingleFile', () => {
         expect(content).not.toContain('@/utils/helper');
     });
 
-    test('skips path resolution when pathResolution.enabled is false', async () => {
+    test('skips path resolution when pathResolution.mode is false', async () => {
         writeFile(tmpDir, 'tsconfig.json', JSON.stringify({
             compilerOptions: {
                 baseUrl: '.',
@@ -365,8 +362,7 @@ describe('formatSingleFile', () => {
         const config: Config = {
             ...BASE_CONFIG,
             pathResolution: {
-                enabled: false,
-                mode: 'absolute',
+                mode: false,
             },
         };
 

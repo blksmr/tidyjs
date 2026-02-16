@@ -11,7 +11,6 @@ describe('ConfigLoader - alias resolution in convertFileConfigToConfig', () => {
             const configPath = '/Users/test/project/.tidyjsrc';
             const fileConfig: TidyJSConfigFile = {
                 pathResolution: {
-                    enabled: true,
                     mode: 'absolute',
                     aliases: {
                         '@app/*': ['./src/app/*'],
@@ -91,7 +90,6 @@ describe('ConfigLoader - alias resolution in convertFileConfigToConfig', () => {
         it('should not crash and not resolve aliases when configPath is undefined', () => {
             const fileConfig: TidyJSConfigFile = {
                 pathResolution: {
-                    enabled: true,
                     mode: 'absolute',
                     aliases: {
                         '@app/*': ['./src/app/*'],
@@ -116,7 +114,7 @@ describe('ConfigLoader - alias resolution in convertFileConfigToConfig', () => {
             const configPath = '/Users/test/project/.tidyjsrc';
             const fileConfig: TidyJSConfigFile = {
                 pathResolution: {
-                    enabled: true,
+                    mode: 'absolute',
                     aliases: {},
                 },
             };
@@ -149,7 +147,6 @@ describe('ConfigLoader - alias resolution in convertFileConfigToConfig', () => {
             const configPath = '/Users/test/project/.tidyjsrc';
             const fileConfig: TidyJSConfigFile = {
                 pathResolution: {
-                    enabled: true,
                     mode: 'relative',
                     preferredAliases: ['@app'],
                 },
@@ -158,7 +155,6 @@ describe('ConfigLoader - alias resolution in convertFileConfigToConfig', () => {
             const result = ConfigLoader.convertFileConfigToConfig(fileConfig, configPath);
 
             expect(result.pathResolution).toEqual({
-                enabled: true,
                 mode: 'relative',
                 preferredAliases: ['@app'],
             });
@@ -182,7 +178,6 @@ describe('ConfigLoader - alias resolution in convertFileConfigToConfig', () => {
         it('should override base aliases when override has pathResolution.aliases', () => {
             const base: TidyJSConfigFile = {
                 pathResolution: {
-                    enabled: true,
                     mode: 'absolute',
                     aliases: {
                         '@old/*': ['./old/*'],
@@ -201,7 +196,6 @@ describe('ConfigLoader - alias resolution in convertFileConfigToConfig', () => {
             const result = ConfigLoader.mergeConfigs(base, override);
 
             // Spread merge: override.pathResolution overwrites base.pathResolution keys
-            expect(result.pathResolution!.enabled).toBe(true); // kept from base
             expect(result.pathResolution!.mode).toBe('absolute'); // kept from base
             expect(result.pathResolution!.aliases).toEqual({
                 '@new/*': ['./new/*'], // override wins

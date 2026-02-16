@@ -47,8 +47,7 @@ Configuration is resolved in the following order (highest to lowest priority):
     "sortClassProperties": false
   },
   "tidyjs.pathResolution": {
-    "enabled": false,
-    "mode": "relative",
+    "mode": false,
     "preferredAliases": []
   },
   "tidyjs.excludedFolders": []
@@ -372,7 +371,6 @@ Converts between relative and absolute paths, with support for custom aliases.
 ```json
 {
   "tidyjs.pathResolution": {
-    "enabled": true,
     "mode": "absolute",
     "preferredAliases": ["@components", "@utils", "@lib"]
   }
@@ -398,7 +396,6 @@ Define alias-to-path mappings for your project:
 ```json
 {
   "tidyjs.pathResolution": {
-    "enabled": true,
     "mode": "absolute",
     "aliases": {
       "@components/*": ["./src/components/*"],
@@ -411,8 +408,7 @@ Define alias-to-path mappings for your project:
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `enabled` | `boolean` | `false` | Enable path resolution |
-| `mode` | `"relative"` or `"absolute"` | `"relative"` | Path conversion mode |
+| `mode` | `"relative"` \| `"absolute"` \| `false` | `false` | Path conversion mode, or `false` to disable |
 | `preferredAliases` | `string[]` | `[]` | Preferred aliases for conversion |
 | `aliases` | `Record<string, string[]>` | — | Custom alias-to-path mappings |
 
@@ -511,8 +507,7 @@ Check the VS Code Output panel (View > Output > TidyJS) for validation messages.
 | `format.sortExports` | `boolean` | `false` | Sort exports |
 | `format.sortClassProperties` | `boolean` | `false` | Sort class properties |
 | `format.organizeReExports` | `boolean` | `false` | Organize re-exports |
-| `pathResolution.enabled` | `boolean` | `false` | Enable path resolution |
-| `pathResolution.mode` | `"relative"` / `"absolute"` | `"relative"` | Resolution mode |
+| `pathResolution.mode` | `"relative"` / `"absolute"` / `false` | `false` | Resolution mode, or `false` to disable |
 | `pathResolution.preferredAliases` | `string[]` | `[]` | Preferred aliases |
 | `pathResolution.aliases` | `Record<string, string[]>` | — | Custom alias mappings |
 | `excludedFolders` | `string[]` | `[]` | Folders excluded from processing |

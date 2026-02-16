@@ -42,7 +42,7 @@ function fakeVSConfig(aliases: Record<string, string[]>) {
     return (_section?: string) => ({
         get: (key: string) => {
             if (key === 'pathResolution.aliases') { return aliases; }
-            if (key === 'pathResolution.enabled') { return true; }
+            if (key === 'pathResolution.mode') { return 'absolute'; }
             if (key === 'debug') { return false; }
             return undefined;
         },

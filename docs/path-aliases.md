@@ -19,8 +19,7 @@ Path resolution is configured in the `pathResolution` section of your `.tidyjsrc
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `enabled` | `boolean` | `false` | Enable path resolution |
-| `mode` | `'relative' \| 'absolute'` | `'relative'` | Conversion direction |
+| `mode` | `'relative' \| 'absolute' \| false` | `false` | Conversion direction, or `false` to disable |
 | `preferredAliases` | `string[]` | `[]` | List of preferred aliases (reserved for future use) |
 | `aliases` | `Record<string, string[]>` | - | Custom aliases (glob pattern to paths) |
 
@@ -29,7 +28,6 @@ Path resolution is configured in the `pathResolution` section of your `.tidyjsrc
 ```json
 {
   "pathResolution": {
-    "enabled": true,
     "mode": "absolute",
     "aliases": {
       "@/*": ["./src/*"]
@@ -65,7 +63,6 @@ You can provide multiple paths for the same pattern. TidyJS tries each path in o
 ```json
 {
   "pathResolution": {
-    "enabled": true,
     "mode": "relative",
     "aliases": {
       "@/*": ["./src/*", "./lib/*"]
@@ -158,7 +155,6 @@ my-project/
     { "name": "Relative", "match": "^\\.", "order": 3, "default": true }
   ],
   "pathResolution": {
-    "enabled": true,
     "mode": "absolute",
     "aliases": {
       "@/*": ["./src/*"]
@@ -209,7 +205,6 @@ monorepo/
     { "name": "Relative", "match": "^\\.", "order": 4, "default": true }
   ],
   "pathResolution": {
-    "enabled": true,
     "mode": "absolute",
     "aliases": {
       "@shared/*": ["./packages/shared/src/*"],
@@ -241,7 +236,6 @@ If you already have `paths` in your `tsconfig.json`, you **do not need** to dupl
 ```json
 {
   "pathResolution": {
-    "enabled": true,
     "mode": "absolute"
   }
 }
@@ -254,7 +248,6 @@ If you want to **override** a tsconfig alias, add it to `.tidyjsrc` — it takes
 ```json
 {
   "pathResolution": {
-    "enabled": true,
     "mode": "absolute",
     "aliases": {
       "@/*": ["./src/*"]
@@ -271,7 +264,6 @@ In your VS Code `settings.json`:
 
 ```json
 {
-  "tidyjs.pathResolution.enabled": true,
   "tidyjs.pathResolution.mode": "absolute",
   "tidyjs.pathResolution.aliases": {
     "@/*": ["src/*"]

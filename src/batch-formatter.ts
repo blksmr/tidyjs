@@ -151,16 +151,16 @@ export async function formatSingleFile(
     }
 
     // Apply path resolution if enabled
-    if (config.pathResolution?.enabled && workspaceRoot) {
+    if (config.pathResolution?.mode && workspaceRoot) {
         try {
             const pathResolver = new PathResolver({
-                mode: config.pathResolution.mode || 'relative',
+                mode: config.pathResolution.mode,
                 preferredAliases: config.pathResolution.preferredAliases || [],
                 aliases: config.pathResolution.aliases,
             });
             const enhanced = applyPathResolutionBatch(
                 parserResult, pathResolver, filePath, parser,
-                config.pathResolution.mode || 'relative', workspaceRoot
+                config.pathResolution.mode, workspaceRoot
             );
             if (enhanced) { parserResult = enhanced; }
         } catch (error) {

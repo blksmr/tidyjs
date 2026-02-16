@@ -36,8 +36,7 @@ export interface Config {
   };
 
   pathResolution?: {
-    enabled?: boolean;
-    mode?: 'relative' | 'absolute';
+    mode?: 'relative' | 'absolute' | false;
     preferredAliases?: string[];
     aliases?: Record<string, string[]>;
   };
@@ -84,8 +83,7 @@ export interface TidyJSConfigFile {
     maxLineWidth?: number;
   };
   pathResolution?: {
-    enabled?: boolean;
-    mode?: 'relative' | 'absolute';
+    mode?: 'relative' | 'absolute' | false;
     preferredAliases?: string[];
     aliases?: Record<string, string[]>;
   };

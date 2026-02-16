@@ -39,8 +39,7 @@ const DEFAULT_CONFIG: Config = {
     sortTypeMembers: false,
   },
   pathResolution: {
-    enabled: false,
-    mode: 'relative',
+    mode: false,
     preferredAliases: [],
   },
   excludedFolders: [],
@@ -497,14 +496,9 @@ class ConfigManager {
       }
       
       // Path resolution settings
-      const pathResolutionEnabled = vsConfig.get<boolean>('pathResolution.enabled');
-      const pathResolutionMode = vsConfig.get<'relative' | 'absolute'>('pathResolution.mode');
+      const pathResolutionMode = vsConfig.get<'relative' | 'absolute' | false>('pathResolution.mode');
       const pathResolutionAliases = vsConfig.get<string[]>('pathResolution.preferredAliases');
-      
-      if (pathResolutionEnabled !== undefined) {
-        config.pathResolution = config.pathResolution || {};
-        config.pathResolution.enabled = pathResolutionEnabled;
-      }
+
       if (pathResolutionMode !== undefined) {
         config.pathResolution = config.pathResolution || {};
         config.pathResolution.mode = pathResolutionMode;

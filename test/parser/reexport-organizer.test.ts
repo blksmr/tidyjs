@@ -186,4 +186,84 @@ describe('organizeReExports', () => {
         expect(exportLines[1]).toContain('m-module');
         expect(exportLines[2]).toContain('z-module');
     });
+
+    test('consolidates re-exports from the same source', () => {
+        const source = [
+            "export { A } from './x';",
+            "export { B } from './x';",
+            '',
+        ].join('\n');
+
+        const result = organizeReExports(source, baseConfig);
+
+        // Should produce a single export statement (possibly multiline)
+        expect(result).toContain('A');
+        expect(result).toContain('B');
+        // Only one `from './x'`
+        const fromCount = (result.match(/from\s+'\.\/x'/g) || []).length;
+        expect(fromCount).toBe(1);
+    });
+
+    test('keeps named and type re-exports from same source separate', () => {
+        const source = [
+            "export { A } from './x';",
+            "export type { T } from './x';",
+            '',
+        ].join('\n');
+
+        const result = organizeReExports(source, baseConfig);
+        const exportLines = result.split('\n').filter(l => l.startsWith('export'));
+
+        expect(exportLines).toHaveLength(2);
+        expect(exportLines[0]).toContain('export {');
+        expect(exportLines[0]).toContain('A');
+        expect(exportLines[1]).toContain('export type {');
+        expect(exportLines[1]).toContain('T');
+    });
+
+    test('deduplicates specifiers when consolidating', () => {
+        const source = [
+            "export { A } from './x';",
+            "export { A, B } from './x';",
+            '',
+        ].join('\n');
+
+        const result = organizeReExports(source, baseConfig);
+
+        // Only one `from './x'`
+        const fromCount = (result.match(/from\s+'\.\/x'/g) || []).length;
+        expect(fromCount).toBe(1);
+        expect(result).toContain('A');
+        expect(result).toContain('B');
+        // A should appear only once (in specifiers, not counting group comment)
+        const specLines = result.split('\n').filter(l => l.includes('A') && !l.startsWith('//'));
+        const allAMatches = specLines.join(' ').match(/\bA\b/g);
+        expect(allAMatches).toHaveLength(1);
+    });
+
+    test('consolidates aliased re-exports from same source', () => {
+        const source = [
+            "export { default as A } from './x';",
+            "export { default as B } from './x';",
+            '',
+        ].join('\n');
+
+        const result = organizeReExports(source, baseConfig);
+
+        // Only one `from './x'`
+        const fromCount = (result.match(/from\s+'\.\/x'/g) || []).length;
+        expect(fromCount).toBe(1);
+        expect(result).toContain('default as A');
+        expect(result).toContain('default as B');
+    });
+
+    test('single re-export block unchanged (threshold of 2)', () => {
+        const source = [
+            "export { A } from './x';",
+            '',
+        ].join('\n');
+
+        const result = organizeReExports(source, baseConfig);
+        expect(result).toBe(source);
+    });
 });

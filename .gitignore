@@ -13,6 +13,8 @@ coverage/
 **/.DS_Store
 .clinerules
 memory-bank
+plans/
+docs/plans/
 test/.vscode
 test/**/*.js
 ignore
