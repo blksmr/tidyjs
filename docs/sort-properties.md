@@ -159,6 +159,47 @@ type Props = {
 };
 ```
 
+#### JSX Attributes
+
+JSX attributes (props) on components. Boolean shorthand props are placed first, then valued props. Spread attributes (`{...props}`) are always placed last.
+
+**Before:**
+```tsx
+<DataTable
+    isLoading={ data?.isLoading }
+    showCount
+    totalItems={ data?.total_items }
+    table={ table }
+    hasPagination
+/>
+```
+
+**After:**
+```tsx
+<DataTable
+    table={ table }
+    showCount
+    hasPagination
+    isLoading={ data?.isLoading }
+    totalItems={ data?.total_items }
+/>
+```
+
+Nested objects within JSX props are also sorted recursively:
+
+```tsx
+<YpInput
+    icon={ {
+        name: 'search',
+        style: 'far',
+        position: 'left',
+    } }
+    autoFocus
+    type='search'
+    placeholder='Rechercher...'
+/>
+```
+
 ### Manual Mode Behavior
 
 - **Multiline only**: single-line structures are not modified.
@@ -166,7 +207,7 @@ type Props = {
 - **Nested objects**: if the selection covers multiple sortable structures, each is sorted independently. Overlapping AST ranges are handled automatically via iterative passes (max 10).
 - **Computed properties** (`[COMPUTED_KEY]`): the structure is skipped to avoid corruption.
 - **Index signatures** (`[key: string]: unknown`): the structure is skipped.
-- **Comments**: in manual mode, the presence of comments does not prevent sorting (the user has explicitly chosen to sort).
+- **Comments**: comments are moved with their associated property during sorting (see `preserveComments` option below). Blank lines between properties are removed.
 - **Idempotence**: applying the command twice produces the same result.
 
 ---
@@ -324,12 +365,99 @@ class Foo {
 }
 ```
 
+### sortTypeMembers
+
+Sorts interface and type literal properties by name length during automatic formatting.
+
+**Configuration:**
+```json
+{
+  "format": {
+    "sortTypeMembers": true
+  }
+}
+```
+
+**Before:**
+```typescript
+interface Props {
+    className: string;
+    datatestIdAttribute: string;
+    datatestId: string;
+}
+```
+
+**After:**
+```typescript
+interface Props {
+    className: string;
+    datatestId: string;
+    datatestIdAttribute: string;
+}
+```
+
+Blocks containing comments are **skipped** in automatic mode.
+
 ### Automatic Mode Behavior
 
 - **Multiline only**: single-line structures are not modified.
 - **Comments**: if a block contains comments (`//` or `/* */`), it is **skipped** to avoid breaking the developer's intent.
 - **Computed properties**: structures with computed keys are skipped.
 - **Idempotence**: sorting applied twice produces the same result.
+
+---
+
+## Comment Handling — `preserveComments`
+
+The `preserveComments` option controls how comments are handled during manual sorting (the "Sort Properties" command).
+
+| Value | Behavior |
+|-------|----------|
+| `true` (default) | Comments are moved with their associated property. Blank lines between properties are removed. |
+| `false` | Comments are stripped during sorting. |
+
+**Configuration:**
+
+```json
+{
+  "format": {
+    "preserveComments": true
+  }
+}
+```
+
+**Example with `preserveComments: true` (default):**
+
+```typescript
+// Before
+type TProps = {
+    needExportConfirmation: boolean;
+    // Select props
+    selectProps?: string;
+    // Analyses select props
+    showAnalyse?: boolean;
+};
+
+// After — comments travel with their property
+type TProps = {
+    // Select props
+    selectProps?: string;
+    // Analyses select props
+    showAnalyse?: boolean;
+    needExportConfirmation: boolean;
+};
+```
+
+**Example with `preserveComments: false`:**
+
+```typescript
+// After — comments stripped, properties sorted
+type TProps = {
+    selectProps?: string;
+    showAnalyse?: boolean;
+    needExportConfirmation: boolean;
+};
+```
 
 ---
 
@@ -342,7 +470,9 @@ class Foo {
   "format": {
     "sortEnumMembers": true,
     "sortExports": true,
-    "sortClassProperties": true
+    "sortClassProperties": true,
+    "sortTypeMembers": true,
+    "preserveComments": true
   }
 }
 ```
@@ -353,7 +483,9 @@ class Foo {
 {
   "tidyjs.format.sortEnumMembers": true,
   "tidyjs.format.sortExports": true,
-  "tidyjs.format.sortClassProperties": true
+  "tidyjs.format.sortClassProperties": true,
+  "tidyjs.format.sortTypeMembers": true,
+  "tidyjs.format.preserveComments": true
 }
 ```
 
@@ -367,8 +499,9 @@ The manual "TidyJS: Sort Properties" command requires no configuration. It is al
 |---|---|---|---|
 | Destructuring (ObjectPattern) | Yes | No | none |
 | Object Literal (ObjectExpression) | Yes | No | none |
-| Interface (TSInterfaceBody) | Yes | No | none |
-| Type Literal (TSTypeLiteral) | Yes | No | none |
+| Interface (TSInterfaceBody) | Yes | Yes | `sortTypeMembers` |
+| Type Literal (TSTypeLiteral) | Yes | Yes | `sortTypeMembers` |
+| JSX Attributes (JSXOpeningElement) | Yes | No | none |
 | Enum (TSEnumDeclaration) | No | Yes | `sortEnumMembers` |
 | Export (ExportNamedDeclaration) | No | Yes | `sortExports` |
 | Class Properties (ClassBody) | No | Yes | `sortClassProperties` |

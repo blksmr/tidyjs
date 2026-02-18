@@ -407,7 +407,7 @@ export function activate(context: ExtensionContext): void {
         const formatCommand = commands.registerCommand('tidyjs.forceFormatDocument', async () => {
             const editor = window.activeTextEditor;
             if (!editor) {
-                showMessage.warning('No active editor found');
+                showMessage.warning('TidyJS: No active editor found.', 3000);
                 return;
             }
 
@@ -484,13 +484,13 @@ export function activate(context: ExtensionContext): void {
         const sortPropertiesCommand = commands.registerCommand('tidyjs.sortProperties', async () => {
             const editor = window.activeTextEditor;
             if (!editor) {
-                showMessage.warning('No active editor found');
+                showMessage.warning('TidyJS: No active editor found.', 3000);
                 return;
             }
 
             const selection = editor.selection;
             if (selection.isEmpty) {
-                showMessage.info('Select the code you want to sort, then run this command.');
+                showMessage.info('TidyJS: Select the code you want to sort, then run this command.', 3000);
                 return;
             }
 
@@ -498,11 +498,12 @@ export function activate(context: ExtensionContext): void {
             const fullText = document.getText();
             const selectionStart = document.offsetAt(selection.start);
             const selectionEnd = document.offsetAt(selection.end);
+            const currentConfig = await configManager.getConfigForDocument(document);
 
-            const result = sortPropertiesInSelection(fullText, selectionStart, selectionEnd);
+            const result = sortPropertiesInSelection(fullText, selectionStart, selectionEnd, currentConfig);
 
             if (result === null) {
-                showMessage.info('No sortable properties found in selection.');
+                showMessage.info('TidyJS: No sortable properties found in selection.', 3000);
                 return;
             }
 
@@ -555,7 +556,7 @@ export function activate(context: ExtensionContext): void {
 
                     if (token.isCancellationRequested) {
                         showMessage.info(
-                            `Cancelled. ${result.formatted} file(s) formatted before cancellation.`
+                            `TidyJS: Cancelled. ${result.formatted} file(s) formatted before cancellation.`, 5000
                         );
                         return;
                     }
@@ -574,7 +575,7 @@ export function activate(context: ExtensionContext): void {
                         }
                     } else {
                         showMessage.info(
-                            `${result.formatted} file(s) formatted, ${result.skipped} skipped.`
+                            `TidyJS: ${result.formatted} file(s) formatted, ${result.skipped} skipped.`, 5000
                         );
                     }
                 }

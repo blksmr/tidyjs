@@ -44,7 +44,9 @@ Configuration is resolved in the following order (highest to lowest priority):
     "maxLineWidth": 0,
     "sortEnumMembers": false,
     "sortExports": false,
-    "sortClassProperties": false
+    "sortClassProperties": false,
+    "sortTypeMembers": false,
+    "preserveComments": true
   },
   "tidyjs.pathResolution": {
     "mode": false,
@@ -336,6 +338,18 @@ Sorts instance properties within class bodies by name length (shortest first). S
 }
 ```
 
+### Interface & Type Literal Sorting
+
+Sorts interface and type literal properties by name length (shortest first). Blocks with comments are skipped in automatic mode.
+
+```json
+{
+  "tidyjs.format": {
+    "sortTypeMembers": true
+  }
+}
+```
+
 ### Re-export Organization
 
 Reorganizes and sorts re-exports (`export { ... } from '...'`).
@@ -506,6 +520,8 @@ Check the VS Code Output panel (View > Output > TidyJS) for validation messages.
 | `format.sortEnumMembers` | `boolean` | `false` | Sort enum members |
 | `format.sortExports` | `boolean` | `false` | Sort exports |
 | `format.sortClassProperties` | `boolean` | `false` | Sort class properties |
+| `format.sortTypeMembers` | `boolean` | `false` | Sort interface/type literal properties |
+| `format.preserveComments` | `boolean` | `true` | Move comments with properties during manual sorting |
 | `format.organizeReExports` | `boolean` | `false` | Organize re-exports |
 | `pathResolution.mode` | `"relative"` / `"absolute"` / `false` | `false` | Resolution mode, or `false` to disable |
 | `pathResolution.preferredAliases` | `string[]` | `[]` | Preferred aliases |

@@ -50,6 +50,14 @@
         "category": "TidyJS"
       }
     ],
+    "keybindings": [
+      {
+        "command": "tidyjs.sortProperties",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i",
+        "when": "editorTextFocus && editorHasSelection && editorLangId =~ /^(typescript|javascript|typescriptreact|javascriptreact)$/"
+      }
+    ],
     "menus": {
       "explorer/context": [
         {
@@ -175,6 +183,11 @@
           "type": "boolean",
           "default": false,
           "description": "Sort interface and type literal properties by name length (shortest first)"
+        },
+        "tidyjs.format.preserveComments": {
+          "type": "boolean",
+          "default": true,
+          "description": "Move comments with their associated properties when sorting (Sort Properties command). When false, comments are stripped during sorting."
         },
         "tidyjs.format.organizeReExports": {
           "type": "boolean",

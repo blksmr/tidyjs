@@ -10,7 +10,7 @@ interface PropertyInfo {
 }
 
 interface SortablePattern {
-    kind: 'objectPattern' | 'objectExpression' | 'interfaceBody' | 'typeLiteral' | 'enumBody' | 'exportBlock' | 'classBody';
+    kind: 'objectPattern' | 'objectExpression' | 'interfaceBody' | 'typeLiteral' | 'enumBody' | 'exportBlock' | 'classBody' | 'jsxAttributes';
     range: [number, number];
     properties: PropertyInfo[];
 }
@@ -63,6 +63,10 @@ function getPropertyName(node: AST.ASTNode): string | null {
             if (propDef.key.type === 'Literal') {return String(propDef.key.value);}
             return null;
         }
+        case 'JSXAttribute': {
+            const attr = node as AST.JSXAttribute;
+            return attr.name?.name ?? null;
+        }
         case 'TSIndexSignature':
             return null;
         default:
@@ -71,7 +75,7 @@ function getPropertyName(node: AST.ASTNode): string | null {
 }
 
 function isRestNode(node: AST.ASTNode): boolean {
-    return node.type === 'RestElement' || node.type === 'SpreadElement';
+    return node.type === 'RestElement' || node.type === 'SpreadElement' || node.type === 'JSXSpreadAttribute';
 }
 
 function isMultiline(sourceText: string, range: [number, number]): boolean {
@@ -273,9 +277,8 @@ function findSortablePatterns(
 
 /**
  * Find sortable patterns within a selection range (for the manual command).
- * Collects ObjectPattern, ObjectExpression, TSInterfaceBody, TSTypeLiteral.
+ * Collects ObjectPattern, ObjectExpression, TSInterfaceBody, TSTypeLiteral, JSXOpeningElement.
  * No config check — the user explicitly requested sorting.
- * No hasInternalComments check — the user chose to sort.
  */
 function findSortablePatternsInRange(
     ast: AST.Program,
@@ -341,6 +344,24 @@ function findSortablePatternsInRange(
             }
         }
 
+        if (node.type === 'JSXOpeningElement' && node.range) {
+            const jsxEl = node as AST.JSXOpeningElement;
+            const attrs = jsxEl.attributes;
+            if (attrs && attrs.length >= 2) {
+                const firstRange = attrs[0].range as [number, number] | undefined;
+                const lastRange = attrs[attrs.length - 1].range as [number, number] | undefined;
+                if (firstRange && lastRange) {
+                    const range: [number, number] = [firstRange[0], lastRange[1]];
+                    if (rangesOverlap(range, selRange) && isMultiline(sourceText, range)) {
+                        const props = extractProperties(attrs, sourceText);
+                        if (props && props.length >= 2) {
+                            patterns.push({ kind: 'jsxAttributes', range, properties: props });
+                        }
+                    }
+                }
+            }
+        }
+
         for (const key of Object.keys(node)) {
             if (key === 'parent') {continue;}
             const value = (node as unknown as Record<string, unknown>)[key];
@@ -379,9 +400,43 @@ function detectIndent(properties: PropertyInfo[], sourceText: string): string {
     return '    ';
 }
 
+function isShorthandJsxAttr(prop: PropertyInfo): boolean {
+    // A boolean shorthand JSX attribute has no `=` in its text (e.g. `autoFocus`)
+    return !prop.text.includes('=');
+}
+
+function isCommentLine(line: string): boolean {
+    const trimmed = line.trim();
+    return trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*');
+}
+
+/**
+ * Extract leading context (comments + blank lines) from the gap between two properties.
+ * The gap starts after the previous property and ends at the start of the next property.
+ * First line (newline after prev prop) and last line (indent for next prop) are structural — skipped.
+ * Returns trimmed comment lines only (blank lines are discarded).
+ * Only returns content if at least one comment line is present.
+ */
+function extractLeadingContext(gap: string): string[] {
+    const lines = gap.split('\n');
+    if (lines.length <= 2) {return [];}
+
+    const contentLines = lines.slice(1, -1);
+    const commentLines = contentLines.filter(l => isCommentLine(l)).map(l => l.trim());
+    return commentLines;
+}
+
+/** Remove comment lines and associated blank lines from a text block. */
+function stripCommentLines(text: string): string {
+    const lines = text.split('\n');
+    const filtered = lines.filter(line => !isCommentLine(line));
+    return filtered.join('\n').replace(/\n(\s*\n)+/g, '\n');
+}
+
 function sortProperties(
     pattern: SortablePattern,
-    sourceText: string
+    sourceText: string,
+    preserveComments = true
 ): Replacement | null {
     const { properties, range } = pattern;
 
@@ -390,13 +445,30 @@ function sortProperties(
 
     if (nonRestProps.length < 2) {return null;}
 
-    const sorted = [...nonRestProps].sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));
-
-    // Check if already sorted
-    const alreadySorted = sorted.every((p, i) => p.name === nonRestProps[i].name);
-    if (alreadySorted) {return null;}
+    let sorted: PropertyInfo[];
+    if (pattern.kind === 'jsxAttributes') {
+        // Boolean shorthand attributes first, then the rest — each group sorted by length/alpha
+        const booleans = nonRestProps.filter(p => isShorthandJsxAttr(p));
+        const valued = nonRestProps.filter(p => !isShorthandJsxAttr(p));
+        const sortFn = (a: PropertyInfo, b: PropertyInfo): number => a.name.length - b.name.length || a.name.localeCompare(b.name);
+        sorted = [...booleans.sort(sortFn), ...valued.sort(sortFn)];
+    } else {
+        sorted = [...nonRestProps].sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));
+    }
 
     const indent = detectIndent(properties, sourceText);
+
+    // Compute leading context (comments + blank lines) for each property
+    const leadingContext = new Map<PropertyInfo, string[]>();
+    if (preserveComments) {
+        leadingContext.set(properties[0], []);
+        for (let i = 1; i < properties.length; i++) {
+            const gap = sourceText.slice(properties[i - 1].range[1], properties[i].range[0]);
+            leadingContext.set(properties[i], extractLeadingContext(gap));
+        }
+    }
+
+    const getContext = (prop: PropertyInfo): string[] => leadingContext.get(prop) ?? [];
 
     // For interfaces/types/classes, the separator (;) is included in the AST range of each property.
     // For destructuring/objectExpression, commas are OUTSIDE the AST range — we must add them ourselves.
@@ -404,44 +476,76 @@ function sortProperties(
 
     const allSorted = [...sorted, ...restProps];
 
+    // Helper: indent all lines except the first
+    const indentLines = (rawLines: string[]): string[] =>
+        rawLines.map((line, i) => i === 0 ? line : `${indent}${line}`);
+
+    // Helper: return replacement only if the new text differs from the original
+    const originalText = sourceText.slice(range[0], range[1]);
+    const returnIfChanged = (newText: string): Replacement | null =>
+        newText === originalText ? null : { range, newText };
+
     if (pattern.kind === 'classBody') {
         // No surrounding braces — range covers only the properties themselves
-        const newLines = allSorted.map(p => `${indent}${p.text}`);
-        return { range, newText: newLines.join('\n') };
+        const lines: string[] = [];
+        for (const prop of allSorted) {
+            for (const ctx of getContext(prop)) {
+                lines.push(`${indent}${ctx}`);
+            }
+            lines.push(`${indent}${prop.text}`);
+        }
+        return returnIfChanged(lines.join('\n'));
+    }
+
+    if (pattern.kind === 'jsxAttributes') {
+        // JSX attributes: no separators, range covers first..last attribute directly
+        const lines: string[] = [];
+        for (const prop of allSorted) {
+            for (const ctx of getContext(prop)) {lines.push(ctx);}
+            lines.push(prop.text);
+        }
+        return returnIfChanged(indentLines(lines).join('\n'));
     }
 
     // Use range-based prefix/suffix instead of line-based to avoid corruption
     // when properties share a line with opening/closing braces.
     const firstProp = properties[0];
     const lastProp = properties[properties.length - 1];
-    const prefix = sourceText.slice(range[0], firstProp.range[0]);
+    let prefix = sourceText.slice(range[0], firstProp.range[0]);
     const suffix = sourceText.slice(lastProp.range[1], range[1]);
 
+    // Handle comments in prefix (between opening brace and first property)
+    const prefixContext = extractLeadingContext(prefix);
+    if (prefixContext.length > 0) {
+        if (preserveComments) {
+            const existing = leadingContext.get(properties[0]) ?? [];
+            leadingContext.set(properties[0], [...prefixContext, ...existing]);
+        }
+        prefix = stripCommentLines(prefix);
+    }
+
     if (separatorIncluded) {
-        // First property: prefix already provides the lead-in whitespace
-        const newLines = allSorted.map((p, i) => i === 0 ? p.text : `${indent}${p.text}`);
-        return { range, newText: prefix + newLines.join('\n') + suffix };
+        const lines: string[] = [];
+        for (const prop of allSorted) {
+            for (const ctx of getContext(prop)) {lines.push(ctx);}
+            lines.push(prop.text);
+        }
+        return returnIfChanged(prefix + indentLines(lines).join('\n') + suffix);
     }
 
     // Destructuring/ObjectExpression: detect trailing comma from text between last property and closing brace
     const hasTrailingComma = /^\s*,/.test(suffix);
     const cleanSuffix = suffix.replace(/^\s*,/, '');
 
-    const newLines: string[] = [];
+    const lines: string[] = [];
     for (let i = 0; i < allSorted.length; i++) {
-        const propText = allSorted[i].text;
+        const prop = allSorted[i];
         const isLast = i === allSorted.length - 1;
         const comma = isLast ? (hasTrailingComma ? ',' : '') : ',';
-
-        // First property: prefix already provides the lead-in whitespace
-        if (i === 0) {
-            newLines.push(`${propText}${comma}`);
-        } else {
-            newLines.push(`${indent}${propText}${comma}`);
-        }
+        for (const ctx of getContext(prop)) {lines.push(ctx);}
+        lines.push(`${prop.text}${comma}`);
     }
-
-    return { range, newText: prefix + newLines.join('\n') + cleanSuffix };
+    return returnIfChanged(prefix + indentLines(lines).join('\n') + cleanSuffix);
 }
 
 function applyReplacements(sourceText: string, replacements: Replacement[]): string {
@@ -512,15 +616,17 @@ export function sortCodePatterns(sourceText: string, config?: Config): string {
 
 /**
  * Manual command: sort properties in the user's selection.
- * Collects ObjectPattern, ObjectExpression, TSInterfaceBody, TSTypeLiteral
+ * Collects ObjectPattern, ObjectExpression, TSInterfaceBody, TSTypeLiteral, JSXOpeningElement
  * whose range overlaps the selection.
  * Returns null if nothing to sort.
  */
 export function sortPropertiesInSelection(
     sourceText: string,
     selectionStart: number,
-    selectionEnd: number
+    selectionEnd: number,
+    config?: Config
 ): string | null {
+    const preserveComments = config?.format?.preserveComments !== false;
     let current = sourceText;
 
     for (let iteration = 0; iteration < 10; iteration++) {
@@ -535,7 +641,7 @@ export function sortPropertiesInSelection(
         const replacements: Replacement[] = [];
 
         for (const pattern of patterns) {
-            const replacement = sortProperties(pattern, current);
+            const replacement = sortProperties(pattern, current, preserveComments);
             if (replacement) {
                 replacements.push(replacement);
             }

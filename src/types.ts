@@ -33,6 +33,7 @@ export interface Config {
     trailingComma?: 'always' | 'never';
     sortSpecifiers?: 'length' | 'alpha' | false;
     maxLineWidth?: number;
+    preserveComments?: boolean;
   };
 
   pathResolution?: {
@@ -81,6 +82,7 @@ export interface TidyJSConfigFile {
     trailingComma?: 'always' | 'never';
     sortSpecifiers?: 'length' | 'alpha' | false;
     maxLineWidth?: number;
+    preserveComments?: boolean;
   };
   pathResolution?: {
     mode?: 'relative' | 'absolute' | false;

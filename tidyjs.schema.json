@@ -141,6 +141,11 @@
           "description": "Sort interface and type literal properties by name length (shortest first)",
           "default": false
         },
+        "preserveComments": {
+          "type": "boolean",
+          "description": "Move comments with their associated properties when sorting (Sort Properties command). When false, comments are stripped during sorting.",
+          "default": true
+        },
         "organizeReExports": {
           "type": "boolean",
           "description": "Organize and format re-export statements (export { ... } from '...')",

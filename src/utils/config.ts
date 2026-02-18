@@ -37,6 +37,7 @@ const DEFAULT_CONFIG: Config = {
     sortExports: false,
     sortClassProperties: false,
     sortTypeMembers: false,
+    preserveComments: true,
   },
   pathResolution: {
     mode: false,
@@ -469,6 +470,7 @@ class ConfigManager {
         sortExports: vsConfig.get<boolean>('format.sortExports'),
         sortClassProperties: vsConfig.get<boolean>('format.sortClassProperties'),
         sortTypeMembers: vsConfig.get<boolean>('format.sortTypeMembers'),
+        preserveComments: vsConfig.get<boolean>('format.preserveComments'),
         organizeReExports: vsConfig.get<boolean>('format.organizeReExports'),
         enforceNewlineAfterImports: vsConfig.get<boolean>('format.enforceNewlineAfterImports'),
         blankLinesBetweenGroups: vsConfig.get<number>('format.blankLinesBetweenGroups'),

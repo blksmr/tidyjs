@@ -77,7 +77,7 @@ For each file, TidyJS:
 
 1. **Loads the configuration** specific to the file (`.tidyjsrc` from the nearest directory, then workspace, then global)
 2. **Checks exclusion** against custom excluded folders
-3. **Applies safety guards**: disables `removeUnusedImports`, `removeMissingModules`, and `pathResolution` to prevent destructive changes in batch mode
+3. **Applies safety guards**: disables `removeUnusedImports` and `removeMissingModules` to prevent destructive changes in batch mode
 4. **Formats the file**: imports, enum/export/property sorting, re-export organization
 5. **Validates the result**: re-parses the formatted file to ensure it is still syntactically valid
 6. **Writes the file** only if changes were made and validation passed
@@ -107,7 +107,8 @@ Batch formatting automatically disables certain potentially destructive options:
 
 - **`removeUnusedImports: false`**: removing unused imports could break code if static analysis is incomplete
 - **`removeMissingModules: false`**: removing missing modules could be due to a different build environment
-- **`pathResolution.mode: false`**: path resolution depends on the execution context and could produce incorrect paths in batch mode
+
+**Path resolution** is supported in batch mode when a workspace root is available. It uses pure Node.js/fs methods (no VS Code APIs) to resolve paths.
 
 These guards only apply in batch mode. Individual formatting (on save or via command) preserves your settings as-is.
 

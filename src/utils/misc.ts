@@ -36,31 +36,22 @@ function getDiagnosticCode(diagnostic: Diagnostic): string {
  * Permet d'utiliser showMessage.info(), showMessage.error() ou showMessage.warning()
  */
 export const showMessage = {
-    /**
-     * Affiche un message d'information
-     * @param message Le message à afficher
-     * @param items Les options à afficher (optionnel)
-     */
-    info: (message: string, ...items: string[]) => {
-        return window.showInformationMessage(message, ...items);
+    info: (message: string, timeoutOrItem?: number | string, ...items: string[]) => {
+        if (typeof timeoutOrItem === 'number') { return window.setStatusBarMessage(message, timeoutOrItem); }
+        const allItems = timeoutOrItem ? [timeoutOrItem, ...items] : items;
+        return window.showInformationMessage(message, ...allItems);
     },
 
-    /**
-     * Affiche un message d'erreur
-     * @param message Le message à afficher
-     * @param items Les options à afficher (optionnel)
-     */
-    error: (message: string, ...items: string[]) => {
-        return window.showErrorMessage(message, ...items);
+    error: (message: string, timeoutOrItem?: number | string, ...items: string[]) => {
+        if (typeof timeoutOrItem === 'number') { return window.setStatusBarMessage(message, timeoutOrItem); }
+        const allItems = timeoutOrItem ? [timeoutOrItem, ...items] : items;
+        return window.showErrorMessage(message, ...allItems);
     },
 
-    /**
-     * Affiche un message d'avertissement
-     * @param message Le message à afficher
-     * @param items Les options à afficher (optionnel)
-     */
-    warning: (message: string, ...items: string[]) => {
-        return window.showWarningMessage(message, ...items);
+    warning: (message: string, timeoutOrItem?: number | string, ...items: string[]) => {
+        if (typeof timeoutOrItem === 'number') { return window.setStatusBarMessage(message, timeoutOrItem); }
+        const allItems = timeoutOrItem ? [timeoutOrItem, ...items] : items;
+        return window.showWarningMessage(message, ...allItems);
     },
 };
 

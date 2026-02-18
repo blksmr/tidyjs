@@ -88,3 +88,14 @@ export interface ClassBody extends ASTNode {
     type: 'ClassBody';
     body: ASTNode[];
 }
+
+export interface JSXAttribute extends ASTNode {
+    type: 'JSXAttribute';
+    name: { type: string; name: string };
+    value: ASTNode | null;
+}
+
+export interface JSXOpeningElement extends ASTNode {
+    type: 'JSXOpeningElement';
+    attributes: ASTNode[];
+}
