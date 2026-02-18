@@ -503,7 +503,7 @@ export function activate(context: ExtensionContext): void {
             const result = sortPropertiesInSelection(fullText, selectionStart, selectionEnd, currentConfig);
 
             if (result === null) {
-                showMessage.info('TidyJS: No sortable properties found in selection.', 3000);
+                showMessage.info('TidyJS: No sortable patterns found in selection.', 3000);
                 return;
             }
 
@@ -511,7 +511,7 @@ export function activate(context: ExtensionContext): void {
             await editor.edit((editBuilder) => {
                 editBuilder.replace(fullRange, result);
             });
-            logDebug('Properties sorted successfully via sortProperties command');
+            logDebug('Selection sorted successfully via sortProperties command');
         });
 
         const formatFolderCommand = commands.registerCommand('tidyjs.formatFolder', async (folderUri?: Uri) => {

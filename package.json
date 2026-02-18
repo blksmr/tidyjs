@@ -41,7 +41,7 @@
       },
       {
         "command": "tidyjs.sortProperties",
-        "title": "Sort Properties",
+        "title": "Sort Selection",
         "category": "TidyJS"
       },
       {
