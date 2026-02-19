@@ -2,7 +2,7 @@
   "name": "tidyjs",
   "displayName": "TidyJS",
   "description": "Automatically organizes and formats import declarations",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "publisher": "Asmir",
   "license": "MIT",
   "icon": "resources/small.png",
@@ -231,7 +231,7 @@
             }
           ],
           "default": "length",
-          "description": "Sort import specifiers: 'length' by string length, 'alpha' alphabetically, false to preserve order"
+          "description": "Sort specifiers in imports and properties in selections: 'length' by string length, 'alpha' alphabetically, false to preserve order"
         },
         "tidyjs.format.maxLineWidth": {
           "type": "integer",
