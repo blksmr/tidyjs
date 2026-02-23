@@ -27,6 +27,9 @@ src/**/*.js.map
 test/**/package.json
 test/**/package-*.json
 
+# Worktrees
+.worktrees/
+
 # Environment
 .env
 
