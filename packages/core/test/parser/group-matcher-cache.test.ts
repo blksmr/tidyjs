@@ -1,10 +1,11 @@
 import { GroupMatcher } from '../../src/utils/group-matcher';
-import * as logUtils from '../../src/utils/log';
+import * as logUtils from '../../src/logger';
 
-// Mock the log utils
-jest.mock('../../src/utils/log', () => ({
+// Mock the core logger
+jest.mock('../../src/logger', () => ({
   logDebug: jest.fn(),
   logError: jest.fn(),
+  setLogger: jest.fn(),
 }));
 
 describe('GroupMatcher Cache Management', () => {

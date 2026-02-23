@@ -1,10 +1,11 @@
 import { jest } from '@jest/globals';
 
-// Mock the logDebug function to capture debug output
+// Mock the core logger to capture debug output
 const mockLogDebug = jest.fn();
-jest.mock('../../src/utils/log', () => ({
+jest.mock('../../src/logger', () => ({
   logDebug: mockLogDebug,
-  logError: jest.fn()
+  logError: jest.fn(),
+  setLogger: jest.fn(),
 }));
 
 // Import after mocking
