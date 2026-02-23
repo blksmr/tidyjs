@@ -1,4 +1,5 @@
 node_modules
+.turbo
 .serena/
 .vscode-*
 *.map
@@ -34,5 +35,4 @@ test/**/package-*.json
 .env
 
 # Package manager files
-package-lock.json
 pnpm-lock.yaml
