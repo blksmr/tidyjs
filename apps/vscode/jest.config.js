@@ -10,6 +10,7 @@ export default {
         '/test/e2e/'
     ],
     moduleNameMapper: {
+        '^@tidyjs/core$': '<rootDir>/../../packages/core/src/index.ts',
         '^vscode$': '<rootDir>/test/mocks/vscode.ts',
         '^oxc-parser$': '<rootDir>/test/mocks/oxc-parser.ts'
     },

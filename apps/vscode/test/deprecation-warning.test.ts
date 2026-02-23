@@ -1,7 +1,7 @@
-import { ConfigLoader } from '../../src/utils/configLoader';
-import { logError, logDebug } from '../../src/utils/log';
+import { ConfigLoader } from '../src/utils/configLoader';
+import { logError, logDebug } from '../src/utils/log';
 
-jest.mock('../../src/utils/log');
+jest.mock('../src/utils/log');
 
 const mockedLogError = logError as jest.MockedFunction<typeof logError>;
 const mockedLogDebug = logDebug as jest.MockedFunction<typeof logDebug>;

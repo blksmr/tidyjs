@@ -1,6 +1,6 @@
 import type { Config } from '@tidyjs/core';
 import { ImportParser } from '@tidyjs/core';
-import { removeUnusedImports } from '../../src/utils/misc';
+import { removeUnusedImports } from '../src/utils/misc';
 
 const DEFAULT_CONFIG: Config = {
   debug: false,

@@ -1,8 +1,8 @@
-import { configManager } from '../../src/utils/config';
-import * as logUtils from '../../src/utils/log';
+import { configManager } from '../src/utils/config';
+import * as logUtils from '../src/utils/log';
 
 // Mock the log utils
-jest.mock('../../src/utils/log', () => ({
+jest.mock('../src/utils/log', () => ({
   logDebug: jest.fn(),
   logError: jest.fn(),
   showOutputChannel: jest.fn(),

@@ -1,6 +1,6 @@
-import { configManager } from '../../src/utils/config';
+import { configManager } from '../src/utils/config';
 import vscode from 'vscode';
-import * as logUtils from '../../src/utils/log';
+import * as logUtils from '../src/utils/log';
 
 // Mock VS Code API
 jest.mock('vscode', () => ({
@@ -17,7 +17,7 @@ jest.mock('vscode', () => ({
 }));
 
 // Mock the log utils
-jest.mock('../../src/utils/log', () => ({
+jest.mock('../src/utils/log', () => ({
   logDebug: jest.fn(),
   logError: jest.fn(),
   showOutputChannel: jest.fn(),

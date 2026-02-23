@@ -18,7 +18,7 @@ jest.mock('vscode', () => ({
   }
 }), { virtual: true });
 
-import * as log from '../../src/utils/log';
+import * as log from '../src/utils/log';
 
 describe('Log - UI Interruption Fix', () => {
   beforeEach(() => {

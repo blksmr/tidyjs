@@ -18,6 +18,7 @@
   "engines": {
     "vscode": "^1.90.0"
   },
+  "packageManager": "npm@10.9.4",
   "type": "module",
   "main": "./dist/extension.js",
   "categories": [

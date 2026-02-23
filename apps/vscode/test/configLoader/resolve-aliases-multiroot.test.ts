@@ -39,7 +39,7 @@ const mockGetWSFolder = vscode.workspace.getWorkspaceFolder as jest.Mock;
  * and sensible defaults for everything else.
  */
 function fakeVSConfig(aliases: Record<string, string[]>) {
-    return (_section?: string) => ({
+    return (_section?: unknown) => ({
         get: (key: string) => {
             if (key === 'pathResolution.aliases') { return aliases; }
             if (key === 'pathResolution.mode') { return 'absolute'; }

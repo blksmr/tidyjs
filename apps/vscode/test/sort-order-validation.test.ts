@@ -1,4 +1,4 @@
-import { configManager } from '../../src/utils/config';
+import { configManager } from '../src/utils/config';
 import * as vscode from 'vscode';
 
 describe('Sort order validation in configuration', () => {
