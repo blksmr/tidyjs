@@ -1,0 +1,26 @@
+{
+  "name": "@tidyjs/cli",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "tidyjs-cli": "./dist/cli.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "node scripts/esbuild.mjs --production",
+    "dev": "node scripts/esbuild.mjs --watch",
+    "test": "jest",
+    "lint": "echo 'no lint configured yet'"
+  },
+  "dependencies": {
+    "@tidyjs/core": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.15",
+    "esbuild": "^0.25.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.6",
+    "typescript": "^5.8.2",
+    "@types/jest": "^30.0.0"
+  }
+}
