@@ -3,6 +3,7 @@ import { resolveFiles } from './git';
 import { checkFiles } from './commands/check';
 import { fixFiles } from './commands/fix';
 import { reportResults } from './reporter';
+import type { ReportMode } from './reporter';
 import type { CheckOptions } from './commands/check';
 
 setLogger({
@@ -92,10 +93,13 @@ async function main(): Promise<void> {
 
     try {
         let results;
+        let mode: ReportMode;
         if (command === 'fix') {
             results = await fixFiles(resolvedFiles, options);
+            mode = 'fix';
         } else if (command === 'check') {
             results = await checkFiles(resolvedFiles, options);
+            mode = 'check';
         } else {
             console.error(`Unknown command: ${command}`);
             printHelp();
@@ -103,7 +107,7 @@ async function main(): Promise<void> {
             return;
         }
 
-        reportResults(results, quiet);
+        reportResults(results, quiet, mode);
         const hasFailures = results.some(r => !r.passed);
         process.exit(hasFailures ? 1 : 0);
     } catch (error) {
