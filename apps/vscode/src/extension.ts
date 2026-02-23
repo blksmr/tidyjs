@@ -1,22 +1,19 @@
-// Other
-import { sortCodePatterns, sortPropertiesInSelection } from './destructuring-sorter';
-import { formatImports } from './formatter';
-import { organizeReExports } from './reexport-organizer';
+// Core engine
+import { sortCodePatterns, sortPropertiesInSelection, formatImports, organizeReExports, ImportParser, hasIgnorePragma, setLogger } from '@tidyjs/core';
+import type { ParserResult, InvalidImport, ParsedImport, ImportSource, Config } from '@tidyjs/core';
+
+// VS Code extension
 import { formatFolder } from './batch-formatter';
-import { ImportParser, ParserResult, InvalidImport, ParsedImport, ImportSource } from './parser';
-
-// VSCode
-import { Range, window, commands, TextEdit, workspace, languages, CancellationTokenSource, ProgressLocation, Uri } from 'vscode';
-import type { TextDocument, ExtensionContext, FormattingOptions, CancellationToken, DocumentFormattingEditProvider } from 'vscode';
-
-// Utils
 import { configManager } from './utils/config';
 import { diagnosticsCache } from './utils/diagnostics-cache';
-import { hasIgnorePragma } from './utils/ignore-pragma';
 import { logDebug, logError } from './utils/log';
 import { showMessage, analyzeImports } from './utils/misc';
 import { perfMonitor } from './utils/performance';
 import { PathResolver } from './utils/path-resolver';
+
+// VSCode
+import { Range, window, commands, TextEdit, workspace, languages, CancellationTokenSource, ProgressLocation, Uri } from 'vscode';
+import type { TextDocument, ExtensionContext, FormattingOptions, CancellationToken, DocumentFormattingEditProvider } from 'vscode';
 
 // Node
 import { writeFileSync } from 'fs';
@@ -300,7 +297,7 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
 /**
  * Check if the current document is in an excluded folder
  */
-function isDocumentInExcludedFolder(document: import('vscode').TextDocument, config?: import('./types').Config): boolean {
+function isDocumentInExcludedFolder(document: import('vscode').TextDocument, config?: Config): boolean {
     const currentConfig = config || configManager.getConfig();
     const excludedFolders = currentConfig.excludedFolders;
 
@@ -371,6 +368,9 @@ async function ensureExtensionEnabled(document?: import('vscode').TextDocument):
 
 export function activate(context: ExtensionContext): void {
     try {
+        // Wire core logger to VS Code output channel
+        setLogger({ debug: logDebug, error: logError });
+
         // Initialize ConfigManager with context
         configManager.initialize(context);
         

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ConfigLoader } from '../../src/utils/configLoader';
-import { TidyJSConfigFile } from '../../src/types';
+import type { TidyJSConfigFile } from '@tidyjs/core';
 
 // Mock vscode
 jest.mock('vscode');

@@ -2,18 +2,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { formatImports } from './formatter';
-import { sortCodePatterns } from './destructuring-sorter';
-import { organizeReExports } from './reexport-organizer';
-import { ImportParser } from './parser';
+// Core engine
+import { formatImports, sortCodePatterns, organizeReExports, ImportParser, hasIgnorePragma } from '@tidyjs/core';
+import type { Config, ParserResult, ParsedImport, ImportSource } from '@tidyjs/core';
+
+// VS Code extension
 import { PathResolver } from './utils/path-resolver';
 import { configManager } from './utils/config';
 import { ConfigLoader } from './utils/configLoader';
-import { hasIgnorePragma } from './utils/ignore-pragma';
 import { logDebug, logError } from './utils/log';
-
-import type { Config } from './types';
-import type { ParserResult, ParsedImport, ImportSource } from './parser';
 
 // --- Types ---
 

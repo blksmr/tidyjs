@@ -45,9 +45,15 @@ const nodeBuiltinsPlugin = {
  * Copy oxc-parser native bindings (.node files) to dist/.
  * At runtime, oxc-parser's bundled bindings.js resolves ./parser.<platform>.node
  * relative to the output file (dist/extension.js), via import.meta.url.
+ *
+ * In a monorepo, node_modules may be hoisted to the workspace root.
  */
 function copyNativeBindings() {
-    const oxcDir = path.join(process.cwd(), 'node_modules', '@oxc-parser');
+    // Try local node_modules first, then workspace root
+    let oxcDir = path.join(process.cwd(), 'node_modules', '@oxc-parser');
+    if (!fs.existsSync(oxcDir)) {
+        oxcDir = path.resolve(process.cwd(), '..', '..', 'node_modules', '@oxc-parser');
+    }
     const distDir = path.join(process.cwd(), 'dist');
 
     if (!fs.existsSync(oxcDir)) {

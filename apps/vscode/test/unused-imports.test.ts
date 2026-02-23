@@ -1,5 +1,5 @@
-import { Config } from '../../src/types';
-import { ImportParser } from '../../src/parser';
+import type { Config } from '@tidyjs/core';
+import { ImportParser } from '@tidyjs/core';
 import { removeUnusedImports } from '../../src/utils/misc';
 
 const DEFAULT_CONFIG: Config = {

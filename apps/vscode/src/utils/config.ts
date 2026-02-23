@@ -1,9 +1,8 @@
-import { Config } from '../types';
+import type { Config } from '@tidyjs/core';
+import { cloneDeepWith, ConfigCache } from '@tidyjs/core';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { logDebug, logError } from './log';
-import { cloneDeepWith } from './deep-clone';
-import { ConfigCache } from './config-cache';
 import { ConfigLoader } from './configLoader';
 
 const DEFAULT_CONFIG: Config = {

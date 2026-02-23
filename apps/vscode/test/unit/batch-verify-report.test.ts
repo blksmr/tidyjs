@@ -16,15 +16,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { discoverFiles, isFileInExcludedFolder } from '../../src/batch-formatter';
-import { ImportParser } from '../../src/parser';
-import { formatImports } from '../../src/formatter';
-import { sortCodePatterns } from '../../src/destructuring-sorter';
-import { organizeReExports } from '../../src/reexport-organizer';
+import { ImportParser, formatImports, sortCodePatterns, organizeReExports, hasIgnorePragma } from '@tidyjs/core';
+import type { Config, ParserResult, ParsedImport, ImportSource } from '@tidyjs/core';
 import { PathResolver } from '../../src/utils/path-resolver';
-import { hasIgnorePragma } from '../../src/utils/ignore-pragma';
-
-import type { Config } from '../../src/types';
-import type { ParserResult, ParsedImport, ImportSource } from '../../src/parser';
 
 // --- Configuration ---
 

@@ -12,9 +12,9 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 
 import { discoverFiles, formatSingleFile } from '../../src/batch-formatter';
-import { ImportParser } from '../../src/parser';
+import { ImportParser } from '@tidyjs/core';
 
-import type { Config } from '../../src/types';
+import type { Config } from '@tidyjs/core';
 
 // --- Configuration ---
 

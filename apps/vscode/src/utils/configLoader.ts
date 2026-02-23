@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Config, TidyJSConfigFile, ImportGroupFile, ConfigSource } from '../types';
+import type { Config, TidyJSConfigFile, ImportGroupFile, ConfigSource } from '@tidyjs/core';
 import { logDebug as debugLog, logError } from './log';
 import { configManager } from './config';
 

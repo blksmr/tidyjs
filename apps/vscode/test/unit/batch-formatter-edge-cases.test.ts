@@ -3,7 +3,7 @@ import {
     isFileInExcludedFolder,
     formatSingleFile,
 } from '../../src/batch-formatter';
-import type { Config } from '../../src/types';
+import type { Config } from '@tidyjs/core';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

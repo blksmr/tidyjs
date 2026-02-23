@@ -1,8 +1,8 @@
-// Other
-import {
-    ImportType,
-    ParserResult
-}                           from '../parser';
+// Core engine
+import { ImportType } from '@tidyjs/core';
+import type { ParserResult } from '@tidyjs/core';
+
+// VS Code extension
 import { diagnosticsCache } from './diagnostics-cache';
 import { logDebug }         from './log';
 

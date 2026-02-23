@@ -8,7 +8,7 @@ import {
     formatSingleFile,
 } from '../../src/batch-formatter';
 
-import type { Config } from '../../src/types';
+import type { Config } from '@tidyjs/core';
 
 // --- Helpers ---
 

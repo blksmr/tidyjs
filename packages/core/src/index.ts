@@ -38,3 +38,5 @@ export { printDocument } from './ir/printer';
 export { hasIgnorePragma } from './utils/ignore-pragma';
 export { GroupMatcher } from './utils/group-matcher';
 export { parseSource } from './utils/oxc-parse';
+export { cloneDeepWith } from './utils/deep-clone';
+export { ConfigCache } from './utils/config-cache';
