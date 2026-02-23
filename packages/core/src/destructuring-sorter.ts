@@ -436,8 +436,11 @@ function stripCommentLines(text: string): string {
 function sortProperties(
     pattern: SortablePattern,
     sourceText: string,
-    preserveComments = true
+    preserveComments = true,
+    sortMode: 'length' | 'alpha' | false = 'length'
 ): Replacement | null {
+    if (sortMode === false) {return null;}
+
     const { properties, range } = pattern;
 
     const restProps = properties.filter(p => p.isRest);
@@ -445,15 +448,18 @@ function sortProperties(
 
     if (nonRestProps.length < 2) {return null;}
 
+    const sortFn = sortMode === 'alpha'
+        ? (a: PropertyInfo, b: PropertyInfo): number => a.name.toLowerCase().localeCompare(b.name.toLowerCase(), 'en')
+        : (a: PropertyInfo, b: PropertyInfo): number => a.name.length - b.name.length || a.name.localeCompare(b.name);
+
     let sorted: PropertyInfo[];
     if (pattern.kind === 'jsxAttributes') {
-        // Boolean shorthand attributes first, then the rest — each group sorted by length/alpha
+        // Boolean shorthand attributes first, then the rest
         const booleans = nonRestProps.filter(p => isShorthandJsxAttr(p));
         const valued = nonRestProps.filter(p => !isShorthandJsxAttr(p));
-        const sortFn = (a: PropertyInfo, b: PropertyInfo): number => a.name.length - b.name.length || a.name.localeCompare(b.name);
         sorted = [...booleans.sort(sortFn), ...valued.sort(sortFn)];
     } else {
-        sorted = [...nonRestProps].sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));
+        sorted = [...nonRestProps].sort(sortFn);
     }
 
     const indent = detectIndent(properties, sourceText);
@@ -595,8 +601,9 @@ export function sortCodePatterns(sourceText: string, config?: Config): string {
         const patterns = findSortablePatterns(ast, current, config);
         const replacements: Replacement[] = [];
 
+        const sortMode = config?.format?.sortSpecifiers ?? 'length';
         for (const pattern of patterns) {
-            const replacement = sortProperties(pattern, current);
+            const replacement = sortProperties(pattern, current, true, sortMode);
             if (replacement) {
                 replacements.push(replacement);
             }
@@ -627,6 +634,7 @@ export function sortPropertiesInSelection(
     config?: Config
 ): string | null {
     const preserveComments = config?.format?.preserveComments !== false;
+    const sortMode = config?.format?.sortSpecifiers ?? 'length';
     let current = sourceText;
 
     for (let iteration = 0; iteration < 10; iteration++) {
@@ -641,7 +649,7 @@ export function sortPropertiesInSelection(
         const replacements: Replacement[] = [];
 
         for (const pattern of patterns) {
-            const replacement = sortProperties(pattern, current, preserveComments);
+            const replacement = sortProperties(pattern, current, preserveComments, sortMode);
             if (replacement) {
                 replacements.push(replacement);
             }

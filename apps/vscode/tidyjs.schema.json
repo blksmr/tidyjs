@@ -173,7 +173,7 @@
             { "type": "string", "enum": ["length", "alpha"] },
             { "type": "boolean", "enum": [false] }
           ],
-          "description": "Sort import specifiers: 'length' by string length, 'alpha' alphabetically, false to preserve order",
+          "description": "Sort specifiers in imports and properties in selections: 'length' by string length, 'alpha' alphabetically, false to preserve order",
           "default": "length"
         },
         "maxLineWidth": {
