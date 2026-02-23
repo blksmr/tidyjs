@@ -1,0 +1,10 @@
+{
+  "groups": [
+    { "name": "React", "match": "^react", "order": 0 },
+    { "name": "External", "order": 1, "default": true },
+    { "name": "Relative", "match": "^\\.", "order": 2 }
+  ],
+  "format": {
+    "sortEnumMembers": true
+  }
+}
