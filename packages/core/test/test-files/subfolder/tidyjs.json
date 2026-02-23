@@ -1,0 +1,31 @@
+{
+    "groups": [
+        {
+            "name": "React",
+            "match": "^react",
+            "order": 1,
+            "isDefault": true,
+            "sortOrder": "alphabetic"
+        },
+        {
+            "name": "Node Modules",
+            "match": "^[^@/.]",
+            "order": 2
+        },
+        {
+            "name": "Scoped Packages",
+            "match": "^@",
+            "order": 3
+        },
+        {
+            "name": "Local Files",
+            "match": "^\\.",
+            "order": 4
+        }
+    ],
+    "format": {
+        "removeUnusedImports": false,
+        "removeMissingModules": false,
+        "bracketSpacing": true
+    }
+}

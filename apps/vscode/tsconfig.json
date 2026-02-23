@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "baseUrl": ".",
+    "paths": {
+      "@tidyjs/core": ["../../packages/core/src/index.ts"],
+      "@app/*": ["src/@app/*"],
+      "@core/*": ["src/@core/*"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

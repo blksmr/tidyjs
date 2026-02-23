@@ -1,10 +1,8 @@
 node_modules
+.turbo
 .serena/
 .vscode-*
 *.map
-dist/**.map
-repomix-output.txt
-.repomix/bundles.json
 dist
 out
 */prompts/**/*
@@ -18,10 +16,8 @@ docs/plans/
 test/.vscode
 test/**/*.js
 ignore
-
-# Compiled JavaScript files in src (should only have TypeScript)
-src/**/*.js
-src/**/*.js.map
+repomix-output.txt
+.repomix/bundles.json
 
 # Test files
 test/**/package.json
@@ -34,5 +30,4 @@ test/**/package-*.json
 .env
 
 # Package manager files
-package-lock.json
 pnpm-lock.yaml

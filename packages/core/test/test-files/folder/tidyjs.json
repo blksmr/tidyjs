@@ -1,0 +1,35 @@
+{
+    "groups": [
+        {
+            "name": "Core Libraries",
+            "match": "^core",
+            "order": 1
+        },
+        {
+            "name": "External",
+            "match": "^[^@.]",
+            "order": 2
+        },
+        {
+            "name": "Internal",
+            "match": "^@/",
+            "order": 3
+        },
+        {
+            "name": "Relative",
+            "match": "^\\.",
+            "order": 4
+        },
+        {
+            "name": "Misc",
+            "order": 5,
+            "priority": 10,
+            "match": "^lodash$",
+            "isDefault": true
+        }
+    ],
+    "format": {
+        "singleQuote": true,
+        "removeUnusedImports": false
+    }
+}

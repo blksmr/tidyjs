@@ -8,7 +8,15 @@ export default tseslint.config(
   ...tseslint.configs.strict,
   ...tseslint.configs.stylistic,
   {
-    ignores: ["scripts/*", "out/*", "dist/*", ".vscode-test/*", "test/fixtures/*", "test/mocks/*"],
+    ignores: [
+      "scripts/*",
+      "out/*",
+      "**/dist/*",
+      ".vscode-test/*",
+      "**/test/fixtures/*",
+      "**/test/mocks/*",
+      "node_modules/*",
+    ],
   },
   {
     languageOptions: {
@@ -31,9 +39,9 @@ export default tseslint.config(
       semi: "off",
     },
   },
-  // Configuration pour les fichiers de test
+  // Configuration for test files
   {
-    files: ["test/**/*.ts", "test/**/*.js"],
+    files: ["**/test/**/*.ts", "**/test/**/*.js"],
     languageOptions: {
       globals: {
         describe: "readonly",
