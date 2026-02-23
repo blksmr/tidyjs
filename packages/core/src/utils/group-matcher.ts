@@ -3,7 +3,7 @@
  */
 
 import { Config } from '../types';
-import { logDebug } from './log';
+import { logDebug } from '../logger';
 
 export class GroupMatcher {
     private static readonly MAX_CACHE_SIZE = 500; // Reasonable limit for group cache

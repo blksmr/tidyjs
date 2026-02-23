@@ -3,7 +3,7 @@ import { parseSource } from './utils/oxc-parse';
 
 // Utils
 import { GroupMatcher } from './utils/group-matcher';
-import { logDebug } from './utils/log';
+import { logDebug } from './logger';
 
 // Types
 import type * as AST from './types/ast';
