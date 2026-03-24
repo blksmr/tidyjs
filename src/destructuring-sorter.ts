@@ -78,6 +78,40 @@ function isRestNode(node: AST.ASTNode): boolean {
     return node.type === 'RestElement' || node.type === 'SpreadElement' || node.type === 'JSXSpreadAttribute';
 }
 
+/**
+ * Check if the line immediately before a node's containing statement has `// @tidyjs-ignore-sort`.
+ * First walks back to the start of the line containing nodeRange[0],
+ * then checks the line above that.
+ */
+function hasIgnoreSortComment(sourceText: string, nodeRange: [number, number]): boolean {
+    // Find the start of the line containing the node
+    let lineStart = nodeRange[0];
+    while (lineStart > 0 && sourceText[lineStart - 1] !== '\n') {
+        lineStart--;
+    }
+    // Now find the previous line (the one above)
+    if (lineStart === 0) {return false;} // node is on the first line
+    const prevLineEnd = lineStart - 1; // points to the \n before current line
+    let prevLineStart = prevLineEnd;
+    while (prevLineStart > 0 && sourceText[prevLineStart - 1] !== '\n') {
+        prevLineStart--;
+    }
+    const prevLine = sourceText.slice(prevLineStart, prevLineEnd);
+    return /^\s*\/\/\s*@tidyjs-ignore-sort\s*$/.test(prevLine);
+}
+
+/**
+ * Check if all members of an enum have explicit numeric initializers.
+ * When they do, the order is intentional (semantic) and should not be sorted.
+ */
+function hasAllNumericInitializers(members: AST.ASTNode[]): boolean {
+    if (members.length === 0) {return false;}
+    return members.every(m => {
+        const member = m as AST.TSEnumMember;
+        return member.initializer !== undefined && member.initializer !== null && typeof member.initializer.value === 'number';
+    });
+}
+
 function isMultiline(sourceText: string, range: [number, number]): boolean {
     const text = sourceText.slice(range[0], range[1]);
     return text.includes('\n');
@@ -163,15 +197,18 @@ function findSortablePatterns(
         if (config?.format?.sortEnumMembers && node.type === 'TSEnumDeclaration' && node.range) {
             const enumNode = node as AST.TSEnumDeclaration;
             const members = enumNode.body?.members ?? enumNode.members;
-            if (members && members.length >= 2) {
-                const braceRange = findBraceRange(node.range as [number, number], sourceText);
-                if (braceRange && isMultiline(sourceText, braceRange) && !hasInternalComments(sourceText, braceRange)) {
-                    const props = extractProperties(
-                        members as AST.ASTNode[],
-                        sourceText
-                    );
-                    if (props && props.length >= 2) {
-                        patterns.push({ kind: 'enumBody', range: braceRange, properties: props });
+            if (members && members.length >= 2 && !hasAllNumericInitializers(members as AST.ASTNode[])) {
+                const nodeRange = node.range as [number, number];
+                if (!hasIgnoreSortComment(sourceText, nodeRange)) {
+                    const braceRange = findBraceRange(nodeRange, sourceText);
+                    if (braceRange && isMultiline(sourceText, braceRange) && !hasInternalComments(sourceText, braceRange)) {
+                        const props = extractProperties(
+                            members as AST.ASTNode[],
+                            sourceText
+                        );
+                        if (props && props.length >= 2) {
+                            patterns.push({ kind: 'enumBody', range: braceRange, properties: props });
+                        }
                     }
                 }
             }
@@ -179,7 +216,7 @@ function findSortablePatterns(
 
         if (config?.format?.sortExports && node.type === 'ExportNamedDeclaration' && node.range) {
             const exportNode = node as AST.ExportNamedDeclaration;
-            if (exportNode.specifiers.length >= 2) {
+            if (exportNode.specifiers.length >= 2 && !hasIgnoreSortComment(sourceText, node.range as [number, number])) {
                 const braceRange = findBraceRange(node.range as [number, number], sourceText);
                 if (braceRange && isMultiline(sourceText, braceRange) && !hasInternalComments(sourceText, braceRange)) {
                     const props = extractProperties(
@@ -193,7 +230,7 @@ function findSortablePatterns(
             }
         }
 
-        if (config?.format?.sortClassProperties && node.type === 'ClassBody' && node.range) {
+        if (config?.format?.sortClassProperties && node.type === 'ClassBody' && node.range && !hasIgnoreSortComment(sourceText, node.range as [number, number])) {
             const classBody = node as AST.ClassBody;
             // Find contiguous runs of PropertyDefinition nodes
             let currentRun: AST.PropertyDefinition[] = [];
@@ -230,7 +267,7 @@ function findSortablePatterns(
             flushRun();
         }
 
-        if (config?.format?.sortTypeMembers && node.type === 'TSInterfaceBody' && node.range) {
+        if (config?.format?.sortTypeMembers && node.type === 'TSInterfaceBody' && node.range && !hasIgnoreSortComment(sourceText, node.range as [number, number])) {
             const range = node.range as [number, number];
             if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
                 const props = extractProperties(
@@ -243,7 +280,7 @@ function findSortablePatterns(
             }
         }
 
-        if (config?.format?.sortTypeMembers && node.type === 'TSTypeLiteral' && node.range) {
+        if (config?.format?.sortTypeMembers && node.type === 'TSTypeLiteral' && node.range && !hasIgnoreSortComment(sourceText, node.range as [number, number])) {
             const range = node.range as [number, number];
             if (isMultiline(sourceText, range) && !hasInternalComments(sourceText, range)) {
                 const props = extractProperties(
@@ -294,7 +331,7 @@ function findSortablePatternsInRange(
 
         if (node.type === 'ObjectPattern' && node.range) {
             const range = node.range as [number, number];
-            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range)) {
+            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range) && !hasIgnoreSortComment(sourceText, range)) {
                 const props = extractProperties(
                     node.properties as AST.ASTNode[],
                     sourceText
@@ -307,7 +344,7 @@ function findSortablePatternsInRange(
 
         if (node.type === 'ObjectExpression' && node.range) {
             const range = node.range as [number, number];
-            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range)) {
+            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range) && !hasIgnoreSortComment(sourceText, range)) {
                 const props = extractProperties(
                     node.properties as AST.ASTNode[],
                     sourceText
@@ -320,7 +357,7 @@ function findSortablePatternsInRange(
 
         if (node.type === 'TSInterfaceBody' && node.range) {
             const range = node.range as [number, number];
-            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range)) {
+            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range) && !hasIgnoreSortComment(sourceText, range)) {
                 const props = extractProperties(
                     node.body as AST.ASTNode[],
                     sourceText
@@ -333,7 +370,7 @@ function findSortablePatternsInRange(
 
         if (node.type === 'TSTypeLiteral' && node.range) {
             const range = node.range as [number, number];
-            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range)) {
+            if (rangesOverlap(range, selRange) && isMultiline(sourceText, range) && !hasIgnoreSortComment(sourceText, range)) {
                 const props = extractProperties(
                     node.members as AST.ASTNode[],
                     sourceText
@@ -352,7 +389,7 @@ function findSortablePatternsInRange(
                 const lastRange = attrs[attrs.length - 1].range as [number, number] | undefined;
                 if (firstRange && lastRange) {
                     const range: [number, number] = [firstRange[0], lastRange[1]];
-                    if (rangesOverlap(range, selRange) && isMultiline(sourceText, range)) {
+                    if (rangesOverlap(range, selRange) && isMultiline(sourceText, range) && !hasIgnoreSortComment(sourceText, node.range as [number, number])) {
                         const props = extractProperties(attrs, sourceText);
                         if (props && props.length >= 2) {
                             patterns.push({ kind: 'jsxAttributes', range, properties: props });

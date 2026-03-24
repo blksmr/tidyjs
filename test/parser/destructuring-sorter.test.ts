@@ -463,18 +463,28 @@ describe('sortEnumMembers', () => {
         expect(sortCodePatterns(input, enumConfig)).toBe(expected);
     });
 
-    it('should handle enums with string literal keys', () => {
+    it('should handle enums with string literal keys and string values', () => {
+        const input = `enum Codes {
+    'long-code' = 'lc',
+    'ab' = 'a',
+}`;
+
+        const expected = `enum Codes {
+    'ab' = 'a',
+    'long-code' = 'lc',
+}`;
+
+        expect(sortCodePatterns(input, enumConfig)).toBe(expected);
+    });
+
+    it('should skip enums with string literal keys but numeric values', () => {
         const input = `enum Codes {
     'long-code' = 1,
     'ab' = 2,
 }`;
 
-        const expected = `enum Codes {
-    'ab' = 2,
-    'long-code' = 1,
-}`;
-
-        expect(sortCodePatterns(input, enumConfig)).toBe(expected);
+        // Numeric initializers → order is intentional
+        expect(sortCodePatterns(input, enumConfig)).toBe(input);
     });
 
     it('should preserve trailing comma behavior', () => {
@@ -957,5 +967,196 @@ describe('sortTypeMembers', () => {
 }`;
 
         expect(sortCodePatterns(input, typeMembersConfig)).toBe(expected);
+    });
+});
+
+describe('@tidyjs-ignore-sort directive', () => {
+    describe('automatic pipeline', () => {
+        it('should skip enum when preceded by @tidyjs-ignore-sort', () => {
+            const input = `// @tidyjs-ignore-sort
+enum Status {
+    InProgress = 'in_progress',
+    OK = 'ok',
+    Error = 'error',
+}`;
+
+            expect(sortCodePatterns(input, enumConfig)).toBe(input);
+        });
+
+        it('should skip exports when preceded by @tidyjs-ignore-sort', () => {
+            const input = `// @tidyjs-ignore-sort
+export {
+    useCallback,
+    useState,
+    FC,
+} from 'react';`;
+
+            expect(sortCodePatterns(input, exportConfig)).toBe(input);
+        });
+
+        it('should skip class when preceded by @tidyjs-ignore-sort', () => {
+            const input = `// @tidyjs-ignore-sort
+class User {
+    telephone: string;
+    id: string;
+    nom: string;
+}`;
+
+            expect(sortCodePatterns(input, classConfig)).toBe(input);
+        });
+
+        it('should skip interface when preceded by @tidyjs-ignore-sort', () => {
+            const input = `// @tidyjs-ignore-sort
+interface Props {
+    className: string;
+    datatestIdAttribute: string;
+    datatestId: string;
+}`;
+
+            expect(sortCodePatterns(input, typeMembersConfig)).toBe(input);
+        });
+
+        it('should skip type literal when preceded by @tidyjs-ignore-sort', () => {
+            const input = `// @tidyjs-ignore-sort
+type Props = {
+    className: string;
+    datatestIdAttribute: string;
+    datatestId: string;
+};`;
+
+            expect(sortCodePatterns(input, typeMembersConfig)).toBe(input);
+        });
+
+        it('should only skip the annotated block, not others', () => {
+            const input = `// @tidyjs-ignore-sort
+enum Ignored {
+    InProgress = 'in_progress',
+    OK = 'ok',
+}
+
+enum Sorted {
+    InProgress = 'in_progress',
+    OK = 'ok',
+}`;
+
+            const expected = `// @tidyjs-ignore-sort
+enum Ignored {
+    InProgress = 'in_progress',
+    OK = 'ok',
+}
+
+enum Sorted {
+    OK = 'ok',
+    InProgress = 'in_progress',
+}`;
+
+            expect(sortCodePatterns(input, enumConfig)).toBe(expected);
+        });
+
+        it('should handle extra whitespace in the directive', () => {
+            const input = `  //   @tidyjs-ignore-sort
+enum Status {
+    InProgress = 'in_progress',
+    OK = 'ok',
+}`;
+
+            expect(sortCodePatterns(input, enumConfig)).toBe(input);
+        });
+    });
+
+    describe('manual selection', () => {
+        it('should skip destructuring when preceded by @tidyjs-ignore-sort', () => {
+            const input = `// @tidyjs-ignore-sort
+const {
+    longName,
+    a,
+} = props;`;
+
+            expect(sortPropertiesInSelection(input, 0, input.length)).toBeNull();
+        });
+
+        it('should skip object literal when preceded by @tidyjs-ignore-sort', () => {
+            const input = `// @tidyjs-ignore-sort
+const obj = {
+    telephone: '123',
+    id: 1,
+    nom: 'test',
+};`;
+
+            expect(sortPropertiesInSelection(input, 0, input.length)).toBeNull();
+        });
+    });
+});
+
+describe('auto-skip enums with numeric initializers', () => {
+    it('should skip enum where all members have numeric initializers', () => {
+        const input = `enum ECurrentType {
+    Rubrique = 0,
+    EVP = 1,
+}`;
+
+        expect(sortCodePatterns(input, enumConfig)).toBe(input);
+    });
+
+    it('should skip enum with non-sequential numeric values', () => {
+        const input = `enum Flags {
+    Read = 4,
+    Write = 2,
+    Execute = 1,
+}`;
+
+        expect(sortCodePatterns(input, enumConfig)).toBe(input);
+    });
+
+    it('should still sort enum with string initializers', () => {
+        const input = `enum Status {
+    InProgress = 'in_progress',
+    OK = 'ok',
+    Error = 'error',
+}`;
+
+        const expected = `enum Status {
+    OK = 'ok',
+    Error = 'error',
+    InProgress = 'in_progress',
+}`;
+
+        expect(sortCodePatterns(input, enumConfig)).toBe(expected);
+    });
+
+    it('should still sort enum without initializers', () => {
+        const input = `enum Direction {
+    Southeast,
+    Up,
+    Down,
+}`;
+
+        const expected = `enum Direction {
+    Up,
+    Down,
+    Southeast,
+}`;
+
+        expect(sortCodePatterns(input, enumConfig)).toBe(expected);
+    });
+
+    it('should still sort enum with mixed initializer types', () => {
+        const input = `enum Mixed {
+    First = 0,
+    Second = 'two',
+    Third = 2,
+}`;
+
+        const result = sortCodePatterns(input, enumConfig);
+        expect(result).not.toBe(input);
+    });
+
+    it('should skip export const enum with numeric initializers', () => {
+        const input = `export const enum ECurrentType {
+    Rubrique = 0,
+    EVP = 1,
+}`;
+
+        expect(sortCodePatterns(input, enumConfig)).toBe(input);
     });
 });

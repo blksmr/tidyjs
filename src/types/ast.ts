@@ -63,6 +63,7 @@ export interface TSEnumDeclaration extends ASTNode {
 export interface TSEnumMember extends ASTNode {
     type: 'TSEnumMember';
     id: { type: string; name?: string; value?: unknown };
+    initializer?: { type: string; value?: unknown; raw?: string } | null;
 }
 
 export interface TSPropertySignature extends ASTNode {
