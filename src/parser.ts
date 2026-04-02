@@ -775,7 +775,8 @@ export class ImportParser {
         if (firstImportStart !== undefined && lastImportEnd !== undefined) {
             // Include preceding comments and empty lines
             const adjustedStart = this.findActualImportStart(firstImportStart);
-            return { start: adjustedStart, end: lastImportEnd };
+            const adjustedEnd = this.findActualImportEnd(lastImportEnd);
+            return { start: adjustedStart, end: adjustedEnd };
         }
 
         return undefined;
@@ -831,6 +832,87 @@ export class ImportParser {
         }
 
         return adjustedStart;
+    }
+
+    /**
+     * Extend the import range end to include trailing orphaned group comments
+     * that follow the last import declaration.
+     *
+     * Strategy: collect all trailing blank lines and comments after the last
+     * import. Then exclude any comments at the end of the collected block that
+     * are directly attached to code (no blank line between comment and code).
+     */
+    private findActualImportEnd(lastImportEnd: number): number {
+        const lines = this.sourceCode.split('\n');
+        let currentPos = 0;
+        let importLineIndex = -1;
+
+        // Find which line contains the last import end
+        for (let i = 0; i < lines.length; i++) {
+            const lineEnd = currentPos + lines[i].length;
+            if (currentPos <= lastImportEnd && lastImportEnd <= lineEnd + 1) {
+                importLineIndex = i;
+                break;
+            }
+            currentPos = lineEnd + 1;
+        }
+
+        if (importLineIndex === -1 || importLineIndex + 1 >= lines.length) {
+            return lastImportEnd;
+        }
+
+        // Must have at least one blank line after the last import to consider
+        // trailing comments (otherwise they're code comments attached to imports)
+        if (lines[importLineIndex + 1]?.trim() !== '') {
+            return lastImportEnd;
+        }
+
+        // Collect all trailing blank lines + comments until we hit code
+        let trailingEnd = importLineIndex;
+        for (let i = importLineIndex + 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line === '' || line.startsWith('//')) {
+                trailingEnd = i;
+            } else {
+                break;
+            }
+        }
+
+        if (trailingEnd === importLineIndex) {
+            return lastImportEnd;
+        }
+
+        // Walk backwards from trailingEnd: exclude comments that are directly
+        // attached to the code below (no blank line between comment and code)
+        let endLineIndex = trailingEnd;
+        for (let i = trailingEnd; i > importLineIndex; i--) {
+            const line = lines[i].trim();
+            if (line === '') {
+                // Hit a blank line — everything above this is safe to consume
+                break;
+            } else if (line.startsWith('//')) {
+                // This comment is directly before code (or another comment before code)
+                // — it belongs to the code, not the imports
+                endLineIndex = i - 1;
+            }
+        }
+
+        // endLineIndex might now point to blank lines; trim trailing blanks
+        while (endLineIndex > importLineIndex && lines[endLineIndex].trim() === '') {
+            endLineIndex--;
+        }
+
+        if (endLineIndex <= importLineIndex) {
+            return lastImportEnd;
+        }
+
+        // Calculate position at end of the last trailing line
+        let adjustedEnd = 0;
+        for (let i = 0; i <= endLineIndex; i++) {
+            adjustedEnd += lines[i].length + 1; // +1 for newline
+        }
+
+        return adjustedEnd;
     }
 
     private calculateFilteredImportRange(filteredImports: ParsedImport[]): { start: number; end: number } | undefined {
