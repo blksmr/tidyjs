@@ -9,6 +9,7 @@ import { ImportParser } from './parser';
 import { PathResolver } from './utils/path-resolver';
 import { configManager } from './utils/config';
 import { ConfigLoader } from './utils/configLoader';
+import { validateFormattedOutput } from './utils/format-validation';
 import { hasIgnorePragma } from './utils/ignore-pragma';
 import { logDebug, logError } from './utils/log';
 
@@ -204,13 +205,9 @@ export async function formatSingleFile(
     }
 
     // Validation: re-parse the formatted output to ensure it's valid
-    try {
-        const validationResult = parser.parse(finalText, undefined, undefined, filePath);
-        if (validationResult.invalidImports && validationResult.invalidImports.length > 0) {
-            return { changed: false, error: 'Post-format validation failed: output has invalid imports' };
-        }
-    } catch {
-        return { changed: false, error: 'Post-format validation failed: output cannot be parsed' };
+    const validationError = validateFormattedOutput(parser, finalText, filePath);
+    if (validationError) {
+        return { changed: false, error: `Post-format validation failed: ${validationError}` };
     }
 
     // Write the formatted file
