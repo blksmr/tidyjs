@@ -2,10 +2,13 @@
  * E2E Path Resolution Round-Trip Test
  *
  * Tests that converting relative → absolute → relative produces the same result.
- * Runs on the real Yeap-UI-Apps/apps/paye codebase.
+ * Runs against an arbitrary codebase configured via the BATCH_E2E_DIR env var.
  *
  * Usage:
- *   npx jest test/unit/batch-path-conversion.test.ts --no-coverage --verbose --testTimeout=600000
+ *   BATCH_E2E_DIR=/path/to/your/project \
+ *     npx jest test/unit/batch-path-conversion.test.ts --no-coverage --verbose --testTimeout=600000
+ *
+ * Skipped automatically when BATCH_E2E_DIR is not set (CI-friendly).
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -18,24 +21,18 @@ import type { Config } from '../../src/types';
 
 // --- Configuration ---
 
-const PAYE_DIR = '/Users/belkicasmir/Documents/GitHub/work/Yeap-UI-Apps/apps/paye';
-const WORKSPACE_ROOT = PAYE_DIR;
-const YEAP_ROOT = '/Users/belkicasmir/Documents/GitHub/work/Yeap-UI-Apps';
+const TARGET_DIR = process.env.BATCH_E2E_DIR || '';
+const WORKSPACE_ROOT = process.env.BATCH_E2E_WORKSPACE_ROOT || TARGET_DIR;
 
 function makeConfig(mode: 'relative' | 'absolute'): Config {
     return {
         groups: [
             { name: 'Styles', order: 0, match: /^.+\.css$/ },
-            { name: 'Misc', order: 1, default: true, priority: 999, match: /^(react|react-.*|lodash|date-fns|classnames|@fortawesome|@reach|uuid|@tanstack|ag-grid-community|framer-motion)$/ },
-            { name: '@app/fixtures', order: 2, match: /^@app\/fixtures/ },
-            { name: 'DS', order: 3, match: /^ds$/ },
-            { name: '@app/dossier', order: 4, match: /^@app\/dossier/ },
-            { name: '@app/notification', order: 5, match: /^@app\/notification/ },
-            { name: '@app/client', order: 6, match: /^@app\/client/ },
-            { name: '@app/admin', order: 7, match: /^@app\/admin/ },
-            { name: '@core', order: 8, match: /^@core/ },
-            { name: '@library', order: 9, match: /^@library/ },
-            { name: 'Utils', order: 10, match: /^yutils/ },
+            { name: 'Misc', order: 1, default: true, priority: 999, match: /^(react|react-.*|lodash|date-fns|classnames|@fortawesome|uuid|@tanstack)$/ },
+            { name: 'UI', order: 2, match: /^@\/components\/ui/ },
+            { name: '@/features', order: 3, match: /^@\/features/ },
+            { name: '@/lib', order: 4, match: /^@\/lib/ },
+            { name: '@/utils', order: 5, match: /^@\/utils/ },
         ],
         importOrder: { default: 0, named: 1, typeOnly: 2, sideEffect: 3 },
         format: {
@@ -85,7 +82,7 @@ async function runBatchFormat(
     try {
         for (let i = 0; i < files.length; i++) {
             const filePath = files[i];
-            const rel = path.relative(PAYE_DIR, filePath);
+            const rel = path.relative(TARGET_DIR, filePath);
 
             const formatResult = await formatSingleFile(filePath, config, parserCache, workspaceRoot);
 
@@ -117,7 +114,7 @@ async function runBatchFormat(
 function runYarnType(): { success: boolean; output: string } {
     try {
         const output = execSync('yarn type 2>&1', {
-            cwd: PAYE_DIR,
+            cwd: TARGET_DIR,
             encoding: 'utf8',
             timeout: 120_000,
         });
@@ -141,7 +138,7 @@ function diffSnapshot(before: Map<string, string>, after: string[]): string[] {
         const current = fs.readFileSync(f, 'utf8');
         const original = before.get(f);
         if (original !== current) {
-            diffs.push(path.relative(PAYE_DIR, f));
+            diffs.push(path.relative(TARGET_DIR, f));
         }
     }
     return diffs;
@@ -179,15 +176,20 @@ function printResult(label: string, result: ConversionResult): void {
 
 // --- Test ---
 
-describe('Path resolution round-trip (paye)', () => {
+describe('Path resolution round-trip (E2E)', () => {
     test('relative → absolute → yarn type → relative → yarn type → identity', async () => {
-        if (!fs.existsSync(PAYE_DIR)) {
-            console.log(`SKIPPED: ${PAYE_DIR} not found`);
+        if (!TARGET_DIR) {
+            console.log('SKIPPED: BATCH_E2E_DIR env var not set');
+            return;
+        }
+
+        if (!fs.existsSync(TARGET_DIR)) {
+            console.log(`SKIPPED: ${TARGET_DIR} not found`);
             return;
         }
 
         console.log('\n📁 Discovering files...');
-        const files = await discoverFiles(PAYE_DIR);
+        const files = await discoverFiles(TARGET_DIR);
         console.log(`   Found ${files.length} files\n`);
 
         // --- Snapshot original state ---
@@ -204,7 +206,7 @@ describe('Path resolution round-trip (paye)', () => {
         if (absoluteResult.changedFiles.length > 0) {
             console.log('\n  📋 Sample changes (first 5):');
             for (const rel of absoluteResult.changedFiles.slice(0, 5)) {
-                const fullPath = path.join(PAYE_DIR, rel);
+                const fullPath = path.join(TARGET_DIR, rel);
                 const original = originalSnapshot.get(fullPath) || '';
                 const current = fs.readFileSync(fullPath, 'utf8');
 

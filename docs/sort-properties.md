@@ -188,7 +188,7 @@ JSX attributes (props) on components. Boolean shorthand props are placed first, 
 Nested objects within JSX props are also sorted recursively:
 
 ```tsx
-<YpInput
+<Input
     icon={ {
         name: 'search',
         style: 'far',

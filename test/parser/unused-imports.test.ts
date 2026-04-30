@@ -259,20 +259,20 @@ describe('Unused Imports Detection and Removal', () => {
 import React       from 'react';
 import type { FC } from 'react';
 
-// @app/dossier
-import LiaisonsComptablesListComponent    from '@app/dossier/components/postproduction/liaisons-comptables/LiaisonsComptablesListComponent';
-import PostProductionWrapperTabsComponent from '@app/dossier/pages/postproduction/PostProductionWrapperTabsComponent';
-import { LiaisonsComptablesProvider }     from '@app/dossier/providers/postproduction/contexts/LiaisonsComptablesContext';
+// @app/feature
+import ItemListComponent           from '@app/feature/components/items/ItemListComponent';
+import WrapperTabsComponent        from '@app/feature/pages/items/WrapperTabsComponent';
+import { ItemListProvider }        from '@app/feature/providers/items/contexts/ItemListContext';
 
-const LiaisonsComptablesPage: FC = () => (
-    <PostProductionWrapperTabsComponent activeTab='liaisons-comptables'>
-        <LiaisonsComptablesProvider>
-            <LiaisonsComptablesListComponent />
-        </LiaisonsComptablesProvider>
-    </PostProductionWrapperTabsComponent>
+const ItemListPage: FC = () => (
+    <WrapperTabsComponent activeTab='item-list'>
+        <ItemListProvider>
+            <ItemListComponent />
+        </ItemListProvider>
+    </WrapperTabsComponent>
 );
 
-export default LiaisonsComptablesPage;
+export default ItemListPage;
 `;
 
       const parserResult = parser.parse(sourceCode);
@@ -297,9 +297,9 @@ export default LiaisonsComptablesPage;
       expect(reactTypeImport!.specifiers).toContain('FC');
 
       // Check that other imports are preserved
-      expect(allImports.find(imp => imp.source.includes('LiaisonsComptablesListComponent'))).toBeDefined();
-      expect(allImports.find(imp => imp.source.includes('PostProductionWrapperTabsComponent'))).toBeDefined();
-      expect(allImports.find(imp => imp.source.includes('LiaisonsComptablesContext'))).toBeDefined();
+      expect(allImports.find(imp => imp.source.includes('ItemListComponent'))).toBeDefined();
+      expect(allImports.find(imp => imp.source.includes('WrapperTabsComponent'))).toBeDefined();
+      expect(allImports.find(imp => imp.source.includes('ItemListContext'))).toBeDefined();
     });
 
     test('should handle React import removal when only type imports remain', () => {
@@ -406,27 +406,27 @@ export default Component;
     test('should identify imports from missing modules', () => {
       const sourceCode = `
         import React from 'react';
-        import { WsDataModel } from '@library/form-new/models/ProviderModel';
+        import { DataModel } from '@/lib/form/models/ProviderModel';
         import { utilityFunction } from './existing-utils';
         import { NonExistentComponent } from '@non-existent/package';
       `;
 
       const parserResult = parser.parse(sourceCode);
-      
+
       // Mock diagnostics that would be returned by VS Code for missing modules
       // Note: In a real test environment, these would come from VS Code's language service
-      
+
       // Since we can't easily mock VS Code's diagnostic system in unit tests,
       // we'll test the logic that handles missing modules directly
       const missingModuleSources = parserResult.groups.flatMap(group =>
         group.imports.map(imp => imp.source)
-      ).filter(source => 
-        source.includes('@library/form-new') || 
+      ).filter(source =>
+        source.includes('@/lib/form') ||
         source.includes('@non-existent')
       );
 
       expect(missingModuleSources).toEqual([
-        '@library/form-new/models/ProviderModel',
+        '@/lib/form/models/ProviderModel',
         '@non-existent/package'
       ]);
     });
@@ -434,23 +434,23 @@ export default Component;
     test('should handle missing module imports in removeUnusedImports', () => {
       const sourceCode = `
         import React from 'react';
-        import { WsDataModel } from '@library/form-new/models/ProviderModel';
+        import { DataModel } from '@/lib/form/models/ProviderModel';
         import { useState } from 'react';
       `;
 
       const parserResult = parser.parse(sourceCode);
-      
-      // Simulate that WsDataModel comes from a missing module
-      const unusedImports = ['WsDataModel']; // This import should be removed
-      
+
+      // Simulate that DataModel comes from a missing module
+      const unusedImports = ['DataModel']; // This import should be removed
+
       const result = removeUnusedImports(parserResult, unusedImports);
-      
+
       // Should remove the missing module import but keep others
       const allImports = result.groups.flatMap(group => group.imports);
-      
+
       // Check that the missing module import is removed
-      const missingModuleImport = allImports.find(imp => 
-        imp.source === '@library/form-new/models/ProviderModel'
+      const missingModuleImport = allImports.find(imp =>
+        imp.source === '@/lib/form/models/ProviderModel'
       );
       expect(missingModuleImport).toBeUndefined();
       

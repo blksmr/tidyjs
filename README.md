@@ -64,9 +64,9 @@ Create a `.tidyjsrc` in your project root:
 
 **Before:**
 ```typescript
-import { YpTable, YpButton } from 'ds';
+import { Table, Button } from '@/components/ui';
 import React, { useState, type FC } from 'react';
-import { formatDate } from '@library/helpers';
+import { formatDate } from '@/lib/helpers';
 import * as Utils from './utils';
 ```
 
@@ -77,11 +77,11 @@ import React        from 'react';
 import { useState } from 'react';
 import type { FC }  from 'react';
 
-// DS Components
-import { YpButton, YpTable } from 'ds';
+// UI Components
+import { Button, Table } from '@/components/ui';
 
-// @library
-import { formatDate } from '@library/helpers';
+// @/lib
+import { formatDate } from '@/lib/helpers';
 
 // Local
 import * as Utils from './utils';

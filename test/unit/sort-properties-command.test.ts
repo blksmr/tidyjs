@@ -413,7 +413,7 @@ const obj = {
     // Hide toolbar condition
     hideToolbar?: boolean;
     // Select props (vues ou autres)
-    selectProps?: Partial<TYpSelectProps>;
+    selectProps?: Partial<SelectProps>;
 
     // Analyses select props
     showAnalyse?: boolean;
@@ -421,11 +421,11 @@ const obj = {
     analysesValue?: string | null;
 
     // Export actions
-    exportOptions?: TYpSelectOption[];
+    exportOptions?: SelectOption[];
 
     // Loading state global
     isLoadingData?: boolean;
-    analysesOptions?: TYpSelectOption[];
+    analysesOptions?: SelectOption[];
     onAnalysesChange?: (value: string | null, event?: SyntheticEvent<HTMLElement, Event>) => void;
 
     // Additional actions
