@@ -8,20 +8,20 @@ import {
 } from 'react';
 import { get } from 'lodash';
 
-// DS
-import { useYpWrapperContext } from 'ds';
+// UI
+import { useWrapperContext } from '@/components/ui';
 
-// @app/dossier
-import FicheTypeEnum from '@app/dossier/models/enums/FicheTypeEnum';
-import useHistorisationService from '@app/dossier/services/fiches/HistorisationService';
+// @app/feature
+import ItemTypeEnum from '@app/feature/models/enums/ItemTypeEnum';
+import useHistoryService from '@app/feature/services/items/HistoryService';
 import type {
-    TDynamicSearchItem,
-    TDynamicSearchModel
-} from '@app/dossier/models/fiches/FicheDynamicSearch';
+    DynamicSearchItem,
+    DynamicSearchModel
+} from '@app/feature/models/items/ItemDynamicSearch';
 
-// @library
-import { WsDataModel } from '@library/form-new/models/ProviderModel';
+// @/lib
+import { DataModel } from '@/lib/form/models/ProviderModel';
 import type {
-    TCallParams,
-    TDataProviderReturn
-} from '@library/form-new/models/ProviderModel';
+    CallParams,
+    DataProviderReturn
+} from '@/lib/form/models/ProviderModel';

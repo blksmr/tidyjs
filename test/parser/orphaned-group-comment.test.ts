@@ -5,8 +5,8 @@ import { formatImports } from '../../src/formatter';
 describe('Orphaned group comment after last import', () => {
     const config: Config = {
         groups: [
-            { name: '@app/dossier', order: 3, match: /^@app\/dossier/, priority: 1 },
-            { name: 'DS', order: 2, match: /^ds$/ },
+            { name: '@app/feature', order: 3, match: /^@app\/feature/, priority: 1 },
+            { name: 'UI', order: 2, match: /^@\/components\/ui$/ },
             { name: 'Misc', order: 1, match: /^[\w@]/ },
         ],
         importOrder: {
@@ -22,15 +22,15 @@ describe('Orphaned group comment after last import', () => {
 import { join }            from 'lodash';
 import type { FC }         from 'react';
 
-// DS
-import { YpElement }       from 'ds';
+// UI
+import { Container }       from '@/components/ui';
 
-// @app/dossier
-import type { FicheModel } from '@app/dossier/models/FicheModel';
+// @app/feature
+import type { ItemModel }  from '@app/feature/models/ItemModel';
 
-// @app/dossier
+// @app/feature
 
-type TProps = {
+type Props = {
     isOpen: boolean;
 };`;
 
@@ -38,9 +38,9 @@ type TProps = {
         const result = parser.parse(code);
         const formatted = await formatImports(code, config, result);
 
-        // The orphaned "// @app/dossier" should NOT survive formatting
-        const importSection = formatted.text.split('type TProps')[0];
-        const matches = importSection.match(/\/\/ @app\/dossier/g);
+        // The orphaned "// @app/feature" should NOT survive formatting
+        const importSection = formatted.text.split('type Props')[0];
+        const matches = importSection.match(/\/\/ @app\/feature/g);
         expect(matches).toHaveLength(1);
     });
 

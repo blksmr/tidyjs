@@ -119,11 +119,11 @@ import styles from './component.module.css';
 
 **Before TidyJS:**
 ```typescript
-import { YpTable, YpDivider, YpTypography, YpElement, YpTag, YpButton } from 'ds';
+import { Table, Divider, Typography, Container, Tag, Button } from '@/components/ui';
 import React, { FC, useState, type ReactNode, type ComponentProps } from 'react';
 import cn from 'classnames';
-import type { User } from '@app/dossier/models';
-import { formatDate } from '@library/helpers';
+import type { User } from '@app/feature/models';
+import { formatDate } from '@/lib/helpers';
 import { useTranslation } from '@core/i18n';
 import * as Utils from './utils';
 ```
@@ -138,17 +138,17 @@ import type { ReactNode, ComponentProps } from 'react';
 // External Libraries
 import cn from 'classnames';
 
-// DS Components
-import { YpButton, YpDivider, YpElement, YpTag, YpTable, YpTypography } from 'ds';
+// UI Components
+import { Button, Container, Divider, Table, Tag, Typography } from '@/components/ui';
 
-// @app/dossier
-import type { User } from '@app/dossier/models';
+// @app/feature
+import type { User } from '@app/feature/models';
 
 // @core
 import { useTranslation } from '@core/i18n';
 
-// @library
-import { formatDate } from '@library/helpers';
+// @/lib
+import { formatDate } from '@/lib/helpers';
 
 // Local
 import * as Utils from './utils';

@@ -11,12 +11,15 @@ import type { TextDocument, ExtensionContext, FormattingOptions, CancellationTok
 
 // Utils
 import { configManager } from './utils/config';
+import { createDocumentSnapshot, FormattingRetryScheduler, hasDocumentChanged } from './utils/format-concurrency';
 import { diagnosticsCache } from './utils/diagnostics-cache';
+import { validateFormattedOutput } from './utils/format-validation';
 import { hasIgnorePragma } from './utils/ignore-pragma';
 import { logDebug, logError } from './utils/log';
 import { showMessage, analyzeImports } from './utils/misc';
 import { perfMonitor } from './utils/performance';
 import { PathResolver } from './utils/path-resolver';
+import { getMinimalTextReplacement } from './utils/text-edit';
 
 // Node
 import { writeFileSync } from 'fs';
@@ -24,6 +27,30 @@ import { join } from 'path';
 
 let parser: ImportParser | null = null;
 let lastConfigString = '';
+const retryScheduler = new FormattingRetryScheduler((documentKey) => {
+    const activeEditor = window.activeTextEditor;
+
+    if (!activeEditor || activeEditor.document.uri.toString() !== documentKey) {
+        return;
+    }
+
+    void commands.executeCommand('tidyjs.forceFormatDocument');
+});
+
+function createDocumentEdits(document: TextDocument, originalText: string, updatedText: string): TextEdit[] | undefined {
+    const replacement = getMinimalTextReplacement(originalText, updatedText);
+
+    if (!replacement) {
+        return undefined;
+    }
+
+    return [
+        TextEdit.replace(
+            new Range(document.positionAt(replacement.start), document.positionAt(replacement.end)),
+            replacement.newText
+        ),
+    ];
+}
 
 /**
  * TidyJS Document Formatting Provider
@@ -35,6 +62,8 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
         _token: CancellationToken
     ): Promise<TextEdit[] | undefined> {
         try {
+            const snapshot = createDocumentSnapshot(document);
+
             // Get document-specific configuration
             const currentConfig = await configManager.getConfigForDocument(document);
             
@@ -200,10 +229,23 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                     return undefined;
                 }
 
-                const fullRange = new Range(document.positionAt(0), document.positionAt(documentText.length));
+                const validationError = validateFormattedOutput(parser!, finalText, document.fileName);
+                if (validationError) {
+                    logError('Post-format validation failed:', validationError);
+                    showMessage.error(`TidyJS formatting aborted: ${validationError}`);
+                    return undefined;
+                }
+
+                if (hasDocumentChanged(document, snapshot)) {
+                    const scheduled = retryScheduler.schedule(snapshot.uri);
+                    logDebug(`Formatting skipped due to concurrent document change (${snapshot.uri}). Retry scheduled: ${scheduled}`);
+                    return undefined;
+                }
+
+                const edits = createDocumentEdits(document, documentText, finalText);
                 const totalDuration = perfMonitor.end('total_format_operation');
                 logDebug(`Document formatting (post-processing only) completed in ${totalDuration.toFixed(2)}ms`);
-                return [TextEdit.replace(fullRange, finalText)];
+                return edits;
             }
             
             // Apply path resolution if enabled
@@ -277,9 +319,6 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 finalText = organizeReExports(finalText, currentConfig);
             }
 
-            // Créer et retourner les éditions
-            const fullRange = new Range(document.positionAt(0), document.positionAt(documentText.length));
-
             const totalDuration = perfMonitor.end('total_format_operation');
             logDebug(`Document formatting completed in ${totalDuration.toFixed(2)}ms`);
 
@@ -287,7 +326,20 @@ class TidyJSFormattingProvider implements DocumentFormattingEditProvider {
                 perfMonitor.logSummary();
             }
 
-            return [TextEdit.replace(fullRange, finalText)];
+            const validationError = validateFormattedOutput(parser!, finalText, document.fileName);
+            if (validationError) {
+                logError('Post-format validation failed:', validationError);
+                showMessage.error(`TidyJS formatting aborted: ${validationError}`);
+                return undefined;
+            }
+
+            if (hasDocumentChanged(document, snapshot)) {
+                const scheduled = retryScheduler.schedule(snapshot.uri);
+                logDebug(`Formatting skipped due to concurrent document change (${snapshot.uri}). Retry scheduled: ${scheduled}`);
+                return undefined;
+            }
+
+            return createDocumentEdits(document, documentText, finalText);
         } catch (error) {
             logError('Error in provideDocumentFormattingEdits:', error);
             return undefined;
@@ -717,6 +769,8 @@ export function deactivate(): void {
             parser.dispose();
             parser = null;
         }
+
+        retryScheduler.dispose();
 
         // Clear configuration cache
         lastConfigString = '';

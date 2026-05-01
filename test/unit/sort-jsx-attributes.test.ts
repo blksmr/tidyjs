@@ -8,7 +8,7 @@ function sortSelection(input: string): string {
 describe('sortPropertiesInSelection — JSX attributes', () => {
     describe('basic JSX prop sorting', () => {
         it('should sort JSX attributes by length then alpha', () => {
-            const input = `<YpSelect
+            const input = `<Select
     className='max-w-[300px]'
     placeholder='test'
     value={ val }
@@ -31,7 +31,7 @@ describe('sortPropertiesInSelection — JSX attributes', () => {
 
     describe('boolean shorthand attributes first', () => {
         it('should place boolean shorthand props before valued props', () => {
-            const input = `<YpDataTable
+            const input = `<DataTable
     hasPagination
     table={ table }
     showCount
@@ -87,7 +87,7 @@ describe('sortPropertiesInSelection — JSX attributes', () => {
 
     describe('nested objects in JSX props (recursive)', () => {
         it('should sort JSX attributes and nested object expressions', () => {
-            const input = `<YpInput
+            const input = `<Input
     autoFocus
     type='search'
     className='w-[300px]'
@@ -148,24 +148,24 @@ describe('sortPropertiesInSelection — JSX attributes', () => {
     describe('multiple JSX elements in selection', () => {
         it('should sort attributes on all JSX elements in selection', () => {
             const input = `<div>
-    <YpSelect
+    <Select
         className='max-w-[300px]'
         placeholder='test'
         value={ val }
     />
-    <YpInput
+    <Input
         type='search'
         autoFocus
         className='w-[300px]'
     />
 </div>`;
             const result = sortSelection(input);
-            // YpSelect: value (5) < className (9) < placeholder (11)
+            // Select: value (5) < className (9) < placeholder (11)
             const valueIdx = result.indexOf('value=');
             const selectClassIdx = result.indexOf("className='max-w-[300px]'");
             expect(valueIdx).toBeLessThan(selectClassIdx);
 
-            // YpInput: autoFocus (boolean first), then type (4) < className (9)
+            // Input: autoFocus (boolean first), then type (4) < className (9)
             const autoFocusIdx = result.indexOf('autoFocus');
             const typeIdx = result.indexOf("type=");
             expect(autoFocusIdx).toBeLessThan(typeIdx);
@@ -174,7 +174,7 @@ describe('sortPropertiesInSelection — JSX attributes', () => {
 
     describe('idempotence', () => {
         it('should produce the same result when applied twice', () => {
-            const input = `<YpDataTable
+            const input = `<DataTable
     hasPagination
     table={ table }
     showCount
@@ -187,7 +187,7 @@ describe('sortPropertiesInSelection — JSX attributes', () => {
         });
 
         it('should be idempotent with nested objects', () => {
-            const input = `<YpInput
+            const input = `<Input
     autoFocus
     type='search'
     icon={ {

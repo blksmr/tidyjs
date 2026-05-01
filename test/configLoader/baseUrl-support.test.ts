@@ -122,8 +122,8 @@ describe('extractTsConfigPaths - baseUrl support', () => {
     });
 
     describe('realistic scenarios', () => {
-        it('should handle Yeap-UI-Apps ds package config', () => {
-            const configPath = '/Users/test/Yeap-UI-Apps/packages/ds/tsconfig.json';
+        it('should handle a monorepo nested package config', () => {
+            const configPath = '/Users/test/my-monorepo/packages/ui/tsconfig.json';
             const config = {
                 compilerOptions: {
                     baseUrl: 'src'
@@ -134,7 +134,7 @@ describe('extractTsConfigPaths - baseUrl support', () => {
 
             expect(mappings).toHaveLength(1);
             expect(mappings[0].pattern).toBe('*');
-            expect(mappings[0].paths[0]).toMatch(/packages\/ds\/src\/\*$/);
+            expect(mappings[0].paths[0]).toMatch(/packages\/ui\/src\/\*$/);
         });
 
         it('should handle monorepo root config with paths', () => {

@@ -1,14 +1,17 @@
 /**
  * E2E Batch Format Verification Report
  *
- * Runs the batch formatter in dry-run mode on a real codebase and outputs
+ * Runs the batch formatter in dry-run mode on an arbitrary codebase and outputs
  * detailed per-file categorization for validation.
  *
+ * Skipped automatically when VERIFY_DIR is not set (CI-friendly).
+ *
  * Usage:
- *   npx jest test/unit/batch-verify-report.test.ts --no-coverage --verbose --testTimeout=300000
+ *   VERIFY_DIR=/path/to/your/project \
+ *     npx jest test/unit/batch-verify-report.test.ts --no-coverage --verbose --testTimeout=300000
  *
  * Environment variables:
- *   VERIFY_DIR      — root folder to scan (default: /Users/belkicasmir/Documents/GitHub/work/Yeap-UI-Apps/apps)
+ *   VERIFY_DIR      — root folder to scan (required)
  *   WORKSPACE_ROOT  — workspace root for path resolution (default: parent of VERIFY_DIR)
  *   REPORT_FILE     — path to write the report (default: plans/batch-verify-report.txt)
  */
@@ -28,11 +31,10 @@ import type { ParserResult, ParsedImport, ImportSource } from '../../src/parser'
 
 // --- Configuration ---
 
-const TARGET_DIR = process.env.VERIFY_DIR
-    || '/Users/belkicasmir/Documents/GitHub/work/Yeap-UI-Apps/apps';
+const TARGET_DIR = process.env.VERIFY_DIR || '';
 
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT
-    || path.dirname(TARGET_DIR);
+    || (TARGET_DIR ? path.dirname(TARGET_DIR) : '');
 
 const REPORT_FILE = process.env.REPORT_FILE
     || path.join(process.cwd(), 'plans', 'batch-verify-report.txt');
@@ -40,16 +42,11 @@ const REPORT_FILE = process.env.REPORT_FILE
 const CONFIG: Config = {
     groups: [
         { name: 'Styles', order: 0, match: /^.+\.css$/ },
-        { name: 'Misc', order: 1, default: true, priority: 999, match: /^(react|react-.*|lodash|date-fns|classnames|@fortawesome|@reach|uuid|@tanstack|ag-grid-community|framer-motion)$/ },
-        { name: '@app/fixtures', order: 2, match: /^@app\/fixtures/ },
-        { name: 'DS', order: 3, match: /^ds$/ },
-        { name: '@app/dossier', order: 4, match: /^@app\/dossier/ },
-        { name: '@app/notification', order: 5, match: /^@app\/notification/ },
-        { name: '@app/client', order: 6, match: /^@app\/client/ },
-        { name: '@app/admin', order: 7, match: /^@app\/admin/ },
-        { name: '@core', order: 8, match: /^@core/ },
-        { name: '@library', order: 9, match: /^@library/ },
-        { name: 'Utils', order: 10, match: /^yutils/ },
+        { name: 'Misc', order: 1, default: true, priority: 999, match: /^(react|react-.*|lodash|date-fns|classnames|@fortawesome|uuid|@tanstack)$/ },
+        { name: 'UI', order: 2, match: /^@\/components\/ui/ },
+        { name: '@/features', order: 3, match: /^@\/features/ },
+        { name: '@/lib', order: 4, match: /^@\/lib/ },
+        { name: '@/utils', order: 5, match: /^@\/utils/ },
     ],
     importOrder: { default: 0, named: 1, typeOnly: 2, sideEffect: 3 },
     format: {
@@ -280,7 +277,10 @@ function writeReport(reports: FileReport[], reportPath: string): void {
 
 describe('Batch format verification report', () => {
     test('classifies all files and generates report', async () => {
-        // Skip if target directory doesn't exist
+        if (!TARGET_DIR) {
+            console.log('SKIPPED: VERIFY_DIR env var not set');
+            return;
+        }
         if (!fs.existsSync(TARGET_DIR)) {
             console.log(`SKIPPED: target directory not found: ${TARGET_DIR}`);
             return;
