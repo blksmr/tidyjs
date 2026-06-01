@@ -227,6 +227,40 @@ export class ImportParser {
         }
     }
 
+    /**
+     * Return the exclusive index in `program.body` where the leading contiguous
+     * block of import declarations ends. Directive prologues (e.g. `'use client'`)
+     * placed before the first import are skipped. Any import declaration that
+     * appears after a non-import statement (executable code, dynamic-import
+     * assignments, re-exports, …) is deliberately excluded: reorganizing it would
+     * require moving the intervening code, which the replace-range formatter
+     * cannot do safely.
+     */
+    private getLeadingImportBlockEnd(): number {
+        const program = this.ast;
+
+        if (!program || !program.body) {
+            return 0;
+        }
+
+        const body = program.body;
+        let index = 0;
+
+        while (index < body.length && body[index].type !== 'ImportDeclaration') {
+            index++;
+        }
+
+        if (index >= body.length) {
+            return 0;
+        }
+
+        while (index < body.length && body[index].type === 'ImportDeclaration') {
+            index++;
+        }
+
+        return index;
+    }
+
     private extractAllImports(): ParsedImport[] {
         const imports: ParsedImport[] = [];
         const program = this.ast;
@@ -235,7 +269,10 @@ export class ImportParser {
             return imports;
         }
 
-        for (const node of program.body) {
+        const blockEnd = this.getLeadingImportBlockEnd();
+
+        for (let nodeIndex = 0; nodeIndex < blockEnd; nodeIndex++) {
+            const node = program.body[nodeIndex];
             if (node.type === 'ImportDeclaration') {
                 try {
                     const importNode = node as AST.ImportDeclaration;
@@ -758,7 +795,10 @@ export class ImportParser {
         let firstImportStart: number | undefined;
         let lastImportEnd: number | undefined;
 
-        for (const node of program.body) {
+        const blockEnd = this.getLeadingImportBlockEnd();
+
+        for (let nodeIndex = 0; nodeIndex < blockEnd; nodeIndex++) {
+            const node = program.body[nodeIndex];
             if (node.type === 'ImportDeclaration' && node.range) {
                 const [start, end] = node.range;
 

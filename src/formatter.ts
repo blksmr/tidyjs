@@ -102,13 +102,6 @@ function formatImportsFromParser(
     }
 
     try {
-        const currentImportText = sourceText.substring(importRange.start, importRange.end);
-
-        const dynamicImportTest = /import\(|await\s+import/;
-        if (dynamicImportTest.test(currentImportText)) {
-            throw new Error('Dynamic imports detected in the static imports section');
-        }
-
         // Build sorted group list from parser result
         const importsByGroup: Record<string, { order: number; imports: ParsedImport[] }> = {};
 

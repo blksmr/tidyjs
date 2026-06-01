@@ -245,22 +245,25 @@ describe('ImportParser - Edge Cases and Corner Cases', () => {
     expect(containsSpecifier(result.groups[0].imports[1].specifiers, 'namedExport3')).toBe(true);
   });
 
-  test('should handle imports at different code positions', () => {
+  test('should only process the leading contiguous import block', () => {
     const sourceCode = `
       "use strict";
-      
+
       import React from "react";
-      
+
       const someCode = true;
-      
-      // This would normally be invalid, but we test parser behavior
+
+      // Imports placed after executable code are intentionally left untouched:
+      // reorganizing them would require moving the intervening code, which the
+      // replace-range formatter cannot do without corrupting the document.
       import { utils } from "./utils";
     `;
-    
+
     const result = parser.parse(sourceCode);
-    
+
     expect(result.groups).toHaveLength(1);
-    expect(result.groups[0].imports).toHaveLength(2);
+    expect(result.groups[0].imports).toHaveLength(1);
+    expect(result.groups[0].imports[0].source).toBe('react');
   });
 
   test('should preserve exact import raw text', () => {
